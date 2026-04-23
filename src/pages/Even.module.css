@@ -1,0 +1,708 @@
+.evenContainer {
+  padding: 1rem 1.5rem 100px;
+  max-width: 600px;
+  margin: 0 auto;
+  position: relative;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* TOP HEADER */
+.topHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--color-text);
+  margin-bottom: 1rem;
+}
+
+.backIcon, .moreIcon {
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.backIcon:hover, .moreIcon:hover {
+  opacity: 1;
+}
+
+/* TITLE ROW */
+.titleRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.totalCost {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  margin-top: 0.25rem;
+}
+
+/* AVATARS ROW */
+.avatarsRow {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.avatarLargeWrapper {
+  position: relative;
+  margin-right: -8px; /* overlap */
+}
+
+.avatarLarge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333; /* Dark text for light avatar backgrounds */
+  border: 2px solid white; /* For separation in overlap */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.starredIcon {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  color: var(--color-primary);
+  background: white;
+  border-radius: 50%;
+  padding: 1px;
+}
+
+/* SUB MENU (NAV PILL) */
+.navPill {
+  display: flex;
+  background: var(--color-surface);
+  border-radius: 999px;
+  padding: 0.35rem;
+  margin-bottom: 1.5rem;
+  margin-top: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  align-items: center;
+}
+
+.navPill::-webkit-scrollbar {
+  display: none;
+}
+
+.navTab {
+  flex: 1 0 auto;
+  padding: 0.6rem 0.5rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  font-size: 0.75rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  font-family: var(--font-family);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.navTabActive {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+/* TABS CONTENT AREA */
+.tabsContentArea {
+  flex: 1;
+}
+
+.tabContent {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* INFO CARD / BUTTON */
+.titleActions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.25rem;
+}
+
+.infoIconButton {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #E1F5FE; /* Light blue */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.infoIconButton:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+.infoIcon {
+  color: #0288D1; /* Dark blue */
+  font-weight: 600;
+  font-style: italic;
+  font-family: serif;
+  font-size: 0.95rem;
+}
+
+/* DATE SEPARATOR */
+.dateSeparator {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  margin: 1.5rem 0 0.5rem 0;
+}
+
+/* LISTS & CARDS */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/* EXPENSE CARD */
+.card {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cardMain {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.expenseIconWrapper {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(56, 189, 248, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.expenseIcon {
+  color: #0ea5e9;
+}
+
+.expenseDetails {
+  flex: 1;
+  min-width: 0;
+}
+
+.expenseTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin: 0 0 0.15rem 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.expenseDate {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.expenseAmount {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--color-text);
+}
+
+.cardFooter {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.75rem;
+  color: #9ca3af;
+  padding-top: 0.5rem;
+  /* Not adding a top border based on screenshot, but looks clean */
+}
+
+.expenseParticipantsList {
+  display: flex;
+  align-items: center;
+}
+
+.expenseParticipantAvatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 1px solid white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 8px;
+  font-weight: bold;
+  color: #fff;
+  margin-right: -4px;
+  overflow: hidden;
+}
+
+.avatarImg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.receiptThumbnailBtn {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s;
+}
+
+.receiptThumbnailBtn:hover {
+  transform: scale(1.1);
+}
+
+.receiptThumbnail {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* BALANCE CARD SMALL */
+.cardSmall {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.balanceRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.avatarSmall {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.balanceName {
+  flex: 1;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: var(--color-text);
+}
+
+.balanceAmountWrapper {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.balanceAmount {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.positive { color: var(--color-primary); }
+.negative { color: #ef4444; }
+
+.chevron {
+  color: var(--color-text-muted);
+}
+
+/* PAYMENT CARD MEDIUM */
+.cardMedium {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}
+
+.paymentRow {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.paymentDetails {
+  flex: 1;
+}
+
+.paymentTitle {
+  font-size: 0.9rem;
+  font-weight: 400;
+  margin: 0 0 0.15rem 0;
+  color: var(--color-text-muted);
+}
+
+.paymentTitle strong {
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.paymentTo {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--color-text);
+}
+
+.paymentAmountCol {
+  text-align: right;
+  display: flex;
+  flex-direction: column;
+}
+
+.paymentAmount {
+  font-weight: 600;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  margin-bottom: 0.15rem;
+}
+
+.paymentDate {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+/* FLOATING ADD BUTTON & SETTLE UP */
+.fabButton {
+  position: fixed;
+  bottom: 80px; /* Above the app nav bar */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--color-primary-dark);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(30, 41, 59, 0.4);
+  cursor: pointer;
+  z-index: 10;
+  transition: transform 0.2s;
+}
+
+.fabButton:hover {
+  transform: translateX(-50%) scale(1.05);
+}
+
+.settleUpBtn {
+  font-size: 0.8rem;
+  padding: 0.5rem 1rem;
+}
+
+/* INFO MODAL POPUP */
+.modalOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.modalContent {
+  background: white;
+  border-radius: var(--radius-xl);
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.modalTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1rem 0;
+  color: var(--color-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modalCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  padding: 0.25rem;
+  border-radius: 50%;
+  display: flex;
+}
+
+.modalBody {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.accordionItem {
+  background: white;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.accordionHeader {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 1rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: pointer;
+  margin: 0;
+}
+
+.accordionHeader:hover {
+  background: rgba(0,0,0,0.02);
+}
+
+.accordionContent {
+  padding: 0 1rem 1rem 1rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  line-height: 1.4;
+  margin: 0;
+}
+
+.modalOkBtn {
+  width: 100%;
+}
+
+/* EXTRACTED INLINE STYLES */
+.emptyState {
+  text-align: center;
+  color: #718096;
+  padding: 20px 0;
+}
+
+.paymentAmountColUnpaid {
+  align-items: flex-end;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+}
+
+.paymentAmountUnpaid {
+  color: #e53e3e;
+}
+
+.markPaidBtn {
+  background-color: var(--color-primary-dark);
+  color: white;
+  border-radius: 9999px;
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.markPaidBtn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.paidOpacity {
+  opacity: 0.7;
+}
+
+.confirmModalContent {
+  text-align: center;
+  max-width: 300px;
+}
+
+.confirmModalTitle {
+  margin-bottom: 8px;
+}
+
+.confirmModalBody {
+  margin-bottom: 24px;
+}
+
+.confirmModalButtonRow {
+  display: flex;
+  gap: 12px;
+}
+
+.confirmBtnCancel {
+  flex: 1;
+  background-color: #f1f5f9;
+  color: #334155;
+}
+
+.confirmBtnPrimary {
+  flex: 1;
+}
+
+.modalBodyText {
+  margin-bottom: 20px;
+  color: #4a5568;
+  line-height: 1.5;
+}
+
+.modalButtonRow {
+  display: flex;
+  gap: 12px;
+}
+
+.flex1 {
+  flex: 1;
+}
+
+.alignCenterGap8 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fontSize24 {
+  font-size: 24px;
+}
+
+.modalCloseOuter {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+.marginTop30 {
+  margin-top: 30px;
+}
+
+.receiptModalContent {
+  padding: 0;
+  background-color: transparent;
+  box-shadow: none;
+  max-width: 90vw;
+}
+
+.zoomContainer {
+  max-width: 100%;
+  max-height: 80vh;
+  border-radius: 12px;
+  background-color: rgba(0,0,0,0.8);
+}
+
+.zoomContainerOpen {
+  overflow: auto;
+}
+
+.zoomContainerClosed {
+  overflow: hidden;
+}
+
+.receiptImg {
+  transition: width 0.2s ease;
+  display: block;
+  object-fit: contain;
+}
+
+.zoomedIn {
+  width: 200%;
+  max-height: none;
+  cursor: zoom-out;
+}
+
+.zoomedOut {
+  width: 100%;
+  max-height: 80vh;
+  cursor: zoom-in;
+}
+
+.cursorPointer {
+  cursor: pointer;
+}
+
+.cursorDefault {
+  cursor: default;
+}

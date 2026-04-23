@@ -1,0 +1,619 @@
+/* GalleryCamera.module.css */
+
+.fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+}
+
+.fullscreenGallery {
+  background-color: var(--color-bg-primary);
+}
+
+.fullscreenCamera {
+  background-color: #000;
+}
+
+/* ── Content area ───────────────────────── */
+.contentArea {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Camera mode ────────────────────────── */
+.cameraContainer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 0 0 32px 32px;
+  overflow: hidden;
+}
+
+.cameraVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.cameraError {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #fff;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.5);
+  padding: 1rem;
+  border-radius: 12px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.cameraErrorText {
+  font-size: 0.9rem;
+}
+
+/* ── Gallery mode ───────────────────────── */
+.galleryContainer {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  overflow-y: auto;
+}
+
+.galleryGrid {
+  padding-top: calc(env(safe-area-inset-top) + 1rem);
+  padding-bottom: 2rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+
+.galleryEmpty {
+  grid-column: 1 / -1;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.galleryEmptyIcon {
+  margin: 0 auto 1rem;
+  opacity: 0.3;
+  display: block;
+}
+
+.galleryItem {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3/4;
+  border-radius: 16px;
+  overflow: hidden;
+  background-color: var(--color-bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.galleryItemImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.uploaderPill {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  background: rgba(0, 0, 0, 0.4);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.imageActions {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 1.5rem 0.5rem 0.5rem;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.likeButton {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.likeCount {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.actionButtons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.iconActionBtn {
+  background: rgba(255, 255, 255, 0.2);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  padding: 0.4rem;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Bottom panel ───────────────────────── */
+.bottomPanel {
+  padding: 1.5rem;
+  padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  z-index: 120;
+}
+
+.bottomPanelGallery {
+  background: var(--color-bg-primary);
+}
+
+.bottomPanelCamera {
+  background: #000;
+}
+
+/* ── Mode pill ──────────────────────────── */
+.modePillWrapper {
+  display: flex;
+  justify-content: center;
+}
+
+.modePill {
+  display: flex;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  padding: 0.35rem;
+  border-radius: 999px;
+}
+
+.modePillGallery {
+  background: var(--color-surface);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: var(--shadow-sm);
+}
+
+.modePillCamera {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.modeBtn {
+  padding: 0.4rem 1.2rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  font-weight: 700;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-family);
+}
+
+.modeBtnSelectedGallery {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.modeBtnSelectedCamera {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.modeBtnUnselectedGallery {
+  color: var(--color-text-muted);
+}
+
+.modeBtnUnselectedCamera {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* ── Controls row ───────────────────────── */
+.controlsRow {
+  display: grid;
+  grid-template-columns: 56px 1fr 56px;
+  align-items: center;
+  width: 100%;
+}
+
+.circleBtn {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.circleBtnGallery {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  color: var(--color-primary-dark);
+}
+
+.circleBtnCamera {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.shutterCenter {
+  display: flex;
+  justify-content: center;
+  flex: 1;
+}
+
+.shutterBtn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  border: 4px solid #fff;
+  background: rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.shutterBtn:disabled {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.shutterInner {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.1s;
+}
+
+.shutterInnerCapturing {
+  transform: scale(0.8);
+}
+
+.uploadBtn {
+  width: 64px;
+  height: 64px;
+  background: var(--color-primary);
+  color: #fff;
+  border: 4px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 20px rgba(118, 92, 166, 0.4);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.uploadBtn:disabled {
+  opacity: 0.6;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.tripSelectorWrapper {
+  position: relative;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.tripSelect {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.tripSelectorDisplay {
+  border-radius: 999px;
+  padding: 0 0.75rem;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.tripSelectorDisplayGallery {
+  background: var(--color-primary-dark);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+
+.tripSelectorDisplayCamera {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* ── Activity tag pill on gallery images ── */
+.activityTagPill {
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  letter-spacing: 0.02em;
+  max-width: calc(100% - 12px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ── Tagging Modal ────────────────────── */
+.tagModalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: flex-end;
+}
+
+.tagModal {
+  width: 100%;
+  max-height: 90vh;
+  background: #fff;
+  border-radius: 24px 24px 0 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  animation: tagSheetUp 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes tagSheetUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.tagModalPreview {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.tagModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem 1.25rem 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tagModalTitle {
+  font-size: 1.1rem;
+  font-weight: 800;
+  margin: 0;
+  color: #1e293b;
+}
+
+.tagSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.tagSectionLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tagChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.tagChip {
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tagChipActive {
+  background: #1e293b;
+  border-color: #1e293b;
+  color: #fff;
+}
+
+.tagModalActions {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 0 calc(env(safe-area-inset-bottom) + 0.5rem);
+  flex-shrink: 0;
+}
+
+.tagSkipBtn {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 14px;
+  padding: 0.8rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.tagModalClose {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  background: rgba(0,0,0,0.4);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  z-index: 1;
+}
+
+
+/* ── Trip picker bottom sheet ────────────── */
+.tripPickerBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 200;
+  display: flex;
+  align-items: flex-end;
+}
+
+.tripPickerSheet {
+  width: 100%;
+  background: var(--color-bg-card, #fff);
+  border-radius: 20px 20px 0 0;
+  padding: 1rem 1.25rem 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  animation: slideUp 0.22s ease-out;
+}
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.tripPickerHandle {
+  width: 36px;
+  height: 4px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 99px;
+  align-self: center;
+  margin-bottom: 0.5rem;
+}
+
+.tripPickerTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.tripPickerList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.tripPickerItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--color-text-main);
+  cursor: pointer;
+  font-family: var(--font-family);
+  transition: background 0.15s;
+}
+
+.tripPickerItem:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.tripPickerItemActive {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+.tripPickerItemActive:hover {
+  background: var(--color-primary-dark);
+  opacity: 0.9;
+}
+
+.tripPickerCheck {
+  font-size: 1rem;
+  font-weight: 700;
+}

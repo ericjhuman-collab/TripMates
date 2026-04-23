@@ -1,0 +1,228 @@
+.theme-bachelor-party {
+    --color-bg-primary: #e6f0e6;
+    --color-bg-card: #f8faf8;
+    --color-bg-overlay: rgba(230, 240, 230, 0.85);
+
+    --color-primary-dark: #1a3c28;
+    --color-primary: #2d5a3f;
+    --color-secondary: #f4b942;
+    --color-secondary-light: #fff3da;
+
+    --color-text-main: #1c2721;
+    --color-text-muted: #6b7280;
+
+    --color-bg-solid: #e6f0e6;
+}
+
+.theme-default-trip {
+    --color-bg-primary: #f6f8fb;
+    --color-bg-card: rgba(255, 255, 255, 0.8);
+    --color-bg-overlay: rgba(246, 248, 251, 0.85);
+
+    --color-primary-dark: #111827;
+    /* Rich dark slate */
+    --color-primary: #374151;
+    /* Dark charcoal grey for active state */
+    --color-secondary: #d1d5db;
+    /* Soft gray */
+    --color-secondary-light: rgba(209, 213, 219, 0.5);
+
+    --color-text-main: #1f2937;
+    /* Very readable dark text */
+    --color-text-muted: #9ca3af;
+
+    --color-bg-solid: #f6f8fb;
+}
+
+body.theme-default-trip {
+    background-color: #f4f6f8;
+    background-image:
+        radial-gradient(circle at 20% 20%, #ffffff 0%, transparent 55%),
+        radial-gradient(circle at 80% 80%, #f0f1f3 0%, transparent 55%);
+    background-attachment: fixed;
+    height: 100vh;
+    margin: 0;
+}
+
+body .app-container {
+    background-color: transparent !important;
+    /* Forces the body gradient to show through */
+    box-shadow: none !important;
+}
+
+header,
+main {
+    position: relative;
+    z-index: 10;
+}
+
+nav {
+    z-index: 100;
+}
+
+.card {
+    background: rgba(255, 255, 255, 0.45);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 1);
+    box-shadow:
+        inset 0 2px 4px rgba(255, 255, 255, 0.9),
+        0 12px 32px rgba(150, 160, 180, 0.12);
+    border-radius: 32px;
+}
+
+.glass-panel {
+    background: rgba(255, 255, 255, 0.4);
+    -webkit-backdrop-filter: blur(40px) saturate(150%);
+    backdrop-filter: blur(40px) saturate(150%);
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
+    box-shadow:
+        inset 0 2px 4px rgba(255, 255, 255, 0.9),
+        0 16px 40px rgba(150, 160, 180, 0.08);
+    border-radius: 32px;
+}
+
+.nav-container {
+    background: rgba(255, 255, 255, 0.85);
+    -webkit-backdrop-filter: blur(32px) saturate(120%);
+    backdrop-filter: blur(32px) saturate(120%);
+    border: 1.5px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 16px 40px rgba(140, 150, 170, 0.15), inset 0 2px 4px rgba(255, 255, 255, 0.5);
+    padding: 0.5rem;
+    border-radius: 999px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 999px;
+    color: #64748b;
+    text-decoration: none;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    font-weight: 600;
+}
+
+.nav-item.active {
+    background: rgba(15, 23, 42, 0.85);
+    /* Dark slate pill */
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: #ffffff;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2), inset 0 1px 1px rgba(255, 255, 255, 0.2);
+}
+
+.nav-item span {
+    font-size: 0.9rem;
+    display: none;
+}
+
+.nav-item.active span {
+    display: block;
+    animation: fadeIn 0.3s ease-out forwards;
+}
+
+/* Inputs & Forms (Pill-shaped Neomorphic Insets/Liquid Glass) */
+.input-field {
+    background: rgba(255, 255, 255, 0.75);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    border: 1.5px solid rgba(255, 255, 255, 0.8);
+    box-shadow:
+        inset 0 2px 6px rgba(255, 255, 255, 0.8),
+        0 4px 16px rgba(150, 160, 180, 0.05);
+    color: var(--color-primary);
+    border-radius: 999px;
+    padding: 1rem 1.25rem;
+    transition: all 0.3s ease;
+}
+
+.input-field:focus {
+    background: rgba(255, 255, 255, 0.8);
+    border-color: rgba(255, 255, 255, 1);
+    box-shadow:
+        inset 0 2px 6px rgba(255, 255, 255, 0.9),
+        0 0 0 4px rgba(255, 255, 255, 0.5),
+        0 8px 24px rgba(150, 160, 180, 0.1);
+    outline: none;
+}
+
+/* Modals */
+.modal-backdrop {
+    background-color: rgba(15, 15, 20, 0.35);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+}
+
+textarea.input-field {
+    border-radius: 20px;
+}
+
+/* Primary Button Glass Pill */
+.btn {
+    border-radius: 9999px;
+}
+
+.btn-primary {
+    background: rgba(15, 23, 42, 0.85);
+    /* Dark slate translucent */
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.25), 0 8px 24px rgba(15, 23, 42, 0.25);
+    transition: all 0.3s ease;
+}
+
+.btn-icon:hover {
+    background: #f9fafb;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+.bingo-square {
+    aspect-ratio: 1/1;
+    background-color: var(--color-bg-card);
+    border-radius: 8px;
+    padding: 0.25rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.2s ease;
+}
+
+.theme-bachelor-party .bingo-square {
+    border: 1px solid #e5e7eb;
+    box-shadow: var(--shadow-sm);
+    color: var(--color-text-main);
+}
+
+.theme-bachelor-party .bingo-square.completed {
+    background-color: var(--color-primary);
+    color: white;
+    border: 2px solid var(--color-primary-dark);
+}
+
+.theme-default-trip .bingo-square {
+    background: rgba(255, 255, 255, 0.6);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.03);
+    color: var(--color-text-main);
+    border-radius: 20px;
+}
+
+.theme-default-trip .bingo-square.completed {
+    background: linear-gradient(135deg, #4b5563 0%, #111827 100%);
+    border: none;
+    box-shadow: 0 12px 24px rgba(17, 24, 39, 0.2);
+    color: #ffffff;
+    font-weight: 600;
+}

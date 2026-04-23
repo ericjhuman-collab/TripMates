@@ -1,0 +1,410 @@
+/* Games.module.css */
+
+.page {
+  padding-bottom: 2rem;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-primary-dark);
+}
+
+/* ── Game switcher pills ────────────────── */
+.gamePills {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.3rem;
+  background: rgba(0, 0, 0, 0.05);
+  border-radius: 999px;
+  margin-bottom: 1.25rem;
+  width: fit-content;
+}
+
+.gamePill {
+  padding: 0.35rem 1rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.gamePillActive {
+  background: var(--color-primary-dark, #1e293b);
+  color: #fff;
+}
+
+.defaultBadge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.05rem 0.45rem;
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  line-height: 1.6;
+}
+
+.gamePill:not(.gamePillActive) .defaultBadge {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+/* ── Bingo states ───────────────────────── */
+.stateText {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.bingoHint {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+/* ── Consequence banner ─────────────────── */
+.consequenceBanner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-surface-hover);
+  border-radius: var(--radius-md);
+  margin-bottom: 0.75rem;
+  box-shadow: var(--shadow-sm);
+  font-size: 0.9rem;
+  color: var(--color-text);
+}
+
+.consequenceBanner strong {
+  color: var(--color-primary-dark);
+}
+
+.consequenceBanner svg {
+  color: #d97706; /* Keep trophy gold */
+}
+
+/* ── Leaderboard mini ───────────────────── */
+.leaderboardCard {
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.leaderboardMiniHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.leaderboardMiniTitle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.viewAllBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font-family: var(--font-family);
+}
+
+.leaderboardEmptyText {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.leaderboardMiniList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.leaderboardMiniRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0;
+}
+
+.leaderboardMiniMedal {
+  font-size: 1rem;
+  width: 1.5rem;
+  text-align: center;
+}
+
+.leaderboardMiniAvatar {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.leaderboardMiniName {
+  flex: 1;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.leaderboardMiniScore {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.leaderboardMiniScoreHigh {
+  color: #ef4444;
+}
+
+.leaderboardMiniScoreZero {
+  color: var(--color-text-muted);
+}
+
+/* ── Bingo grid ─────────────────────────── */
+.bingoGrid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.squareLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
+  word-break: break-word;
+  line-height: 1.2;
+}
+
+.squareCompletedTag {
+  position: absolute;
+  bottom: 2px;
+  font-size: 0.55rem;
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 1px 4px;
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: 90%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Coming soon cards ──────────────────── */
+.comingSoonCard {
+  padding: 3rem 1.5rem;
+  text-align: center;
+  margin-top: 1rem;
+}
+
+.comingSoonTitle {
+  font-size: 1.25rem;
+  color: var(--color-primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+.comingSoonText {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* ── Member picker modal ────────────────── */
+.modalCard {
+  width: 100%;
+  max-width: 360px;
+  padding: 1.5rem;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.modalTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.modalCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  display: flex;
+}
+
+.taskPreview {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+  padding: 0.5rem;
+  background: var(--color-surface, #f9fafb);
+  border-radius: 8px;
+}
+
+.memberList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.memberBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background-color: var(--color-bg-card);
+  border: 1px solid #e5e7eb;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  justify-content: flex-start;
+  transition: all 0.15s ease;
+  font-family: var(--font-family);
+}
+
+.memberAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.memberAvatarPlaceholder {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.memberName {
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-align: left;
+}
+
+/* ── Full leaderboard modal ─────────────── */
+.leaderboardModal {
+  width: 100%;
+  max-width: 400px;
+  padding: 1.5rem;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.leaderboardModalDesc {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+}
+
+.leaderboardFullList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.leaderboardFullRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+}
+
+.leaderboardFullRowTop {
+  background-color: rgba(251, 191, 36, 0.08);
+  border: 1px solid #fbbf24;
+}
+
+.leaderboardFullRowNormal {
+  background-color: var(--color-surface, #f9fafb);
+  border: 1px solid #e5e7eb;
+}
+
+.leaderboardFullRank {
+  width: 1.75rem;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+
+.leaderboardFullRankMedal {
+  font-size: 1.2rem;
+}
+
+.leaderboardFullRankNum {
+  font-size: 0.85rem;
+}
+
+.leaderboardFullAvatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.leaderboardFullMeta {
+  flex: 1;
+}
+
+.leaderboardFullName {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.leaderboardFullSubname {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+}
+
+.leaderboardFullScore {
+  font-size: 0.9rem;
+  font-weight: 700;
+  min-width: 2.5rem;
+  text-align: right;
+}
+
+.leaderboardEmptyFull {
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}

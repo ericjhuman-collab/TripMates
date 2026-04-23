@@ -1,0 +1,117 @@
+/* ActivityEditorPage.module.css */
+
+.page {
+  padding: 0 0 5rem;
+  min-height: 100vh;
+  background: var(--color-background);
+}
+
+/* ── Header ─────────────────────────────── */
+.header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.25rem 0.75rem;
+  position: sticky;
+  top: 0;
+  background: var(--color-background);
+  z-index: 10;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.backBtn {
+  background: var(--color-surface);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  color: var(--color-primary-dark);
+  box-shadow: var(--shadow-sm);
+}
+
+.title {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  color: var(--color-primary-dark);
+}
+
+/* ── Form ───────────────────────────────── */
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.25rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.textarea {
+  resize: none;
+}
+
+/* ── Date / Time row ────────────────────── */
+.timeRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.timeCol {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* ── Voting ─────────────────────────────── */
+.votingRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.votingLabel {
+  font-weight: 600;
+  color: var(--color-text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.voteInfo {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+/* ── Submit ─────────────────────────────── */
+.submitBtn {
+  margin-top: 0.5rem;
+  padding: 0.9rem;
+  font-size: 1rem;
+  font-weight: 700;
+}

@@ -1,0 +1,692 @@
+/* TripAdmin.module.css */
+
+.page {
+  padding: 0.5rem 0 3rem;
+}
+
+/* ── Page header ────────────────────────── */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  gap: 1rem;
+}
+
+.backBtn {
+  background: var(--color-surface);
+  border: none;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  flex-shrink: 0;
+}
+
+.pageTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+/* ── Content layout ─────────────────────── */
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.panel {
+  padding: 1.5rem;
+}
+
+/* ── Section headings ───────────────────── */
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sectionTitleDark {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--color-primary-dark);
+}
+
+.gameSectionTitle {
+  margin: 0 0 1rem 0;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Trip settings form ─────────────────── */
+.fieldsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fieldLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.dateRow {
+  display: flex;
+  gap: 1rem;
+}
+
+.dateCol {
+  flex: 1;
+}
+
+/* ── Games ──────────────────────────────── */
+.activeGamesLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.activeGamesBtns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.gameToggleBtn {
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: all 0.2s;
+  font-family: var(--font-family);
+}
+
+.gameToggleBtnActive {
+  background-color: var(--color-primary);
+  color: white;
+}
+
+.gameToggleBtnInactive {
+  background-color: var(--color-surface);
+  color: var(--color-text-muted);
+}
+
+/* Default game + row */
+.defaultGameRow {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.defaultGameTitle {
+  margin: 0;
+  font-size: 1.4rem;
+  font-weight: 800;
+  line-height: 1.1;
+  color: var(--color-text);
+}
+
+.defaultGameSelect {
+  flex: 1;
+  max-width: 200px;
+  padding: 0.6rem 1rem;
+  background: var(--color-surface);
+  border: none;
+  border-radius: 12px;
+  box-shadow: var(--shadow-sm);
+  font-weight: 600;
+  font-family: var(--font-family);
+  font-size: 0.9rem;
+  color: var(--color-text);
+  cursor: pointer;
+  margin: 0;
+}
+
+.saveBtn {
+  padding: 0.75rem;
+  font-size: 0.9rem;
+  margin-top: 1.5rem;
+  width: 100%;
+}
+
+/* ── Members card ───────────────────────── */
+.codeRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem;
+  background-color: var(--color-background);
+  border-radius: 12px;
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+}
+
+.codeLabel {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.codeValue {
+  color: var(--color-primary);
+  font-family: monospace;
+  font-size: 1.1rem;
+}
+
+.inviteBtn {
+  padding: 0.5rem 1rem;
+  font-size: 0.8rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.membersList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.memberRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem;
+  background-color: var(--color-surface);
+  border-radius: 12px;
+}
+
+.memberAvatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.memberAvatarPlaceholder {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.memberName {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.adminBadge {
+  font-size: 0.7rem;
+  color: var(--color-primary);
+  font-weight: 700;
+  background-color: rgba(59, 130, 246, 0.1);
+  padding: 0.2rem 0.5rem;
+  border-radius: 12px;
+  align-self: flex-start;
+}
+
+/* ── Activities list ────────────────────── */
+.activitiesPanel {
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.addActivityBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.85rem;
+}
+
+.activitiesLoading {
+  color: var(--color-text-muted);
+}
+
+.activitiesEmpty {
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 2rem 0;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.activityItem {
+  display: flex;
+  padding: 1rem;
+  background: var(--color-surface);
+  border-radius: 12px;
+  gap: 1rem;
+  align-items: flex-start;
+  border: 1px solid var(--color-border);
+}
+
+.activityIconBox {
+  flex-shrink: 0;
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.08);
+}
+
+.activityCoverThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.activityBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.activityTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.activityName {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activityActions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.editBtn {
+  background: none;
+  border: none;
+  color: var(--color-primary-dark);
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  cursor: pointer;
+  padding: 0.2rem;
+  display: flex;
+}
+
+.activityMeta {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+}
+
+.categoryBadge {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  background: var(--color-bg);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+.activityLocation {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text);
+}
+
+/* ── Modal ──────────────────────────────── */
+.modalBackdrop {
+  z-index: 9999;
+}
+
+.modalCard {
+  width: 100%;
+  max-width: 500px;
+  padding: 1.5rem;
+  border-radius: 24px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modalHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.modalTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-primary-dark);
+}
+
+.modalCloseBtn {
+  background: var(--color-bg);
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.modalForm {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.modalFieldLabel {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+}
+
+.modalFieldLabelSm {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.timeRow {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.timeCol {
+  flex: 1;
+}
+
+.emojiRow {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.emojiBtn {
+  font-size: 1.25rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.emojiBtnActive {
+  border: 2px solid var(--color-primary);
+  background: var(--color-secondary-light);
+}
+
+.emojiBtnInactive {
+  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+.textareaField {
+  resize: none;
+}
+
+.fullWidthInput {
+  width: 100%;
+}
+
+.submitBtn {
+  margin-top: 0.5rem;
+}
+
+/* ── Member Management ─────────────────────────────── */
+.closeInviteToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  margin-top: -0.5rem;
+  margin-bottom: 1rem;
+}
+
+.closeInviteToggle input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.memberRowLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.memberNameBox {
+  display: flex;
+  flex-direction: column;
+}
+
+.memberActions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.memberAdminCheckbox {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  background: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 12px;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.memberAdminCheckbox input[type="checkbox"] {
+  cursor: pointer;
+  accent-color: var(--color-primary);
+}
+
+.kickButton {
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background-color 0.2s;
+}
+
+.kickButton:hover {
+  background-color: rgba(239, 68, 68, 0.1);
+}
+.kickWarningText {
+  color: var(--color-text-muted);
+  margin-bottom: 1rem;
+  margin-top: 0;
+}
+
+.kickConfirmBtn {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.8rem;
+}
+
+/* Multi Destination Styles */
+.destinationCard {
+  background: rgba(255, 255, 255, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  margin-top: 1rem;
+  position: relative;
+}
+
+.destinationHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.destinationTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  margin: 0;
+}
+
+.removeDestinationBtn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: var(--color-text-muted);
+  border-radius: var(--radius-sm);
+}
+
+.removeDestinationBtn:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.addDestinationBtn {
+  background: transparent;
+  border: 1px dashed var(--color-primary-light);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem;
+  width: 100%;
+  color: var(--color-primary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  margin-top: 1rem;
+  transition: all 0.2s ease;
+}
+
+.addDestinationBtn:hover {
+  background: rgba(46, 125, 50, 0.05);
+  border-color: var(--color-primary);
+}
+
+.destinationInputGroup {
+  margin-bottom: 0.75rem;
+}
+
+/* ── Cover image upload ─────────────────── */
+.coverUploadArea {
+  position: relative;
+  width: 100%;
+  height: 140px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.coverPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.coverUploadBtn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(15, 23, 42, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: var(--font-family);
+}
+
+.coverPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.coverUploadBtn:hover {
+  background: rgba(15, 23, 42, 0.9);
+}

@@ -1,0 +1,1766 @@
+/* Profile.module.css */
+
+.page {
+  padding: 0.5rem 0;
+}
+
+/* ── Main nav pill ──────────────────────── */
+.mainNavPill {
+  display: flex;
+  background: var(--color-surface);
+  border-radius: 999px;
+  padding: 0.35rem;
+  margin-bottom: 1.5rem;
+  margin-top: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.mainNavBtn {
+  flex: 1;
+  padding: 0.6rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  font-family: var(--font-family);
+}
+
+.mainNavBtnActive {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ── Admin section ──────────────────────── */
+.adminHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.adminTitle {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-text);
+}
+
+/* ── Sub nav pills (shared style) ────────── */
+.subNavPill {
+  display: flex;
+  background: var(--color-surface);
+  border-radius: 999px;
+  padding: 0.35rem;
+  margin-bottom: 1.5rem;
+  margin-top: 0.5rem;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.subNavPill::-webkit-scrollbar {
+  display: none;
+}
+
+.subNavBtn {
+  flex: 1 0 auto;
+  padding: 0.6rem 1rem;
+  border-radius: 999px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-muted);
+  font-weight: 700;
+  font-size: 0.85rem;
+  transition: all 0.2s;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-family);
+}
+
+.subNavBtnActive {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+/* ── Trip list ──────────────────────────── */
+.tripList {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.tripListItem {
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.tripListItem:hover {
+  transform: translateX(4px);
+}
+
+.tripThumb {
+  width: 60px;
+  height: 60px;
+  border-radius: 12px;
+  flex-shrink: 0;
+  background-color: #e5e7eb;
+  background-size: cover;
+  background-position: center;
+}
+
+.tripName {
+  margin: 0 0 0.25rem 0;
+  color: var(--color-text);
+  font-size: 1.1rem;
+}
+
+.tripDestination {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.tripEmptyText {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 2rem 0;
+}
+
+/* ── Profile card ───────────────────────── */
+.profileSectionCard {
+  position: relative;
+  margin-bottom: 2rem;
+  padding: 1.5rem;
+}
+
+.profileCardInner {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+}
+
+.profileAvatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.profileAvatarPlaceholder {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background-color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.profileMeta {
+  min-width: 0;
+  flex: 1;
+}
+
+.profileName {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  word-break: break-word;
+  color: var(--color-text);
+}
+
+.profileHandle {
+  margin: 0;
+  color: var(--color-text-muted);
+}
+
+.profileLocation {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* ── Settings ───────────────────────────── */
+.settingsCard {
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  border-radius: 0;
+}
+
+.settingsTitle {
+  margin: 0;
+  font-size: 1.25rem;
+  color: var(--color-text-main);
+}
+
+.settingsFields {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.settingsLabel {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  margin-bottom: 0.25rem;
+  display: block;
+}
+
+.checkboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  margin-top: -0.5rem;
+}
+
+.saveBtn {
+  margin-top: 0.5rem;
+}
+
+.divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 1rem 0;
+}
+
+.sectionSubtitle {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-main);
+}
+
+.securityBtn {
+  background-color: var(--color-surface);
+  color: var(--color-text-main);
+  border: 1px solid var(--color-border);
+  font-weight: 600;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+.logoutBtn {
+  background-color: var(--color-error);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  width: 100%;
+}
+
+.createBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+}
+
+.contentSection {
+  margin-top: 1rem;
+}
+
+/* Stretches the panel to fill the Layout's 1.5rem horizontal padding so it goes edge-to-edge */
+.fullWidthSection {
+  margin-top: 0.5rem;
+  margin-left: -1.5rem;
+  margin-right: -1.5rem;
+}
+
+.saveBtn {
+  margin-top: 0.5rem;
+}
+
+/* ── Grid ───────────────────────────────── */
+.tripsGridSection {
+  margin-top: 0.25rem;
+}
+
+.tripsGridTitle {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--color-text-main);
+  margin: 0 0 1rem 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.gridItem {
+  aspect-ratio: 1;
+  background-color: #fff;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  cursor: pointer;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.gridItem:hover {
+  transform: scale(1.02);
+}
+
+/* Gradient scrim at bottom when image is present */
+.gridItemScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, transparent 40%, rgba(0,0,0,0.55) 100%);
+  pointer-events: none;
+}
+
+/* Base label — always shown */
+.gridItemLabel {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.4rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-align: center;
+  line-height: 1.3;
+  z-index: 1;
+}
+
+/* White text when cover image is behind */
+.gridItemLabelOnImage {
+  color: #fff;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+
+/* Centered dark text on blank white card */
+.gridItemLabelNoImage {
+  color: var(--color-primary-dark);
+  font-size: 0.8rem;
+  bottom: auto;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+}
+
+
+.bucketlistItem {
+  aspect-ratio: 1;
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  text-align: center;
+  position: relative;
+  cursor: pointer;
+}
+
+.bucketlistItemText {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.bucketlistRemoveBtn {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  background: rgba(255, 255, 255, 0.8);
+  border: none;
+  border-radius: 50%;
+  padding: 2px;
+  color: #ef4444;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addGridItem {
+  aspect-ratio: 1;
+  background-color: var(--color-surface);
+  border: 2px dashed #d1d5db;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+}
+
+.addGridLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+/* ── Create Trip Modal (full-screen) ─────── */
+.createModal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--color-background);
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.createModalHeader {
+  padding: calc(env(safe-area-inset-top) + 1.25rem) 1.5rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-background);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.createModalBody {
+  flex: 1;
+  overflow-y: auto;
+  padding: calc(env(safe-area-inset-top) + 1.5rem) 1.5rem calc(env(safe-area-inset-bottom) + 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: var(--color-bg-primary);
+}
+
+.createModalTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.createModalFooter {
+  padding: 1rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--color-background);
+  flex-shrink: 0;
+}
+
+/* ── Trip Detail Modal (full-screen) ─────── */
+.tripModal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background-color: #f8fafc; /* solid — never transparent */
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: none;
+}
+
+.tripModalInner {
+  display: contents; /* transparent wrapper — children fill the fixed parent */
+}
+
+
+.tripModalHeader {
+  padding: calc(env(safe-area-inset-top) + 1.25rem) 1.5rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-background);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.tripModalTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-text-main);
+}
+
+.tripModalCloseBtn {
+  background: none;
+  border: none;
+  padding: 0.5rem;
+  cursor: pointer;
+  color: var(--color-text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Trip Detail scroll container ────── */
+.tripDetailScroll {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;          /* no vertical scroll — all height is distributed */
+  background-color: #f8fafc;
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+}
+
+/* Large hero image (Instagram-style) */
+.tripDetailHero {
+  position: relative;
+  width: 100%;
+  height: 260px;
+  background-size: cover;
+  background-position: center;
+  flex-shrink: 0;
+}
+
+.tripDetailHeroScrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.3) 0%,
+    transparent 50%,
+    rgba(0,0,0,0.55) 100%
+  );
+}
+
+.tripDetailHeroTitle {
+  position: absolute;
+  bottom: 1rem;
+  left: 1.25rem;
+  right: 4rem;
+  color: #fff;
+  font-size: 1.7rem;
+  font-weight: 900;
+  margin: 0;
+  line-height: 1.2;
+  text-shadow: 0 2px 10px rgba(0,0,0,0.45);
+}
+
+.tripDetailCloseBtnOverlay {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 0.6rem);
+  right: 0.9rem;
+  background: rgba(0,0,0,0.35);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  cursor: pointer;
+  z-index: 2;
+}
+
+/* No-cover title row (clean white card) */
+.tripDetailTitleRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 1.25rem) 1.25rem 0.75rem;
+  background-color: #f8fafc;
+}
+
+/* ── Horizontal swipe carousel ────────── */
+.activityCarousel {
+  flex: 1;
+  min-height: 0;
+  /* Grid guarantees exact 100%-width slides with zero gap */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 100%;
+  overflow-x: scroll;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.activityCarousel::-webkit-scrollbar { display: none; }
+
+.activitySlide {
+  /* Width is set by grid-auto-columns: 100% on parent — no overrides needed */
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Cover image — fills all available height in the slide */
+.activitySlideImage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background-size: cover;
+  background-position: center;
+}
+
+/* No-image placeholder — Tripmates navy + slate gradient */
+.activitySlidePlaceholder {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: flex-end;
+  padding: 2rem 1.5rem;
+  background: linear-gradient(160deg, #1e293b 0%, #334155 60%, #475569 100%);
+}
+
+.activityPlaceholderContent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.activityPlaceholderCat {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.7);
+}
+
+.activityPlaceholderName {
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: #fff;
+  margin: 0;
+  line-height: 1.15;
+  text-shadow: 0 2px 14px rgba(0,0,0,0.2);
+}
+
+
+/* Activity info below the image */
+.activitySlideBody {
+  padding: 0.875rem 1.25rem 0.75rem;
+  background: #fff;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(0,0,0,0.04);
+}
+
+.activitySlideTitle {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text-main, #1e293b);
+  margin: 0 0 0.2rem;
+}
+
+.activitySlideTime {
+  font-size: 0.82rem;
+  color: #64748b;
+  margin: 0 0 0.25rem;
+}
+
+/* Dot indicators */
+.carouselDots {
+  display: flex;
+  justify-content: center;
+  gap: 5px;
+  padding: 0.6rem 0 0;
+  flex-shrink: 0;
+}
+
+.carouselDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #cbd5e1;
+  transition: all 0.2s ease;
+}
+
+.carouselDotActive {
+  width: 18px;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--color-primary, #1e293b);
+  transition: all 0.2s ease;
+}
+
+.tripModalBody {
+  padding: 1.25rem 1.5rem;
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  background-color: #f9fafb;
+}
+
+
+.categoryScroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 1rem 1.25rem 0.75rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.categoryScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryBtn {
+  white-space: nowrap;
+  padding: 0.4rem 1rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: none;
+  background-color: #e5e7eb;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-family);
+}
+
+.categoryBtnActive {
+  background-color: var(--color-text);
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.activitiesScroll {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.activitiesScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.activityCard {
+  min-width: 240px;
+  max-width: 240px;
+  background-color: var(--color-surface);
+  border-radius: 16px;
+  padding: 1.25rem;
+  box-shadow: 0 4px 15px -1px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  scroll-snap-align: start;
+}
+
+.activityCardTop {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.activityIcon {
+  font-size: 1.75rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: #f3f4f6;
+  border-radius: 12px;
+}
+
+.activityMeta {
+  flex: 1;
+  overflow: hidden;
+}
+
+.activityTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--color-text);
+}
+
+.activityTime {
+  font-size: 0.8rem;
+  color: var(--color-primary);
+  font-weight: 600;
+  margin-top: 2px;
+}
+
+.activityAddress {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: flex-start;
+  gap: 0.35rem;
+}
+
+.activityAddressIcon {
+  margin-top: 0.15rem;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
+.activityAddressText {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.4;
+}
+
+.activityEmpty {
+  padding: 1.5rem;
+  text-align: center;
+  width: 100%;
+  color: var(--color-text-muted);
+  background-color: var(--color-surface);
+  border-radius: 12px;
+}
+
+.loadingModal {
+  text-align: center;
+  padding: 2rem;
+  color: var(--color-text-muted);
+}
+
+.tripModalFooter {
+  padding: 1rem 1.5rem calc(1rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+  background: var(--color-background);
+  flex-shrink: 0;
+}
+
+.goTripBtn {
+  width: calc(100% - 2.5rem);
+  margin: 1.5rem 1.25rem 0;
+}
+
+/* ── Loading / Error states ─────────────── */
+.loadingState {
+  padding: 2rem;
+  text-align: center;
+  color: var(--color-text-muted);
+}
+
+.errorState {
+  padding: 2rem;
+  text-align: center;
+  color: #ef4444;
+}
+
+/* ── Form layout helpers ───────────────── */
+.fieldsStack {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.dateRow {
+  display: flex;
+  gap: 1rem;
+}
+
+.dateCol {
+  flex: 1;
+}
+
+.gameToggles {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.gameToggleBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-weight: 600;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-family);
+}
+
+.gameToggleBtnActive {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+/* Currency Selector Modal Overrides */
+.currencySelectorContainer {
+  position: relative;
+  width: 100%;
+}
+
+.currencySelectField {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  padding-right: 12px;
+}
+
+.currencySelectCaret {
+  font-size: 12px;
+  color: #888;
+}
+
+.currencyDropdownAnchor {
+  width: 100%;
+}
+
+.currencyDropdownPopup {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  max-height: 280px;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.currencySearchInput {
+  padding: 14px 16px;
+  border: none;
+  font-family: var(--font-family);
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 15px;
+  outline: none;
+  width: 100%;
+  flex-shrink: 0;
+  background-color: #fafafa;
+}
+
+.currencyDropdownList {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.currencyDropdownItem {
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.currencyDropdownItem:hover {
+  background-color: #f8fafc;
+}
+
+.currencyCode {
+  font-weight: 700;
+  color: #1e293b;
+  width: 44px;
+}
+
+.currencyName {
+  color: #64748b;
+  font-size: 14px;
+}
+
+.currencyDropdownEmpty {
+  padding: 16px;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+/* ── Trip detail title row actions ───── */
+.tripDetailTitleActions {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.tripGalleryBtn {
+  background: #f1f5f9;
+  border: none;
+  border-radius: 10px;
+  padding: 0.45rem 0.6rem;
+  cursor: pointer;
+  color: #475569;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+
+.tripGalleryBtn:hover {
+  background: #e2e8f0;
+}
+
+/* ── Activity slide title row ─────────── */
+.activitySlideRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.activityPhotosPill {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #f1f5f9;
+  border: 1.5px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.activityPhotosPill:hover {
+  background: #1e293b;
+  color: #fff;
+  border-color: #1e293b;
+}
+
+/* ── Gallery Modal (shared) ───────────── */
+.galleryModal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  animation: fadeIn 0.2s ease;
+}
+
+.galleryModalInner {
+  display: contents;
+}
+
+.galleryModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 1.25rem) 1.25rem 0.75rem;
+  background: #f8fafc;
+  flex-shrink: 0;
+}
+
+.galleryModalSub {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  margin: 0 0 0.1rem;
+}
+
+.galleryModalTitle {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin: 0;
+}
+
+.galleryModalGrid {
+  flex: 1;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  align-content: start;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.galleryModalEmpty {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 3rem 1.5rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+}
+
+.galleryModalThumb {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  background: #e2e8f0;
+}
+
+.galleryModalThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.galleryThumbTag {
+  position: absolute;
+  bottom: 24px;
+  left: 4px;
+  right: 4px;
+  background: rgba(0,0,0,0.55);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.galleryThumbAuthor {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: rgba(0,0,0,0.5);
+  color: #fff;
+  font-size: 0.55rem;
+  font-weight: 600;
+  padding: 2px 5px;
+  border-radius: 4px;
+}
+
+
+/* ── Trip cover photo upload (Create/Edit trip) ─── */
+.coverUploadArea {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.coverPreview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.coverPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.coverUploadBtn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  background: rgba(15, 23, 42, 0.75);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: var(--font-family);
+}
+
+.coverUploadBtn:hover {
+  background: rgba(15, 23, 42, 0.9);
+}
+
+/* ── Profile social redesign ─────────────── */
+
+/* Top bar (bell + hamburger) */
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.75rem;
+}
+
+.topBarBtn {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: var(--color-surface, rgba(255,255,255,0.7));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--color-text-main);
+  box-shadow: var(--shadow-sm);
+  transition: background 0.2s;
+}
+
+.topBarBtn:hover {
+  background: rgba(255,255,255,0.95);
+}
+
+.notifBadge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 700;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* Hero */
+.profileHero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0 1.5rem;
+}
+
+.heroAvatarWrap {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow: 0 0 0 3px var(--color-primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+.heroAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroAvatarPlaceholder {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  background: var(--color-bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px var(--color-primary-dark);
+  margin-bottom: 0.5rem;
+}
+
+.heroName {
+  margin: 0;
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.heroHandle {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--color-text-muted);
+}
+
+.heroLocation {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+/* Stats row */
+.statsRow {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255,255,255,0.65);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-radius: 16px;
+  padding: 0.75rem 1.5rem;
+  margin: 0.5rem 0;
+  box-shadow: var(--shadow-sm);
+  width: 100%;
+  max-width: 320px;
+}
+
+.statBox {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+}
+
+.statNum {
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: var(--color-text-main);
+}
+
+.statLabel {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statDivider {
+  width: 1px;
+  height: 32px;
+  background: var(--color-border);
+}
+
+/* Follow / Following buttons */
+.followBtn {
+  background: var(--color-primary-dark);
+  color: #fff;
+  border-radius: 999px;
+  padding: 0.55rem 1.75rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+.followingBtn {
+  background: transparent;
+  color: var(--color-text-main);
+  border: 1.5px solid var(--color-border);
+  border-radius: 999px;
+  padding: 0.55rem 1.75rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+/* Slide-in drawer */
+.drawerOverlay {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  background: rgba(0,0,0,0.4);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 300;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.drawer {
+  width: min(320px, 85vw);
+  height: 100%;
+  background: var(--color-bg-card, #fff);
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem 1.25rem;
+  animation: slideInRight 0.22s ease-out;
+  overflow-y: auto;
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.drawerTitle {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text-main);
+}
+
+.drawerCloseBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+}
+
+.drawerList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drawerItem {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 0.9rem 0.75rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+  font-family: var(--font-family);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.drawerItem:hover {
+  background: rgba(0,0,0,0.05);
+}
+
+.drawerItemDanger {
+  color: #ef4444;
+}
+
+.drawerDivider {
+  height: 1px;
+  background: var(--color-border);
+  margin: 0.5rem 0;
+}
+
+/* Notification items */
+.notifEmpty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 2rem 0;
+  font-size: 0.9rem;
+}
+
+.notifItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: transparent;
+  transition: background 0.15s;
+}
+
+.notifItemUnread {
+  background: rgba(59, 130, 246, 0.07);
+}
+
+.notifAvatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.notifAvatarPlaceholder {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--color-primary-dark);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.notifMeta {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.notifText {
+  font-size: 0.88rem;
+  color: var(--color-text-main);
+  line-height: 1.4;
+}
+
+.notifTime {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.followBackBtn {
+  border: 1.5px solid var(--color-primary-dark);
+  background: transparent;
+  color: var(--color-primary-dark);
+  font-size: 0.78rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  font-family: var(--font-family);
+  transition: background 0.15s, color 0.15s;
+}
+
+.followBackBtn:hover {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+/* Drawer item inline badge */
+.drawerItemBadge {
+  margin-left: auto;
+  min-width: 20px;
+  height: 20px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+/* Drawer back button (notifications sub-view) */
+.drawerBackBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-main);
+  display: flex;
+  align-items: center;
+  padding: 0.25rem;
+  margin-right: 0.25rem;
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* ── Avatar editor (settings) ─────────────── */
+.avatarEditorWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem 0 0.5rem;
+}
+
+.avatarEditorCircle {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  overflow: hidden;
+  cursor: pointer;
+  background: #1e293b;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 0 3px var(--color-primary-dark);
+  transition: box-shadow 0.2s;
+}
+
+.avatarEditorCircle:hover .avatarEditorOverlay {
+  opacity: 1;
+}
+
+.avatarEditorImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatarEditorInitials {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  user-select: none;
+}
+
+.avatarEditorOverlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s;
+  border-radius: 50%;
+}
+
+.avatarRemoveBtn {
+  background: none;
+  border: none;
+  color: #ef4444;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  font-family: var(--font-family);
+}
+
+/* Initials colour pickers */
+.initialsColorRow {
+  display: flex;
+  gap: 1.5rem;
+  justify-content: center;
+  padding: 0.5rem 0 1rem;
+}
+
+.colorPickerGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.colorInput {
+  width: 48px;
+  height: 36px;
+  border-radius: 8px;
+  border: 1.5px solid var(--color-border);
+  padding: 2px;
+  cursor: pointer;
+  background: none;
+}
+
+/* View Countries button in stats row */
+.statViewBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  color: var(--color-primary-dark);
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.25rem 0.5rem;
+  border-radius: 10px;
+  transition: background 0.15s;
+}
+
+.statViewBtn:hover {
+  background: rgba(30,41,59,0.07);
+}
+
+/* Globe icon button between stats */
+.statGlobeBtn {
+  position: relative;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--color-primary-dark, #1e293b);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+
+.statGlobeBtn::after {
+  content: 'Explore';
+  font-size: 0.62rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-muted, #6b7280);
+  opacity: 0.8;
+}
+
+/* Pulsing ring to signal interactivity */
+.statGlobeBtn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  box-shadow: 0 0 0 0 rgba(30, 41, 59, 0.2);
+  animation: globePulse 2.4s ease-out infinite;
+}
+
+@keyframes globePulse {
+  0%   { box-shadow: 0 0 0 0   rgba(30,41,59,0.18); }
+  60%  { box-shadow: 0 0 0 7px rgba(30,41,59,0); }
+  100% { box-shadow: 0 0 0 0   rgba(30,41,59,0); }
+}
+
+.statGlobeBtn:hover {
+  background: rgba(30,41,59,0.06);
+}

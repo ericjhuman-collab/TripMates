@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ln -s \"/Users/erichuman/Claude setup/.claude/skills\" ~/.claude/skills)",
+      "Read(//Users/erichuman/.claude/debug/**)",
+      "Read(//Users/erichuman/.claude/**)",
+      "Bash(env)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(awk 'NR>=258 && NR<=385 { *)",
+      "Bash(echo \"---TSC EXIT: $?\")",
+      "Bash(grep -oE \"[a-z@/-]+-[a-z-]+$\")",
+      "Bash(grep -rn '<button[^>]*>$' src/ --include=\"*.tsx\")",
+      "Bash(grep -rEn '<button[^>]*>[^<]*$' src/ --include=\"*.tsx\")",
+      "Bash(echo \"---exit $?\")",
+      "Bash(grep -E \"^/.*\\\\.tsx?$|Error:\")",
+      "Bash(echo \"---TSC exit $?\")",
+      "Bash(perl -i -ne 'print unless m{^\\\\s*// eslint-disable-next-line react-hooks/set-state-in-effect}' src/pages/Profile.tsx)",
+      "Bash(grep -nB1 \"ref\\(storage, path\\)\" src/pages/TripAdmin.tsx src/pages/ActivityEditorPage.tsx)",
+      "Bash(echo \"exit $?\")",
+      "Bash(echo \"tsc exit $?\")",
+      "Bash(sed -n '1,80p' src/context/AuthContext.tsx)",
+      "Bash(sed -n '60,120p' src/pages/Login.tsx)",
+      "Bash(xcode-select -p)",
+      "Bash(xcodebuild -version)",
+      "Bash(pod --version)",
+      "Bash(npm -v)",
+      "Bash(git -C /Users/erichuman/Antigravity/Alen rev-parse --is-inside-work-tree)"
+    ]
+  }
+}

@@ -1,0 +1,471 @@
+/* Layout.module.css */
+
+.appContainer {
+  min-height: 100vh;
+  position: relative;
+}
+
+.appContainerWithNav {
+  padding-bottom: 80px;
+}
+
+.appContainerNoNav {
+  padding-bottom: 0;
+}
+
+/* ── Header ─────────────────────────────── */
+.header {
+  padding: 1rem 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 4.5rem;
+  position: relative;
+  z-index: 50;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  color: var(--color-text-main);
+}
+
+.profileHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.profileHeaderSlot {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.headerBackBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+  color: var(--color-primary-dark);
+}
+
+.appTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0;
+  color: var(--color-primary-dark);
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ── Trip Dropdown ──────────────────────── */
+.tripDropdownWrapper {
+  position: relative;
+}
+
+.tripDropdownBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: var(--font-family);
+  background: var(--color-primary-dark);
+  color: #fff;
+  transition: all 0.2s;
+  max-width: 160px;
+}
+
+.tripDropdownBtn:active {
+  transform: scale(0.97);
+}
+
+.tripDropdownLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tripDropdownChevron {
+  flex-shrink: 0;
+  transition: transform 0.2s ease;
+}
+
+.tripDropdownChevronOpen {
+  transform: rotate(180deg);
+}
+
+.tripDropdownOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+}
+
+.tripDropdownPanel {
+  min-width: 220px;
+  max-width: 280px;
+  max-height: 60vh;
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.92);
+  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(24px);
+  border-radius: var(--radius-lg, 1rem);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(0, 0, 0, 0.04);
+  animation: dropdownFadeIn 0.2s ease;
+  padding: 0.5rem;
+}
+
+@keyframes dropdownFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.tripDropdownEmpty {
+  padding: 1rem;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.tripDropdownGroup {
+  margin-bottom: 0.15rem;
+}
+
+/* ── Category Accordion Button ──────────── */
+.tripDropdownCategoryBtn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.75rem;
+  border: none;
+  background: transparent;
+  color: var(--color-text-main);
+  font-weight: 700;
+  font-size: 0.85rem;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-radius: var(--radius-md, 0.75rem);
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tripDropdownCategoryBtn:hover {
+  background: rgba(51, 65, 85, 0.04);
+}
+
+.tripDropdownCategoryBtnActive {
+  background: rgba(51, 65, 85, 0.06);
+}
+
+.tripDropdownCategoryLabel {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.tripDropdownCategoryMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.tripDropdownCategoryCount {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  min-width: 1.1rem;
+  text-align: center;
+}
+
+.tripDropdownCategoryChevron {
+  color: var(--color-text-muted);
+  transition: transform 0.25s ease;
+}
+
+.tripDropdownCategoryChevronOpen {
+  transform: rotate(180deg);
+}
+
+/* ── Expanded trip list under category ──── */
+.tripDropdownCategoryTrips {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.35rem 0 0.25rem 0;  /* gap below category header */
+}
+
+.tripDropdownItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: calc(100% - 1rem); /* narrower than category — creates clear indent */
+  margin: 0 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  text-align: left;
+  font-family: var(--font-family);
+  transition: all 0.15s ease;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tripDropdownItem:hover {
+  background: rgba(51, 65, 85, 0.06);
+}
+
+.tripDropdownItemActive {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+.tripDropdownItemActive:hover {
+  background: var(--color-primary-dark);
+}
+
+.tripDropdownItemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.tripDropdownItemName {
+  font-size: 0.78rem;   /* smaller than category label (0.85rem) */
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tripDropdownItemDest {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.68rem;
+  opacity: 0.65;
+}
+
+.tripDropdownItemBadge {
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+}
+
+/* ── Removed: .profileBtn / .profileAvatar (profile now in dock) ── */
+
+/* ── Search icon button (header) ───────── */
+.searchIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Match tripDropdownBtn exactly: same pill shape, same height */
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: none;
+  cursor: pointer;
+  background: var(--color-primary-dark, #1e293b);
+  color: #fff;
+  font-family: var(--font-family);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+.searchIconBtn:hover {
+  opacity: 0.85;
+}
+.searchIconBtn:active {
+  transform: scale(0.97);
+}
+
+
+/* ── Search overlay (portal, below header) ─ */
+.searchOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(0,0,0,0.25);
+}
+
+.searchPanel {
+  position: absolute;
+  top: 4.5rem;     /* just below header */
+  left: 1rem;
+  right: 1rem;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.14);
+  overflow: hidden;
+  animation: dropdownFadeIn 0.18s ease;
+}
+
+.searchInputRow {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+}
+
+.searchInputIcon {
+  flex-shrink: 0;
+  color: #94a3b8;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  font-family: var(--font-family);
+  color: var(--color-text-main);
+  background: transparent;
+}
+
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+
+.searchEmpty {
+  padding: 1rem;
+  text-align: center;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
+.searchResultItem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-family);
+  transition: background 0.12s ease;
+  width: 100%;
+}
+.searchResultItem:hover {
+  background: #f8fafc;
+}
+
+.searchResultAvatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: #64748b;
+}
+.searchResultAvatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.searchResultName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-main);
+}
+
+/* ── Main content ───────────────────────── */
+.main {
+  padding: 0 1.5rem;
+  position: relative;
+}
+
+/* ── Bottom nav ─────────────────────────── */
+.navBar {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 1.5rem;
+  right: 1.5rem;
+  padding: 0.6rem 0;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 100;
+  border-radius: 999px;
+}
+
+/* ── Profile avatar in dock nav ─────────── */
+.navProfileBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+}
+
+.navAvatarWrapper {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Ring shown via parent .active class (global nav-item.active) */
+  border: 2px solid transparent;
+  transition: border-color 0.2s ease;
+}
+
+/* When own profile is active, show a ring */
+:global(.nav-item.active) .navAvatarWrapper {
+  border-color: var(--color-primary-dark, #1e293b);
+}
+
+.navAvatar {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+}
+

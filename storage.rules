@@ -1,0 +1,36 @@
+rules_version = '2';
+
+// Firebase Storage rules for Alen
+// Current app paths:
+//   avatars/{userId}/avatar.{ext}               - profile pictures
+//   trips/{tripId}/cover.{ext}                  - trip cover image
+//   trips/{tripId}/gallery/{fileName}           - shared trip gallery
+//   trips/{tripId}/activities/{activityId}/...  - activity cover images
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Avatars: owner writes, public reads.
+    match /avatars/{userId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Trip assets (covers, gallery, activity images).
+    // Any authenticated user may upload; enforce per-trip membership in app code
+    // until Firestore rules are tightened so we can cross-reference membership.
+    match /trips/{tripId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null
+        && request.resource.size < 25 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // Deny everything else by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,0 +1,151 @@
+/* DrunkLeaderboard.module.css */
+
+.page {
+  padding-bottom: 2rem;
+}
+
+/* ── Header ─────────────────────────────── */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* .titleIcon removed — no icon box */
+
+.pageTitle {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0;
+  color: var(--color-primary-dark);
+}
+
+.resetBtn {
+  color: var(--color-error);
+}
+
+/* ── Description ────────────────────────── */
+.description {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.5;
+}
+
+/* ── Loading ────────────────────────────── */
+.loadingWrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 50vh;
+  color: var(--color-primary);
+}
+
+.loadingText {
+  margin-left: 1rem;
+  font-weight: 600;
+}
+
+/* ── List ───────────────────────────────── */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.userRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.2s ease;
+}
+
+.userRowDefault {
+  background-color: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+}
+
+.userRowGold {
+  background: linear-gradient(to right, #fffbeb, #ffffff);
+  border: 1px solid #fbbf24;
+}
+
+.leftGroup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.rank {
+  width: 32px;
+  font-weight: 800;
+  font-size: 1.25rem;
+  text-align: center;
+}
+
+.rankTop {
+  /* colour set dynamically */
+}
+
+.rankNormal {
+  color: var(--color-text-muted);
+}
+
+.avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatarGold {
+  border: 2px solid #fbbf24;
+}
+
+.avatarSilver {
+  border: 2px solid #9ca3af;
+}
+
+.avatarBronze {
+  border: 2px solid #b45309;
+}
+
+.avatarDefault {
+  border: 2px solid transparent;
+}
+
+.userName {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: var(--color-text);
+}
+
+/* ── Vote badge ─────────────────────────── */
+.voteBadge {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  font-weight: 700;
+}
+
+.voteBadgeGold {
+  background: #fef3cd;
+  color: #92400e;
+}
+
+.voteBadgeDefault {
+  background: var(--color-bg);
+  color: var(--color-text);
+}
