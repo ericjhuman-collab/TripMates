@@ -104,6 +104,8 @@ export const Profile: React.FC = () => {
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deleteInProgress, setDeleteInProgress] = useState(false);
     const [deleteError, setDeleteError] = useState('');
+    const [exportInProgress, setExportInProgress] = useState(false);
+    const [exportError, setExportError] = useState('');
 
     useEffect(() => {
         const state = location.state as { openMenu?: boolean } | null;
@@ -428,6 +430,20 @@ export const Profile: React.FC = () => {
             console.error('Account deletion failed', err);
             setDeleteError(err instanceof Error ? err.message : 'Could not delete account.');
             setDeleteInProgress(false);
+        }
+    };
+
+    const handleDownloadDataExport = async () => {
+        setExportError('');
+        setExportInProgress(true);
+        try {
+            const { downloadMyDataExport } = await import('../services/userAccount');
+            await downloadMyDataExport();
+        } catch (err) {
+            console.error('Data export failed', err);
+            setExportError(err instanceof Error ? err.message : 'Could not download export.');
+        } finally {
+            setExportInProgress(false);
         }
     };
 
@@ -885,6 +901,22 @@ export const Profile: React.FC = () => {
                         <div>
                             <h4 className={styles.sectionSubtitle}>Security</h4>
                             <button onClick={handlePasswordReset} className={`btn ${styles.securityBtn}`}>Send Password Reset Email</button>
+                        </div>
+                        <hr className={styles.divider} />
+                        <div className={styles.exportZone}>
+                            <h3 className={styles.exportZoneTitle}>Export your data</h3>
+                            <p className={styles.exportZoneText}>
+                                Download a JSON copy of your profile, trips, gallery uploads, expenses, payments and follow relationships.
+                            </p>
+                            <button
+                                type="button"
+                                className={`btn ${styles.exportBtn}`}
+                                onClick={handleDownloadDataExport}
+                                disabled={exportInProgress}
+                            >
+                                {exportInProgress ? 'Preparing…' : 'Download my data'}
+                            </button>
+                            {exportError && <p className={styles.exportError}>{exportError}</p>}
                         </div>
                         <hr className={styles.divider} />
                         <div className={styles.dangerZone}>
