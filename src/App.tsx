@@ -19,17 +19,19 @@ import { EvenProvider } from './context/EvenContext';
 import { OddsProvider } from './context/OddsContext';
 import { TripAdmin } from './pages/TripAdmin';
 import { ActivityEditorPage } from './pages/ActivityEditorPage';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import './App.css';
 
 function App() {
   return (
     <Router>
-      <AuthProvider>
-        <TripProvider>
-          <EvenProvider>
-            <OddsProvider>
-            <div className="app-container">
-              <Routes>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <TripProvider>
+            <EvenProvider>
+              <OddsProvider>
+              <div className="app-container">
+                <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/terms" element={<Terms />} />
                 <Route path="/privacy" element={<Privacy />} />
@@ -53,12 +55,13 @@ function App() {
                 </Route>
 
                 <Route path="*" element={<Navigate to="/" replace />} />
-              </Routes>
-            </div>
-            </OddsProvider>
-          </EvenProvider>
-        </TripProvider>
-      </AuthProvider>
+                </Routes>
+              </div>
+              </OddsProvider>
+            </EvenProvider>
+          </TripProvider>
+        </AuthProvider>
+      </AppErrorBoundary>
     </Router>
   );
 }
