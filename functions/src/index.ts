@@ -250,3 +250,85 @@ function normalize(raw: unknown): ScannedReceiptData {
     lineItems
   };
 }
+
+import { getAuth } from 'firebase-admin/auth';
+import { getStorage } from 'firebase-admin/storage';
+
+/**
+ * Self-service account deletion.
+ *
+ * Hard-deletes user-identifying records (user doc + private subcollection +
+ * username reservation + avatar storage + auth account) and removes the
+ * user from every trip they're a member of. Financial / shared-trip
+ * artefacts (expenses, payments, gallery photos) keep their original uid
+ * references so cross-user balances and history stay correct; the UI
+ * displays "Unknown user" wherever the uid no longer resolves.
+ *
+ * The auth account is deleted last so a partial failure leaves the user
+ * able to retry from the same session.
+ */
+export const deleteUserAccount = onCall({ minInstances: 0 }, async (req) => {
+    const uid = req.auth?.uid;
+    if (!uid) {
+        throw new HttpsError('unauthenticated', 'Sign in required.');
+    }
+
+    const userRef = db.doc(`users/${uid}`);
+    const userSnap = await userRef.get();
+    const userData = userSnap.exists ? userSnap.data() : null;
+
+    // 1. Remove uid from every trip they belong to.
+    const tripsSnap = await db.collection('trips')
+        .where('members', 'array-contains', uid)
+        .get();
+    if (tripsSnap.size > 0) {
+        const batch = db.batch();
+        for (const trip of tripsSnap.docs) {
+            batch.update(trip.ref, {
+                members: FieldValue.arrayRemove(uid),
+                adminIds: FieldValue.arrayRemove(uid),
+            });
+        }
+        await batch.commit();
+    }
+
+    // 2. Delete private subcollection (currently a single 'contact' doc).
+    const privateSnap = await userRef.collection('private').get();
+    if (privateSnap.size > 0) {
+        const batch = db.batch();
+        for (const d of privateSnap.docs) batch.delete(d.ref);
+        await batch.commit();
+    }
+
+    // 3. Release the username reservation, if any.
+    const username = userData && typeof userData.username === 'string' ? userData.username : null;
+    if (username) {
+        await db.doc(`usernames/${username}`).delete().catch(() => undefined);
+    }
+
+    // 4. Delete the user doc itself.
+    await userRef.delete();
+
+    // 5. Wipe the avatar folder in Storage. Best-effort — failures don't
+    //    block deletion of identity records.
+    try {
+        const bucket = getStorage().bucket();
+        await bucket.deleteFiles({ prefix: `avatars/${uid}/` });
+    } catch (err) {
+        console.warn('Avatar storage cleanup failed', err);
+    }
+
+    // 6. Delete the auth account last. After this the client's auth state
+    //    becomes invalid; the UI signs out and redirects.
+    try {
+        await getAuth().deleteUser(uid);
+    } catch (err) {
+        console.error('Auth user deletion failed', err);
+        throw new HttpsError(
+            'internal',
+            'Profile data was removed but the auth account could not be deleted. Contact support.',
+        );
+    }
+
+    return { ok: true };
+});
