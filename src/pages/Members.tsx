@@ -19,7 +19,7 @@ export const Members: React.FC = () => {
     const { appUser } = useAuth();
     const { activeTrip } = useTrip();
     const navigate = useNavigate();
-    const [members, setMembers] = useState<AppUser[]>([]);
+    const [members, setMembers] = useState<(AppUser & { phoneNumber?: string })[]>([]);
     const [loading, setLoading] = useState(true);
 
     // Group Assignment State
@@ -42,18 +42,31 @@ export const Members: React.FC = () => {
                 const validMembers = usersData.filter(m => m.hasAgreed && activeTrip.members.includes(m.uid));
 
                 const mockUids = activeTrip.members.filter(m => m.startsWith('mock_'));
-                const mockUsers: AppUser[] = mockUids.map(uid => ({
+                const mockUsers: (AppUser & { phoneNumber?: string })[] = mockUids.map(uid => ({
                     uid,
                     name: uid.replace('mock_', ''),
                     fullName: uid.replace('mock_', ''),
-                    email: '',
                     role: 'user',
                     hasAgreed: true,
                     phoneNumber: '+15551234567',
                     sharePhoneNumber: true,
                 }));
 
-                setMembers([...validMembers, ...mockUsers]);
+                const all = [...validMembers, ...mockUsers];
+                setMembers(all);
+
+                // Fan out to load each member's phone (rule-gated by their
+                // sharePhoneNumber flag). N+1 is acceptable for typical
+                // 5-10 trip members; failures are silent.
+                const { getPrivateContact } = await import('../services/userContact');
+                const enriched = await Promise.all(all.map(async m => {
+                    if (m.uid.startsWith('mock_')) return m; // mocks already have phone
+                    const contact = await getPrivateContact(m.uid);
+                    return contact?.phoneNumber
+                        ? { ...m, phoneNumber: contact.phoneNumber }
+                        : m;
+                }));
+                setMembers(enriched);
             } catch (err) {
                 console.error('Failed to fetch members', err);
             } finally {

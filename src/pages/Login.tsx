@@ -196,11 +196,14 @@ export const Login: React.FC = () => {
                         trips: [],
                         activeTripId: null,
                         friends: [],
-                        ...(trimmedPhone ? { phoneNumber: trimmedPhone } : {}),
                         ...deriveUserSearchFields({ name: first, lastName: last }),
                     },
                     { merge: true },
                 );
+                if (trimmedPhone) {
+                    const { setOwnPhoneNumber } = await import('../services/userContact');
+                    await setOwnPhoneNumber(cred.user.uid, trimmedPhone);
+                }
                 // Auto-generate a unique username from first name. Failure here is non-fatal —
                 // user can set one manually in Profile if this falls through.
                 try {

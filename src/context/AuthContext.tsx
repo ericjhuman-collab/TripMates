@@ -18,7 +18,6 @@ export interface AppUser {
     role: 'admin' | 'user';
     hasAgreed: boolean;
     avatarUrl?: string;
-    phoneNumber?: string;
     sharePhoneNumber?: boolean;
     /** Globally unique handle for @-mentions and search. Lowercase, 3-20 chars. */
     username?: string;
@@ -83,7 +82,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             role: role,
             hasAgreed: true,
             avatarUrl: role === 'admin' ? '/einstein.png' : '/tesla.png',
-            phoneNumber: role === 'admin' ? '+1 555-0198' : '+1 555-0123',
             sharePhoneNumber: true,
             trips: ['TEST_TRIP_ID'],
             activeTripId: 'TEST_TRIP_ID',

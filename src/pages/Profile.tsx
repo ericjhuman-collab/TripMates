@@ -192,6 +192,7 @@ export const Profile: React.FC = () => {
 
     const [isEditingProfile] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', avatarUrl: '', sharePhoneNumber: false, shareLocation: true });
+    const [myPhoneNumber, setMyPhoneNumber] = useState<string>('');
 
     // ── Username editor state ─────────────────────────────────────────────
     const [usernameInput, setUsernameInput] = useState('');
@@ -311,13 +312,25 @@ export const Profile: React.FC = () => {
         if (appUser && !isEditingProfile) {
             setEditForm({
                 name: appUser.name || '',
-                phoneNumber: appUser.phoneNumber || '',
+                phoneNumber: myPhoneNumber,
                 sharePhoneNumber: appUser.sharePhoneNumber || false,
                 avatarUrl: appUser.avatarUrl || '',
                 shareLocation: appUser.shareLocation !== false // Default to true
             });
         }
-    }, [appUser, isEditingProfile]);
+    }, [appUser, isEditingProfile, myPhoneNumber]);
+
+    // Fetch own phone from the private subcollection (rule allows isMe(uid)).
+    useEffect(() => {
+        let cancelled = false;
+        if (!appUser?.uid || !isOwner) return;
+        (async () => {
+            const { getPrivateContact } = await import('../services/userContact');
+            const data = await getPrivateContact(appUser.uid);
+            if (!cancelled) setMyPhoneNumber(data?.phoneNumber ?? '');
+        })();
+        return () => { cancelled = true; };
+    }, [appUser?.uid, isOwner]);
 
     const now = new Date();
     const tripsToAnalyze = isOwner ? contextUserTrips : targetTrips;
@@ -348,14 +361,18 @@ export const Profile: React.FC = () => {
 
     const handleSaveProfile = async () => {
         try {
-            await updateProfile({ 
-                name: editForm.name, 
-                phoneNumber: editForm.phoneNumber, 
+            await updateProfile({
+                name: editForm.name,
                 sharePhoneNumber: editForm.sharePhoneNumber,
                 shareLocation: editForm.shareLocation,
                 avatarUrl: editForm.avatarUrl,
                 initialsStyle,
             } as Partial<AppUser>);
+            if (appUser?.uid) {
+                const { setOwnPhoneNumber } = await import('../services/userContact');
+                await setOwnPhoneNumber(appUser.uid, editForm.phoneNumber);
+                setMyPhoneNumber(editForm.phoneNumber);
+            }
         } catch (err) {
             console.error('Failed to save profile', err);
             alert('Failed to save profile changes.');
