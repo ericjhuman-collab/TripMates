@@ -8,6 +8,7 @@ import { db } from '../services/firebase';
 import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
 import { searchUsersByUsernamePrefix } from '../services/username';
 import { normalizeSearchInput } from '../utils/searchFields';
+import { EmailVerificationBanner } from './EmailVerificationBanner';
 import styles from './Layout.module.css';
 
 const CATEGORY_LABELS: Record<TripCategory, string> = {
@@ -353,6 +354,8 @@ export const Layout: React.FC = () => {
                 </div>,
                 document.body
             )}
+
+            <EmailVerificationBanner />
 
             <main className={styles.main}>
                 <Outlet />
