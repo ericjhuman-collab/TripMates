@@ -82,6 +82,6 @@ Public read on storage is currently a deliberate-or-accidental design choice —
 - **TypeScript strict + noUnused everything**. Don't leave parameters unused; prefix with `_` or remove.
 - **Type-check before claiming done**: `npx tsc --noEmit -p tsconfig.app.json` is the canonical quick check; build re-runs it.
 - **Don't add component tests** unless asked — the suite is rules-only and adding a flaky React test runner without consensus creates noise.
-- **GDPR posture**: see [src/pages/Privacy.tsx](src/pages/Privacy.tsx) — the policy is marked as draft and promises features (data export, account deletion) that aren't implemented yet. Keep that in mind when adding anything that collects new fields.
+- **GDPR posture**: see [src/pages/Privacy.tsx](src/pages/Privacy.tsx) — the policy is marked as draft. Self-service account deletion is wired (Profile → Settings → Danger zone → calls the `deleteUserAccount` Cloud Function in [functions/src/index.ts](functions/src/index.ts)). Data export is still TODO.
 - **No PWA manifest** despite the apple-mobile-web-app meta tags. The app behaves like a webapp; install-as-app is not yet wired.
 - **Onboarding humans**: [ONBOARDING.md](ONBOARDING.md) is for non-technical contributors (GitHub Desktop, Xcode, Capacitor for iOS/Android beta). Don't duplicate that content here.
