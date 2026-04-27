@@ -19,6 +19,22 @@ interface GeoFeature {
     geometry: unknown;
 }
 
+// Cache the 110KB GeoJSON at module scope so repeated globe-opens don't
+// re-fetch. The Promise dedupes concurrent first-loads too.
+let countriesPromise: Promise<GeoFeature[]> | null = null;
+function loadCountries(): Promise<GeoFeature[]> {
+    if (!countriesPromise) {
+        countriesPromise = fetch(COUNTRIES_GEOJSON_URL)
+            .then(r => r.json())
+            .then((data: { features: GeoFeature[] }) => data.features)
+            .catch(err => {
+                countriesPromise = null; // allow retry on next mount
+                throw err;
+            });
+    }
+    return countriesPromise;
+}
+
 type Mode = 'visited' | 'bucketlist';
 
 interface Props {
@@ -52,10 +68,11 @@ export const CountriesGlobe: React.FC<Props> = ({
     const globeSize = Math.min(vw, vh * 0.68, 540);
 
     useEffect(() => {
-        fetch(COUNTRIES_GEOJSON_URL)
-            .then(r => r.json())
-            .then((data: { features: GeoFeature[] }) => setCountries(data.features))
+        let cancelled = false;
+        loadCountries()
+            .then(features => { if (!cancelled) setCountries(features); })
             .catch(console.error);
+        return () => { cancelled = true; };
     }, []);
 
     useEffect(() => {
@@ -99,12 +116,14 @@ export const CountriesGlobe: React.FC<Props> = ({
         onToggle(name, !alreadyOn);
     }, [canEdit, activeSet, onToggle]);
 
-    const allCountryNames = countries
-        .map(c => c.properties.NAME)
-        .sort((a, b) => a.localeCompare(b));
+    const allCountryNames = useMemo(
+        () => countries.map(c => c.properties.NAME).sort((a, b) => a.localeCompare(b)),
+        [countries]
+    );
 
-    const filteredList = allCountryNames.filter(name =>
-        name.toLowerCase().includes(listSearch.toLowerCase())
+    const filteredList = useMemo(
+        () => allCountryNames.filter(name => name.toLowerCase().includes(listSearch.toLowerCase())),
+        [allCountryNames, listSearch]
     );
 
     const tabLabel = mode === 'visited' ? 'Countries Visited' : 'Bucketlist';
