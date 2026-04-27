@@ -5,9 +5,6 @@ import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { deriveUserSearchFields } from '../utils/searchFields';
 
-// ── Hardcoded admin emails ────────────────────────────────────────────────────
-const ADMIN_EMAILS = ['charlie.nilsson@live.com', 'erichuman@me.com'];
-
 export interface AppUser {
     uid: string;
     email: string;
@@ -127,7 +124,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             if (userDoc.exists() && userDoc.data().role) {
                 setAppUser({ ...userDoc.data(), uid: currentUser.uid } as AppUser);
             } else {
-                const isAdmin = ADMIN_EMAILS.includes(currentUser.email || '');
                 const existingData = userDoc.exists() ? userDoc.data() : {};
 
                 const newUser: AppUser = {
@@ -135,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     email: currentUser.email || '',
                     name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Traveler',
                     fullName: existingData.fullName || '',
-                    role: isAdmin ? 'admin' : 'user',
+                    role: 'user',
                     hasAgreed: existingData.hasAgreed ?? false,
                     trips: existingData.trips || [],
                     activeTripId: existingData.activeTripId ?? null,
@@ -162,15 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (cancelled) return;
                     if (userDoc.exists() && userDoc.data().role) {
                         const data = { ...userDoc.data(), uid: user.uid } as AppUser;
-                        // If the email is in the admin list, always ensure they have admin role
-                        if (ADMIN_EMAILS.includes(user.email || '') && data.role !== 'admin') {
-                            const updated = { ...data, role: 'admin' as const };
-                            await setDoc(doc(db, 'users', user.uid), updated, { merge: true });
-                            if (cancelled) return;
-                            setAppUser(updated);
-                        } else {
-                            setAppUser(data);
-                        }
+                        setAppUser(data);
                         // Backfill search fields for legacy docs that predate them.
                         if (!userDoc.data().nameLower) {
                             const searchFields = deriveUserSearchFields({ name: data.name, lastName: data.lastName });
@@ -181,7 +169,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     } else {
                         // First login OR partial creation from Login.tsx — auto-assign defaults.
                         // Preserve any existing fields (trips/activeTripId/etc) from a prior partial doc.
-                        const isAdmin = ADMIN_EMAILS.includes(user.email || '');
+                        // Role is always 'user'; admin is granted server-side only (see docs/admin-grants.md).
                         const existingData = userDoc.exists() ? userDoc.data() : {};
 
                         const newUser: AppUser = {
@@ -189,7 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             email: user.email || '',
                             name: user.displayName || user.email?.split('@')[0] || 'Traveler',
                             fullName: existingData.fullName || '',
-                            role: isAdmin ? 'admin' : 'user',
+                            role: 'user',
                             hasAgreed: existingData.hasAgreed ?? false,
                             trips: existingData.trips || [],
                             activeTripId: existingData.activeTripId ?? null,
