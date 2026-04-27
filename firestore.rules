@@ -271,9 +271,33 @@ service cloud.firestore {
 
     // ─── bingo/{key} where key = "trip_<tripId>" ─────────────────────────
     match /bingo/{key} {
-      allow read, write: if isAuthed()
+      // Read: any trip member.
+      allow read: if isAuthed()
         && key.matches('trip_.+')
         && isTripMember(key.split('_')[1]);
+
+      // Create: any trip member may initialize the board.
+      allow create: if isAuthed()
+        && key.matches('trip_.+')
+        && isTripMember(key.split('_')[1])
+        && request.resource.data.keys().hasOnly(['squares'])
+        && request.resource.data.squares.size() <= 30;
+
+      // Update: only the squares array may change, capped at 30 entries
+      // (matches initBingoBoard's 30-square layout). Prevents trip
+      // members from polluting the doc with arbitrary fields or
+      // ballooning storage by writing huge arrays.
+      allow update: if isAuthed()
+        && key.matches('trip_.+')
+        && isTripMember(key.split('_')[1])
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['squares'])
+        && request.resource.data.squares.size() <= 30;
+
+      // Delete: trip admin only.
+      allow delete: if isAuthed()
+        && key.matches('trip_.+')
+        && isTripAdmin(key.split('_')[1]);
     }
 
     // ─── usernames/{name} ─────────────────────────────────────────────────

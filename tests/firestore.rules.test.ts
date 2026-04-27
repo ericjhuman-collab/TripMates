@@ -576,3 +576,56 @@ describe('gallery — like toggle', () => {
     );
   });
 });
+
+describe('bingo/trip_{tripId}', () => {
+  beforeEach(async () => {
+    await seedTrip();
+  });
+
+  it('trip member can create a 30-square board', async () => {
+    const squares = Array.from({ length: 30 }, (_, i) => ({
+      id: i, task: 'task', completedBy: null,
+    }));
+    await assertSucceeds(
+      setDoc(doc(asUser(BOB), 'bingo', `trip_${TRIP_ID}`), { squares })
+    );
+  });
+
+  it('trip member can update squares', async () => {
+    const initial = Array.from({ length: 30 }, (_, i) => ({
+      id: i, task: 'old', completedBy: null,
+    }));
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'bingo', `trip_${TRIP_ID}`), { squares: initial });
+    });
+    const next = initial.map((s, i) => i === 0 ? { ...s, task: 'updated' } : s);
+    await assertSucceeds(
+      updateDoc(doc(asUser(BOB), 'bingo', `trip_${TRIP_ID}`), { squares: next })
+    );
+  });
+
+  it('trip member CANNOT add foreign fields', async () => {
+    const initial = Array.from({ length: 30 }, (_, i) => ({
+      id: i, task: 'task', completedBy: null,
+    }));
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'bingo', `trip_${TRIP_ID}`), { squares: initial });
+    });
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'bingo', `trip_${TRIP_ID}`), {
+        squares: initial,
+        adminBackdoor: true,
+      } as Record<string, unknown>)
+    );
+  });
+
+  it('non-member cannot read or write bingo', async () => {
+    await assertFails(getDoc(doc(asUser(CAROL), 'bingo', `trip_${TRIP_ID}`)));
+    const squares = Array.from({ length: 30 }, (_, i) => ({
+      id: i, task: 'x', completedBy: null,
+    }));
+    await assertFails(
+      setDoc(doc(asUser(CAROL), 'bingo', `trip_${TRIP_ID}`), { squares })
+    );
+  });
+});
