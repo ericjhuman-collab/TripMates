@@ -52,7 +52,7 @@ Four contexts wrap the app, in order: `AuthProvider → TripProvider → EvenPro
 
 ### Firestore data model & rules
 Two role concepts — don't conflate:
-- `users/{uid}.role: 'admin' | 'user'` — global app role (the hardcoded email list).
+- `users/{uid}.role: 'admin' | 'user'` — global app role; admin is granted server-side only (see [docs/admin-grants.md](docs/admin-grants.md)).
 - `trips/{tripId}.adminIds[]` — per-trip admin list. The trip's `createdBy` is the "head admin"; everyone else in `adminIds` is a "Submanager".
 
 Rule helpers in [firestore.rules](firestore.rules): `isTripMember(tripId)`, `isTripAdmin(tripId)`. The trip update rule is split:
@@ -62,6 +62,8 @@ Rule helpers in [firestore.rules](firestore.rules): `isTripMember(tripId)`, `isT
 When adding new mutating call paths on trips, keep in mind that `isTripAdmin` does not differentiate the creator. If your rule cares about it, check `resource.data.createdBy == request.auth.uid`.
 
 Gallery has three update rules layered: like-toggle (only `likes`), uploader/admin tag edit (activityId/Name/taggedMembers), and **any-trip-member tag-people-only** (just `taggedMembers`). The third was added so members can tag friends in photos they didn't upload.
+
+User-doc email field is intentionally absent — `auth.currentUser.email` is the only source of truth. Phone (`phoneNumber` + `sharePhoneNumber`) still lives on the user doc to support trip-member phone display in Members.tsx, but is a known PII gap pending a follow-up plan.
 
 ### Search
 [src/utils/searchFields.ts](src/utils/searchFields.ts) derives `nameLower` and `lastNameLower` (lowercase + diacritic-stripped) at user-doc write time. Layout's user search ([Layout.tsx](src/components/Layout.tsx) `runSearch`) queries those two fields plus the `usernames/{handle}` collection in parallel and merges by uid. Email and phone are deliberately not searchable (GDPR + enumeration risk). When you add a new write path that touches `name`/`lastName`, call `deriveUserSearchFields` and merge the result into the payload — otherwise the doc disappears from search.
