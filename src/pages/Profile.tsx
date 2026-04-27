@@ -191,7 +191,7 @@ export const Profile: React.FC = () => {
     }, [tripGalleryOpen, viewTripDetails]);
 
     const [isEditingProfile] = useState(false);
-    const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', email: '', avatarUrl: '', sharePhoneNumber: false, shareLocation: true });
+    const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', avatarUrl: '', sharePhoneNumber: false, shareLocation: true });
 
     // ── Username editor state ─────────────────────────────────────────────
     const [usernameInput, setUsernameInput] = useState('');
@@ -313,7 +313,6 @@ export const Profile: React.FC = () => {
                 name: appUser.name || '',
                 phoneNumber: appUser.phoneNumber || '',
                 sharePhoneNumber: appUser.sharePhoneNumber || false,
-                email: appUser.email || '',
                 avatarUrl: appUser.avatarUrl || '',
                 shareLocation: appUser.shareLocation !== false // Default to true
             });
@@ -386,10 +385,11 @@ export const Profile: React.FC = () => {
     const handleLogout = () => { logoutMock(); auth.signOut(); navigate('/login'); };
 
     const handlePasswordReset = async () => {
-        if (!appUser?.email) return;
+        const email = auth.currentUser?.email;
+        if (!email) return;
         try {
-            await sendPasswordResetEmail(auth, appUser.email);
-            alert(`A password reset link has been sent to ${appUser.email}.`);
+            await sendPasswordResetEmail(auth, email);
+            alert(`A password reset link has been sent to ${email}.`);
         } catch (error) {
             console.error('Failed to send password reset email:', error);
             alert('Failed to send password reset email.');
@@ -832,7 +832,7 @@ export const Profile: React.FC = () => {
                             <div>
                                 <label className={styles.settingsLabel}>Email Address</label>
                                 <input
-                                    value={editForm.email}
+                                    value={auth.currentUser?.email ?? ''}
                                     placeholder="Email"
                                     className="input-field"
                                     disabled

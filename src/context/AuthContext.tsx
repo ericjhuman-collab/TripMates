@@ -7,7 +7,6 @@ import { deriveUserSearchFields } from '../utils/searchFields';
 
 export interface AppUser {
     uid: string;
-    email: string;
     name: string;
     fullName?: string;
     firstName?: string;
@@ -80,7 +79,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const loginAsMock = (role: 'admin' | 'user') => {
         setMockUser({
             uid: `mock-${role}-uid`,
-            email: `mock${role}@test.com`,
             name: role === 'admin' ? 'Albert Einstein' : 'Nikola Tesla',
             role: role,
             hasAgreed: true,
@@ -128,7 +126,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 const newUser: AppUser = {
                     uid: currentUser.uid,
-                    email: currentUser.email || '',
                     name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Traveler',
                     fullName: existingData.fullName || '',
                     role: 'user',
@@ -174,7 +171,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                         const newUser: AppUser = {
                             uid: user.uid,
-                            email: user.email || '',
                             name: user.displayName || user.email?.split('@')[0] || 'Traveler',
                             fullName: existingData.fullName || '',
                             role: 'user',
@@ -207,7 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const effectiveAppUser = mockUser || appUser;
     const effectiveCurrentUser = mockUser
-        ? ({ uid: mockUser.uid, email: mockUser.email } as User)
+        ? ({ uid: mockUser.uid, email: `mock-${mockUser.role}@test.com` } as User)
         : currentUser;
 
     // When viewAsUser is on, override the role to 'user' for UI checks

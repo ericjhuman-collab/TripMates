@@ -185,7 +185,6 @@ export const Login: React.FC = () => {
                     doc(db, 'users', cred.user.uid),
                     {
                         uid: cred.user.uid,
-                        email: cred.user.email || email,
                         firstName: first,
                         lastName: last,
                         name: first,
