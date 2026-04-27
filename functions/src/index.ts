@@ -332,3 +332,99 @@ export const deleteUserAccount = onCall({ minInstances: 0 }, async (req) => {
 
     return { ok: true };
 });
+
+/**
+ * Self-service data export.
+ *
+ * Returns the requesting user's owned records as a single JSON object.
+ * Includes: profile, private contact, username, trip memberships, the
+ * user's own gallery uploads / expenses / payments / follow relationships.
+ * Does NOT include image binaries (URLs only) or notifications.
+ *
+ * Designed for browser-side download — keeps response under a few MB
+ * for typical accounts. minInstances: 0 since exports are infrequent.
+ */
+export const exportUserData = onCall({ minInstances: 0 }, async (req) => {
+    const uid = req.auth?.uid;
+    if (!uid) {
+        throw new HttpsError('unauthenticated', 'Sign in required.');
+    }
+
+    const exportPayload: Record<string, unknown> = {
+        exportedAt: new Date().toISOString(),
+        uid,
+        email: req.auth?.token?.email ?? null,
+    };
+
+    // 1. Public user doc
+    const userSnap = await db.doc(`users/${uid}`).get();
+    exportPayload.profile = userSnap.exists ? userSnap.data() : null;
+
+    // 2. Private contact subcollection
+    const privateSnap = await db.collection(`users/${uid}/private`).get();
+    exportPayload.privateContact = privateSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // 3. Username reservation (looked up via the user doc)
+    const username = userSnap.exists ? (userSnap.data()?.username as string | undefined) : undefined;
+    if (username) {
+        const usernameSnap = await db.doc(`usernames/${username}`).get();
+        exportPayload.username = usernameSnap.exists
+            ? { handle: usernameSnap.id, ...usernameSnap.data() }
+            : null;
+    } else {
+        exportPayload.username = null;
+    }
+
+    // 4. Trip memberships (full trip docs the user is a member of)
+    const tripsSnap = await db.collection('trips')
+        .where('members', 'array-contains', uid)
+        .get();
+    exportPayload.trips = tripsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const tripIds = tripsSnap.docs.map(d => d.id);
+
+    // 5. Gallery uploads in any of the user's trips that THIS user uploaded
+    const galleryUploads: unknown[] = [];
+    for (const tripId of tripIds) {
+        const gSnap = await db.collection(`trips/${tripId}/gallery`)
+            .where('uploadedBy', '==', uid)
+            .get();
+        for (const g of gSnap.docs) {
+            galleryUploads.push({ tripId, id: g.id, ...g.data() });
+        }
+    }
+    exportPayload.galleryUploads = galleryUploads;
+
+    // 6. Expenses created or paid by the user (top-level collection)
+    const expensesByCreator = await db.collection('expenses')
+        .where('creatorId', '==', uid)
+        .get();
+    const expensesByPayer = await db.collection('expenses')
+        .where('payerId', '==', uid)
+        .get();
+    const expenseMap = new Map<string, Record<string, unknown>>();
+    for (const e of expensesByCreator.docs) expenseMap.set(e.id, { id: e.id, ...e.data() });
+    for (const e of expensesByPayer.docs) expenseMap.set(e.id, { id: e.id, ...e.data() });
+    exportPayload.expenses = Array.from(expenseMap.values());
+
+    // 7. Payments where user is sender or receiver
+    const paymentsFrom = await db.collection('payments')
+        .where('fromUid', '==', uid)
+        .get();
+    const paymentsTo = await db.collection('payments')
+        .where('toUid', '==', uid)
+        .get();
+    const paymentMap = new Map<string, Record<string, unknown>>();
+    for (const p of paymentsFrom.docs) paymentMap.set(p.id, { id: p.id, ...p.data() });
+    for (const p of paymentsTo.docs) paymentMap.set(p.id, { id: p.id, ...p.data() });
+    exportPayload.payments = Array.from(paymentMap.values());
+
+    // 8. Follow relationships (just the arrays — pointers, not the followed users' data)
+    const data = userSnap.exists ? userSnap.data() ?? {} : {};
+    exportPayload.follows = {
+        following: Array.isArray(data.following) ? data.following : [],
+        followers: Array.isArray(data.followers) ? data.followers : [],
+        friends: Array.isArray(data.friends) ? data.friends : [],
+    };
+
+    return exportPayload;
+});
