@@ -238,7 +238,15 @@ service cloud.firestore {
       allow read: if isAuthed() && isTripMember(resource.data.tripId);
       allow create: if isAuthed()
         && isTripMember(request.resource.data.tripId);
-      allow update: if isAuthed() && isTripMember(resource.data.tripId);
+      // Payments are append-only ledger entries. Trip members may only
+      // toggle status and update the date when marking a settle-up
+      // complete. Mutating amount/fromUid/toUid/currency post-create
+      // would corrupt the balance ledger.
+      allow update: if isAuthed()
+        && isTripMember(resource.data.tripId)
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'date'])
+        && request.resource.data.status in ['PENDING', 'COMPLETED'];
       // Trip members may delete PENDING payments — settle-up replaces them.
       // Only admins may delete COMPLETED payments (audit safety).
       allow delete: if isAuthed() && (

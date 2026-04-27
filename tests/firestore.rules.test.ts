@@ -370,6 +370,47 @@ describe('payments/{paymentId}', () => {
     });
     await assertFails(deleteDoc(doc(asUser(CAROL), 'payments', 'pPending2')));
   });
+
+  it('trip member CAN mark a payment COMPLETED with a new date', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'payments', 'p1'), {
+        tripId: TRIP_ID, fromUid: ALICE, toUid: BOB,
+        amount: 1000, currency: 'SEK',
+        date: '2026-01-01', createdAt: 0, status: 'PENDING',
+      });
+    });
+    await assertSucceeds(
+      updateDoc(doc(asUser(BOB), 'payments', 'p1'), {
+        status: 'COMPLETED', date: '2026-04-27',
+      })
+    );
+  });
+
+  it('trip member CANNOT mutate amount on existing payment', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'payments', 'p1'), {
+        tripId: TRIP_ID, fromUid: ALICE, toUid: BOB,
+        amount: 1000, currency: 'SEK',
+        date: '2026-01-01', createdAt: 0, status: 'PENDING',
+      });
+    });
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'payments', 'p1'), { amount: 99999 })
+    );
+  });
+
+  it('trip member CANNOT redirect a payment to themselves', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), 'payments', 'p1'), {
+        tripId: TRIP_ID, fromUid: ALICE, toUid: BOB,
+        amount: 1000, currency: 'SEK',
+        date: '2026-01-01', createdAt: 0, status: 'PENDING',
+      });
+    });
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'payments', 'p1'), { toUid: CAROL })
+    );
+  });
 });
 
 describe('notifications subcollection', () => {
