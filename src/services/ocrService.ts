@@ -1,161 +1,99 @@
-import Tesseract from 'tesseract.js';
+import { httpsCallable, FunctionsError } from 'firebase/functions';
+import { functions } from './firebase';
+
+export interface ParsedLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
 
 export interface ScannedReceiptData {
-  totalAmount: number | null;
+  merchantName: string | null;
+  transactionDate: string | null;
   currency: string | null;
+  totalAmount: number | null;
+  tip: number | null;
+  tax: number | null;
   category: string | null;
+  lineItems: ParsedLineItem[];
 }
+
+interface ScanRequest {
+  imageBase64: string;
+  mimeType: string;
+}
+
+export type ScanFailureReason =
+  | 'quota-exceeded'   // user hit the daily 50-scan cap
+  | 'rate-limited'     // Vertex AI is overloaded (429/503 after retries)
+  | 'image-too-large'  // > 7 MB after base64
+  | 'unauthenticated'  // no signed-in user
+  | 'failed';          // anything else
+
+export class ScanError extends Error {
+  reason: ScanFailureReason;
+  constructor(reason: ScanFailureReason, message: string) {
+    super(message);
+    this.reason = reason;
+    this.name = 'ScanError';
+  }
+}
+
+const scanReceiptCallable = httpsCallable<ScanRequest, ScannedReceiptData>(functions, 'scanReceipt');
+
+const fileToBase64 = (file: File | Blob): Promise<{ data: string; mimeType: string }> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      const comma = result.indexOf(',');
+      if (comma === -1) return reject(new Error('Invalid data URL'));
+      resolve({ data: result.slice(comma + 1), mimeType: file.type || 'image/jpeg' });
+    };
+    reader.onerror = () => reject(reader.error ?? new Error('FileReader failed'));
+    reader.readAsDataURL(file);
+  });
+
+const mapCallableError = (err: unknown): ScanError => {
+  if (err instanceof FunctionsError) {
+    const msg = err.message || 'Skanningen misslyckades.';
+    switch (err.code) {
+      case 'functions/resource-exhausted':
+        // Server returns this for both quota-cap and Vertex rate limit.
+        // Distinguish by the message text we set on the server.
+        if (/dagens gräns/i.test(msg)) return new ScanError('quota-exceeded', msg);
+        return new ScanError('rate-limited', msg);
+      case 'functions/unauthenticated':
+        return new ScanError('unauthenticated', 'Du måste vara inloggad för att skanna kvitton.');
+      case 'functions/invalid-argument':
+        if (/too large/i.test(msg)) return new ScanError('image-too-large', 'Bilden är för stor. Prova en mindre.');
+        return new ScanError('failed', msg);
+      case 'functions/unavailable':
+        return new ScanError('rate-limited', msg);
+      default:
+        return new ScanError('failed', msg);
+    }
+  }
+  return new ScanError('failed', err instanceof Error ? err.message : 'Okänt fel.');
+};
 
 export const scanReceipt = async (imageFile: File | Blob): Promise<ScannedReceiptData> => {
+  let payload: { data: string; mimeType: string };
   try {
-    const imageUrl = URL.createObjectURL(imageFile);
-    
-    // We use the English training data. It reads standard Latin characters and numbers 
-    // fine for Swedish/European receipts without needing extra large downloads.
-    const result = await Tesseract.recognize(
-      imageUrl,
-      'eng',
-      {
-         logger: m => console.log(m)
-      }
-    );
-    
-    const text = result.data.text;
-    URL.revokeObjectURL(imageUrl);
-    
-    return parseReceiptText(text);
-  } catch (error) {
-    console.error("OCR Scanning failed", error);
-    return { totalAmount: null, currency: null, category: null };
+    payload = await fileToBase64(imageFile);
+  } catch (e) {
+    throw new ScanError('failed', e instanceof Error ? e.message : 'Kunde inte läsa bildfilen.');
   }
-}
-
-export const parseReceiptText = (text: string): ScannedReceiptData => {
-  const lines = text.split('\n').map(l => l.trim().toLowerCase()).filter(Boolean);
-  
-  let bestAmount: number | null = null;
-  let currencyCandidate: string | null = null;
-  
-  const fullTextLower = text.toLowerCase();
-
-  // 1. Try to guess currency
-  if (fullTextLower.includes('nok')) {
-      currencyCandidate = 'NOK';
-  } else if (fullTextLower.includes('dkk')) {
-      currencyCandidate = 'DKK';
-  } else if (fullTextLower.includes('sek')) {
-      currencyCandidate = 'SEK';
-  } else if (fullTextLower.includes('usd')) {
-      currencyCandidate = 'USD';
-  } else if (fullTextLower.includes('eur')) {
-      currencyCandidate = 'EUR';
-  } else if (fullTextLower.includes('gbp')) {
-      currencyCandidate = 'GBP';
-  } else if (fullTextLower.includes('$')) {
-      currencyCandidate = 'USD';
-  } else if (fullTextLower.includes('€')) {
-      currencyCandidate = 'EUR';
-  } else if (fullTextLower.includes('£')) {
-      currencyCandidate = 'GBP';
-  } else if (fullTextLower.includes('kr') || fullTextLower.includes('kr.')) {
-      currencyCandidate = 'SEK'; // fallback
+  try {
+    const result = await scanReceiptCallable({ imageBase64: payload.data, mimeType: payload.mimeType });
+    if (!result.data) {
+      throw new ScanError('failed', 'Tomt svar från skanningstjänsten.');
+    }
+    return result.data;
+  } catch (err) {
+    if (err instanceof ScanError) throw err;
+    console.error('OCR scan failed', err);
+    throw mapCallableError(err);
   }
-
-  // 1.5 Try to guess category based on keywords
-  let categoryCandidate: string | null = null;
-  const categoryKeywords: Record<string, string[]> = {
-    restaurant: ['restaurant', 'restaurang', 'cafe ', 'bistro', 'pizza', 'burger', 'sushi', 'max', 'mcdonalds', 'burger king', 'dinner', 'lunch'],
-    groceries: [' ica ', 'coop', 'willys', 'hemköp', 'lidl', 'supermarket', 'market', 'matrebellen', 'city gross'],
-    drinks: [' bar ', ' pub ', 'systembolaget', 'cocktail', ' öl ', ' vin ', 'beer', 'wine'],
-    accommodation: ['hotel', 'hotell', 'hostel', 'airbnb', 'motel', 'resort', 'booking.com'],
-    transport: ['taxi', 'uber', 'bolt', 'sj ', ' sl ', 'ticket', 'biljett', 'parking', 'parkering', 'bensin', 'shell', 'circle k', 'okq8', 'preem', 'flight', 'train', 'bus'],
-    activities: ['museum', 'tour', 'cinema', 'inträde', 'biljett', 'activity', 'guide'],
-    shopping: ['shop', 'store', 'mall', 'boutique', 'ikea', 'clothes', 'kläder', 'shoes', 'skor', 'zara', 'h&m']
-  };
-
-  const categoryScores: Record<string, number> = {};
-  for (const [category, keywords] of Object.entries(categoryKeywords)) {
-    let score = 0;
-    keywords.forEach(kw => {
-      const count = fullTextLower.split(kw).length - 1;
-      score += count;
-    });
-    if (score > 0) categoryScores[category] = score;
-  }
-  
-  if (Object.keys(categoryScores).length > 0) {
-    const sorted = Object.entries(categoryScores).sort((a, b) => b[1] - a[1]);
-    categoryCandidate = sorted[0][0];
-  }
-
-  // 2. Look for keywords that often precede the total
-  const totalKeywords = ['total', 'summa', 'att betala', 'amount', 'belopp'];
-  const excludeKeywords = ['subtotal', 'moms', 'tax', 'netto'];
-  
-  // Regex to match things like 150.00, 150,00 or 1 500.00
-  const numberRegex = /(?:^|\s)((?:\d{1,3}[\s.]?)*\d+[.,]\d{2})(?:\s|$|a-z)/i;
-  
-  for (let i = 0; i < lines.length; i++) {
-     const line = lines[i];
-     
-     // Skip lines that have excluded keywords
-     if (excludeKeywords.some(kw => line.includes(kw))) {
-         continue;
-     }
-
-     const hasTotalKeyword = totalKeywords.some(kw => line.includes(kw));
-     
-     if (hasTotalKeyword) {
-         // See if the number is on the same line
-         const match = line.match(numberRegex);
-         if (match) {
-             const cleanNum = match[1].replace(/\s/g, '').replace(',', '.');
-             const val = parseFloat(cleanNum);
-             if (!isNaN(val) && val > 0) {
-                 bestAmount = val;
-                 break;
-             }
-         } else if (i + 1 < lines.length) {
-             // The number might be on the next line
-             const matchNext = lines[i+1].match(numberRegex);
-             if (matchNext) {
-                 const cleanNum = matchNext[1].replace(/\s/g, '').replace(',', '.');
-                 const val = parseFloat(cleanNum);
-                 if (!isNaN(val) && val > 0) {
-                     bestAmount = val;
-                     break;
-                 }
-             }
-         }
-     }
-  }
-  
-  // 3. Fallback: If we couldn't confidently find a total keyword, grab the absolute largest valid amount near the bottom.
-  if (!bestAmount) {
-      let maxNum = 0;
-      // Search bottom half of receipt
-      const bottomLines = lines.slice(Math.floor(lines.length / 2));
-      for (const line of bottomLines) {
-          // If the line looks like typical extra noise, skip it
-          if (excludeKeywords.some(kw => line.includes(kw))) continue;
-
-          const match = line.match(numberRegex);
-          if (match) {
-               const cleanNum = match[1].replace(/\s/g, '').replace(',', '.');
-               const val = parseFloat(cleanNum);
-               if (!isNaN(val) && val > maxNum) {
-                   maxNum = val;
-               }
-          }
-      }
-      if (maxNum > 0) {
-          bestAmount = maxNum;
-      }
-  }
-
-  return {
-    totalAmount: bestAmount,
-    currency: currencyCandidate,
-    category: categoryCandidate
-  };
-}
+};

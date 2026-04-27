@@ -252,6 +252,57 @@
   color: var(--color-text);
 }
 
+.expenseAmountWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.expenseUnclaimed {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #b91c1c;
+  background-color: #fee2e2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.expenseAmountConverted {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-weight: 500;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.expenseAmountConvertedFailed {
+  font-size: 0.7rem;
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 999px;
+  padding: 1px 6px;
+  white-space: nowrap;
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.fxBadge {
+  font-size: 0.75rem;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.fxBadgeFailed {
+  font-size: 0.75rem;
+  color: #b45309;
+  font-weight: 600;
+}
+
 .cardFooter {
   display: flex;
   justify-content: space-between;
@@ -426,7 +477,7 @@
 /* FLOATING ADD BUTTON & SETTLE UP */
 .fabButton {
   position: fixed;
-  bottom: 80px; /* Above the app nav bar */
+  bottom: 110px; /* Clear above the app nav bar */
   left: 50%;
   transform: translateX(-50%);
   width: 56px;
@@ -475,6 +526,11 @@
   padding: 1.5rem;
   width: 100%;
   max-width: 400px;
+  /* Cap height so content doesn't slide under the bottom nav (~80px on mobile,
+     plus a safe padding). Inner body scrolls instead. */
+  max-height: calc(100vh - 8rem);
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   animation: modalFadeIn 0.2s ease-out;
 }
@@ -509,6 +565,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* Allow inner body to scroll when content is taller than the modal cap. */
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .accordionItem {
@@ -666,6 +726,48 @@
   max-width: 90vw;
 }
 
+.receiptViewerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  z-index: 1200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  cursor: zoom-out;
+  animation: modalFadeIn 0.2s ease-out;
+}
+
+.receiptViewerClose {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  color: #1a1a1a;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+  transition: background-color 0.15s, transform 0.1s;
+}
+
+.receiptViewerClose:hover {
+  background: #fff;
+}
+
+.receiptViewerClose:active {
+  transform: scale(0.95);
+}
+
 .zoomContainer {
   max-width: 100%;
   max-height: 80vh;
@@ -682,7 +784,6 @@
 }
 
 .receiptImg {
-  transition: width 0.2s ease;
   display: block;
   object-fit: contain;
 }

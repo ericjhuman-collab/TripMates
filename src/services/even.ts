@@ -1,4 +1,4 @@
-import { collection, doc, query, where, onSnapshot, getDocs, addDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, query, where, onSnapshot, getDocs, addDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface ExpenseParticipant {
@@ -6,7 +6,15 @@ export interface ExpenseParticipant {
   amount: number; // in cents
 }
 
-export type SplitType = 'EQUAL' | 'PERCENTAGE' | 'EXACT';
+export interface ReceiptItem {
+  id: string;
+  description: string;
+  price: number; // in cents, total for the row (e.g. 2x at 120 each = 240)
+  quantity: number;
+  allocations: Record<string, number>; // uid -> number of parts claimed
+}
+
+export type SplitType = 'EQUAL' | 'PERCENTAGE' | 'EXACT' | 'ITEMIZED';
 
 export interface Expense {
   id: string;
@@ -21,6 +29,11 @@ export interface Expense {
   category?: string;
   creatorId?: string;
   receiptUrl?: string;
+  items?: ReceiptItem[];
+  tip?: number; // in cents, distributed proportionally to claims when splitType=ITEMIZED
+  tax?: number; // in cents, informational
+  merchantName?: string;
+  transactionDate?: string; // ISO YYYY-MM-DD
   createdAt: number;
 }
 
@@ -58,6 +71,11 @@ export const addExpenseToDb = async (expenseData: Omit<Expense, 'id'>) => {
 export const updateExpenseInDb = async (id: string, updates: Partial<Expense>) => {
   const docRef = doc(db, 'expenses', id);
   return await updateDoc(docRef, updates);
+};
+
+export const deleteExpenseFromDb = async (id: string) => {
+  const docRef = doc(db, 'expenses', id);
+  return await deleteDoc(docRef);
 };
 
 // --- Payments ---

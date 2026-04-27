@@ -5,11 +5,12 @@ import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import {
   type Expense, type Payment,
-  subscribeToExpenses, addExpenseToDb, updateExpenseInDb,
+  subscribeToExpenses, addExpenseToDb, updateExpenseInDb, deleteExpenseFromDb,
   subscribeToPayments, addPaymentToDb, updatePaymentInDb,
   replacePendingPayments
 } from '../services/even';
 import { EvenContext } from './useEven';
+import { useExpenseConversions } from '../hooks/useExpenseConversions';
 
 // --- Mock Data ---
 const MOCK_PARTICIPANTS = [
@@ -192,35 +193,69 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return payments.filter(pay => pay.tripId === activeTrip.id);
   }, [activeTrip, payments]);
 
-  const totalTripCost = useMemo(() => {
-    return activeTripExpenses.reduce((acc, curr) => acc + curr.amount, 0);
-  }, [activeTripExpenses]);
+  const baseCurrency = activeTrip?.baseCurrency || 'SEK';
 
-  // Calculate balances: positive means they paid more than their share (owed money)
-  // negative means they paid less than their share (owe money)
+  const { conversions: convertedAmounts, loading: fxLoading, anyFailed: fxFailed } =
+    useExpenseConversions(activeTripExpenses, baseCurrency);
+
+  const totalTripCost = useMemo(() => {
+    return activeTripExpenses.reduce((acc, exp) => {
+      const conv = convertedAmounts.get(exp.id);
+      return acc + (conv?.convertedCents ?? exp.amount);
+    }, 0);
+  }, [activeTripExpenses, convertedAmounts]);
+
+  // Calculate balances in the trip's base currency. Each expense's amounts are first
+  // converted using the FX rate captured for that expense's transaction date.
+  // Positive balance = paid more than your share (owed money). Negative = owe money.
   const userBalances = useMemo(() => {
     const balances: Record<string, number> = {};
 
-    // 1. Add up what everyone paid
     activeTripExpenses.forEach(exp => {
-      balances[exp.payerId] = (balances[exp.payerId] || 0) + exp.amount;
-      
-      // 2. Subtract what everyone's share is
-      exp.participants.forEach(p => {
-        balances[p.uid] = (balances[p.uid] || 0) - p.amount;
-      });
+      const rate = convertedAmounts.get(exp.id)?.rate ?? 1;
+      const expAmountBase = Math.round(exp.amount * rate);
+
+      balances[exp.payerId] = (balances[exp.payerId] || 0) + expAmountBase;
+
+      if (exp.splitType === 'ITEMIZED' && exp.items && exp.items.length > 0) {
+        const claimSums: Record<string, number> = {};
+        let totalClaimSum = 0;
+
+        for (const item of exp.items) {
+          const totalParts = Object.values(item.allocations).reduce((a, b) => a + b, 0);
+          if (totalParts === 0) continue;
+          const itemPriceBase = item.price * rate;
+          const perPart = itemPriceBase / totalParts;
+          for (const [uid, parts] of Object.entries(item.allocations)) {
+            if (parts <= 0) continue;
+            const userShare = perPart * parts;
+            claimSums[uid] = (claimSums[uid] || 0) + userShare;
+            totalClaimSum += userShare;
+          }
+        }
+
+        const tipBase = (exp.tip || 0) * rate;
+        for (const [uid, claimSum] of Object.entries(claimSums)) {
+          const tipShare = totalClaimSum > 0 ? tipBase * (claimSum / totalClaimSum) : 0;
+          balances[uid] = (balances[uid] || 0) - claimSum - tipShare;
+        }
+      } else {
+        exp.participants.forEach(p => {
+          balances[p.uid] = (balances[p.uid] || 0) - Math.round(p.amount * rate);
+        });
+      }
     });
 
-    // 3. Adjust for payments already made (ONLY COMPLETED)
+    // Payments are already in base currency (settle-up creates them that way).
     activeTripPayments.forEach(pay => {
       if (pay.status === 'COMPLETED') {
-        balances[pay.fromUid] = (balances[pay.fromUid] || 0) + pay.amount; // Sent money, so their debt decreases (balance goes up)
-        balances[pay.toUid] = (balances[pay.toUid] || 0) - pay.amount; // Received money, so they owe more (balance goes down)
+        balances[pay.fromUid] = (balances[pay.fromUid] || 0) + pay.amount;
+        balances[pay.toUid] = (balances[pay.toUid] || 0) - pay.amount;
       }
     });
 
     return balances;
-  }, [activeTripExpenses, activeTripPayments]);
+  }, [activeTripExpenses, activeTripPayments, convertedAmounts]);
 
   const addExpense = async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
     const newExpense = {
@@ -243,6 +278,14 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       return;
     }
     await updateExpenseInDb(id, updates);
+  };
+
+  const deleteExpense = async (id: string) => {
+    if (activeTrip?.id.startsWith('mock_') || activeTrip?.id === 't1') {
+      setExpenses(prev => prev.filter(exp => exp.id !== id));
+      return;
+    }
+    await deleteExpenseFromDb(id);
   };
 
   const addPayment = async (payment: Omit<Payment, 'id' | 'createdAt'>) => {
@@ -348,12 +391,17 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       participants: finalParticipants,
       addExpense,
       updateExpense,
+      deleteExpense,
       addPayment,
       updatePayment,
       triggerSettleUp,
       totalTripCost,
       userBalances,
-      isSettled
+      isSettled,
+      baseCurrency,
+      convertedAmounts,
+      fxLoading,
+      fxFailed
     }}>
       {children}
     </EvenContext.Provider>

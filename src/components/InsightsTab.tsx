@@ -121,7 +121,7 @@ export const InsightsTab: React.FC = () => {
                 
                 <div className={styles.chartWrapper}>
                     {graphType === 'CATEGORIES' && categoryData.length > 0 && (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={250} minHeight={250}>
                             <BarChart
                                 data={categoryData}
                                 margin={{ top: 20, right: 10, left: 0, bottom: 20 }}
@@ -145,7 +145,7 @@ export const InsightsTab: React.FC = () => {
                     )}
 
                     {graphType === 'PAYERS' && payersData.length > 0 && (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height={250} minHeight={250}>
                             <BarChart
                                 data={payersData}
                                 margin={{ top: 20, right: 10, left: 0, bottom: 20 }}

@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 import type { AppUser } from './AuthContext';
 import type { Expense, Payment } from '../services/even';
+import type { ExpenseConversion } from '../hooks/useExpenseConversions';
 
 export interface EvenContextState {
     expenses: Expense[];
@@ -8,12 +9,17 @@ export interface EvenContextState {
     participants: (Partial<AppUser> & { uid: string; shortName: string; initials: string; color?: string; photoURL?: string })[];
     addExpense: (expense: Omit<Expense, 'id' | 'createdAt'>) => void;
     updateExpense: (id: string, updates: Partial<Omit<Expense, 'id' | 'createdAt'>>) => void;
+    deleteExpense: (id: string) => Promise<void>;
     addPayment: (payment: Omit<Payment, 'id' | 'createdAt'>) => void;
     updatePayment: (id: string, updates: Partial<Payment>) => void;
     triggerSettleUp: () => void;
     totalTripCost: number;
     userBalances: Record<string, number>;
     isSettled: boolean;
+    baseCurrency: string;
+    convertedAmounts: Map<string, ExpenseConversion>;
+    fxLoading: boolean;
+    fxFailed: boolean;
 }
 
 export const EvenContext = createContext<EvenContextState | undefined>(undefined);

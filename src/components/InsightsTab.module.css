@@ -55,15 +55,20 @@
     height: 250px;
     width: 100%;
     position: relative;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    /* Recharts' ResponsiveContainer needs a directly-sized parent, not a flex
+       container — flex would collapse it to 0×0 and trigger width(-1)/height(-1). */
 }
 
 .emptyState {
     color: #94A3B8;
     font-style: italic;
     font-size: 14px;
+    /* Center the empty-state message inside the fixed-size chartWrapper. */
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 /* Custom Tooltip */

@@ -1,12 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import { useEven } from '../context/useEven';
 import { type Expense } from '../services/even';
 import { getCategoryById } from '../utils/categories';
-import { ReceiptText, ChevronDown, Plus } from 'lucide-react';
+import { ReceiptText, ChevronDown, Plus, X } from 'lucide-react';
 import styles from './Even.module.css';
 import { ExpenseModal } from '../components/ExpenseModal';
+import { ReceiptClaimModal } from '../components/ReceiptClaimModal';
+import { AddExpenseChoiceSheet } from '../components/AddExpenseChoiceSheet';
+import { ScanReceiptModal } from '../components/ScanReceiptModal';
 import { InsightsTab } from '../components/InsightsTab';
 
 type TabView = 'EXPENSES' | 'BALANCES' | 'PAYMENTS' | 'INSIGHTS';
@@ -81,21 +84,59 @@ const InfoAccordion = () => {
 export const Even: React.FC = () => {
     const { activeTrip } = useTrip();
     const { appUser } = useAuth();
-    const { expenses, payments, participants, totalTripCost, userBalances, triggerSettleUp, updatePayment, isSettled } = useEven();
+    const { expenses, payments, participants, totalTripCost, userBalances, triggerSettleUp, updatePayment, isSettled, baseCurrency, convertedAmounts, fxLoading, fxFailed } = useEven();
     const [activeTab, setActiveTab] = useState<TabView>('EXPENSES');
     const [infoModal, setInfoModal] = useState<{title: string, content: React.ReactNode} | null>(null);
     const [showSettleModal, setShowSettleModal] = useState(false);
+    const [expandedBalanceUid, setExpandedBalanceUid] = useState<string | null>(null);
     const [showExpenseModal, setShowExpenseModal] = useState(false);
     const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
     const [viewingReceipt, setViewingReceipt] = useState<string | null>(null);
     const [isZoomed, setIsZoomed] = useState(false);
-    const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
+    const zoomContainerRef = useRef<HTMLDivElement>(null);
 
-    // Helper to format currency
-    const formatCurrency = (amountInCents: number) => {
+    useEffect(() => {
+        if (!isZoomed) return;
+        const el = zoomContainerRef.current;
+        if (!el) return;
+        const centerScroll = () => {
+            el.scrollLeft = (el.scrollWidth - el.clientWidth) / 2;
+            el.scrollTop = (el.scrollHeight - el.clientHeight) / 2;
+        };
+        centerScroll();
+        const raf = requestAnimationFrame(centerScroll);
+        return () => cancelAnimationFrame(raf);
+    }, [isZoomed, viewingReceipt]);
+    const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
+    const [claimingExpense, setClaimingExpense] = useState<Expense | null>(null);
+    const [showChoiceSheet, setShowChoiceSheet] = useState(false);
+    const [showScanModal, setShowScanModal] = useState(false);
+
+    // Helper to format currency. Pass an explicit currency when displaying a per-expense amount.
+    const formatCurrency = (amountInCents: number, currency?: string) => {
         const formatted = new Intl.NumberFormat('sv-SE').format(Math.round(amountInCents / 100));
-        return `${formatted} ${activeTrip?.baseCurrency || 'SEK'}`;
+        return `${formatted} ${currency || activeTrip?.baseCurrency || 'SEK'}`;
     };
+
+    const sortedExpenses = useMemo(() => {
+        const computeUnclaimed = (exp: Expense): number => {
+            if (exp.splitType !== 'ITEMIZED' || !exp.items) return 0;
+            let unclaimed = 0;
+            for (const item of exp.items) {
+                const totalParts = Object.values(item.allocations).reduce((a, b) => a + b, 0);
+                const quantity = item.quantity || 1;
+                if (quantity > 1) {
+                    unclaimed += (item.price / quantity) * Math.max(0, quantity - totalParts);
+                } else if (totalParts === 0) {
+                    unclaimed += item.price;
+                }
+            }
+            return unclaimed;
+        };
+        return expenses
+            .map(expense => ({ expense, unclaimedCents: computeUnclaimed(expense) }))
+            .sort((a, b) => (b.unclaimedCents > 0 ? 1 : 0) - (a.unclaimedCents > 0 ? 1 : 0));
+    }, [expenses]);
 
     const renderExpenses = () => (
         <div className={styles.tabContent}>
@@ -103,14 +144,22 @@ export const Even: React.FC = () => {
             <p className={styles.dateSeparator}>AUG 2025</p>
 
             <div className={styles.list}>
-                {expenses.map(expense => {
+                {sortedExpenses.map(({ expense, unclaimedCents }) => {
                     const payer = participants.find(p => p.uid === expense.payerId);
-                    const canEdit = !isSettled && (appUser?.uid === expense.payerId || appUser?.uid === expense.creatorId);
+                    const isItemized = expense.splitType === 'ITEMIZED';
+                    const myUid = appUser?.uid;
+                    const myClaimedSomething = isItemized && expense.items
+                        ? expense.items.some(it => (it.allocations[myUid || ''] || 0) > 0)
+                        : false;
+                    const hasUnclaimed = unclaimedCents > 0;
+                    const canEdit = !isSettled && !isItemized && (myUid === expense.payerId || myUid === expense.creatorId);
+                    const cardClickable = canEdit || isItemized;
                     return (
-                        <div 
-                            key={expense.id} 
-                            className={`${styles.card} ${canEdit ? styles.cursorPointer : styles.cursorDefault}`}
+                        <div
+                            key={expense.id}
+                            className={`${styles.card} ${cardClickable ? styles.cursorPointer : styles.cursorDefault}`}
                             {...(canEdit ? { onClick: () => { setEditingExpense(expense); setShowExpenseModal(true); } } : {})}
+                            {...(isItemized && !canEdit ? { onClick: () => setClaimingExpense(expense) } : {})}
                         >
                             <div className={styles.cardMain}>
                                 <div className={styles.expenseIconWrapper}>
@@ -121,11 +170,41 @@ export const Even: React.FC = () => {
                                     )}
                                 </div>
                                 <div className={styles.expenseDetails}>
-                                    <h4 className={styles.expenseTitle}>{expense.description}</h4>
-                                    <p className={styles.expenseDate}>Wednesday, Aug 20</p>
+                                    <h4 className={styles.expenseTitle}>{expense.merchantName || expense.description}</h4>
+                                    <p className={styles.expenseDate}>
+                                        {isItemized
+                                            ? (myClaimedSomething ? 'Mina poster valda — tryck för att ändra' : 'Välj dina poster')
+                                            : 'Wednesday, Aug 20'}
+                                    </p>
                                 </div>
-                                <div className={styles.expenseAmount}>
-                                    {formatCurrency(expense.amount)}
+                                <div className={styles.expenseAmountWrap}>
+                                    <div className={styles.expenseAmount}>
+                                        {formatCurrency(expense.amount, expense.currency)}
+                                    </div>
+                                    {(() => {
+                                        const conv = convertedAmounts.get(expense.id);
+                                        const expCurrency = expense.currency || baseCurrency;
+                                        if (expCurrency === baseCurrency || !conv) return null;
+                                        if (conv.loading) {
+                                            return <div className={styles.expenseAmountConverted}>≈ omräknar…</div>;
+                                        }
+                                        if (conv.failed) {
+                                            return <div className={styles.expenseAmountConvertedFailed} title="Kunde inte hämta växelkurs">FX saknas</div>;
+                                        }
+                                        return (
+                                            <div className={styles.expenseAmountConverted}>
+                                                ≈ {formatCurrency(conv.convertedCents, baseCurrency)}
+                                            </div>
+                                        );
+                                    })()}
+                                    {hasUnclaimed && (
+                                        <div
+                                            className={styles.expenseUnclaimed}
+                                            title="Belopp som ännu inte är tilldelat"
+                                        >
+                                            {formatCurrency(unclaimedCents, expense.currency)} kvar
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                             <div className={styles.cardFooter}>
@@ -174,18 +253,63 @@ export const Even: React.FC = () => {
             <div className={styles.list}>
                 {participants.map(p => {
                     const balance = userBalances[p.uid] || 0;
+                    const isOpen = expandedBalanceUid === p.uid;
+                    // Pending payment lines that involve this user — debits owed by them, credits owed to them.
+                    const owesTo = payments.filter(pay => pay.status === 'PENDING' && pay.fromUid === p.uid);
+                    const owedBy = payments.filter(pay => pay.status === 'PENDING' && pay.toUid === p.uid);
+                    const hasBreakdown = owesTo.length + owedBy.length > 0;
+
                     return (
                         <div key={p.uid} className={styles.cardSmall}>
-                            <div className={styles.balanceRow}>
+                            <button
+                                type="button"
+                                className={styles.balanceRow}
+                                onClick={() => setExpandedBalanceUid(isOpen ? null : p.uid)}
+                                style={{ width: '100%', background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', color: 'inherit', textAlign: 'left' }}
+                                aria-expanded={isOpen}
+                            >
                                 <Avatar participant={p} className={styles.avatarSmall} />
                                 <span className={styles.participantName}>{p.shortName || p.name}</span>
                                 <div className={styles.balanceAmountWrapper}>
                                     <span className={`${styles.balanceAmount} ${balance > 0 ? styles.positive : balance < 0 ? styles.negative : ''}`}>
-                                        {formatCurrency(Math.abs(balance))} {balance < 0 && 'owes'}
+                                        {formatCurrency(Math.abs(balance), baseCurrency)} {balance < 0 && 'owes'}
                                     </span>
-                                    <ChevronDown size={20} className={styles.chevron} />
+                                    <ChevronDown
+                                        size={20}
+                                        className={styles.chevron}
+                                        style={{ transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                                    />
                                 </div>
-                            </div>
+                            </button>
+                            {isOpen && (
+                                <div style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                    {!hasBreakdown && (
+                                        <div style={{ padding: '0.4rem 0' }}>
+                                            {balance === 0
+                                                ? 'All settled up.'
+                                                : 'Click "Settle Up" above to generate a payment breakdown.'}
+                                        </div>
+                                    )}
+                                    {owesTo.map(pay => {
+                                        const recipient = participants.find(x => x.uid === pay.toUid);
+                                        return (
+                                            <div key={pay.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderTop: '1px solid #f3f4f6' }}>
+                                                <span>→ pays <strong>{recipient?.shortName || recipient?.name || 'someone'}</strong></span>
+                                                <span style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(pay.amount, pay.currency)}</span>
+                                            </div>
+                                        );
+                                    })}
+                                    {owedBy.map(pay => {
+                                        const debtor = participants.find(x => x.uid === pay.fromUid);
+                                        return (
+                                            <div key={pay.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderTop: '1px solid #f3f4f6' }}>
+                                                <span>← receives from <strong>{debtor?.shortName || debtor?.name || 'someone'}</strong></span>
+                                                <span style={{ color: '#15803d', fontWeight: 600 }}>{formatCurrency(pay.amount, pay.currency)}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     );
                 })}
@@ -223,7 +347,7 @@ export const Even: React.FC = () => {
                                         <p className={styles.paymentTo}>{toUsr?.name}</p>
                                     </div>
                                     <div className={`${styles.paymentAmountCol} ${styles.paymentAmountColUnpaid}`}>
-                                        <span className={`${styles.paymentAmount} ${styles.paymentAmountUnpaid}`}>{formatCurrency(payment.amount)}</span>
+                                        <span className={`${styles.paymentAmount} ${styles.paymentAmountUnpaid}`}>{formatCurrency(payment.amount, payment.currency)}</span>
                                         {isPayer && (
                                             <button 
                                                 className={styles.markPaidBtn} 
@@ -260,7 +384,7 @@ export const Even: React.FC = () => {
                                         <p className={styles.paymentTo}>{toUsr?.name}</p>
                                     </div>
                                     <div className={`${styles.paymentAmountCol} ${styles.paidOpacity}`}>
-                                        <span className={styles.paymentAmount}>{formatCurrency(payment.amount)}</span>
+                                        <span className={styles.paymentAmount}>{formatCurrency(payment.amount, payment.currency)}</span>
                                         <span className={styles.paymentDate}>
                                             {payment.date && payment.date !== '' ? new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(payment.date)) : 'Completed'}
                                         </span>
@@ -280,7 +404,11 @@ export const Even: React.FC = () => {
              <div className={styles.titleRow}>
                  <div>
                      <h1 className={styles.title}>{activeTrip?.destination || activeTrip?.name || 'Kungsleden 2025'}</h1>
-                     <span className={styles.totalCost}>Total expenses: {formatCurrency(totalTripCost)}</span>
+                     <span className={styles.totalCost}>
+                         Total expenses: {formatCurrency(totalTripCost, baseCurrency)}
+                         {fxLoading && <span className={styles.fxBadge} title="Hämtar växelkurser…"> · omräknar…</span>}
+                         {fxFailed && !fxLoading && <span className={styles.fxBadgeFailed} title="Vissa växelkurser kunde inte hämtas"> · FX saknas</span>}
+                     </span>
                  </div>
                  <div className={styles.titleActions}>
                      <button 
@@ -320,7 +448,7 @@ export const Even: React.FC = () => {
 
              {/* FAB */}
              {!isSettled && (
-                 <button className={styles.fabButton} title="Add Expense" onClick={() => { setEditingExpense(null); setShowExpenseModal(true); }}>
+                 <button className={styles.fabButton} title="Add Expense" onClick={() => setShowChoiceSheet(true)}>
                      <Plus size={32} color="white" />
                  </button>
              )}
@@ -363,26 +491,28 @@ export const Even: React.FC = () => {
 
              {/* RECEIPT VIEWER MODAL */}
              {viewingReceipt && (
-                <div className={styles.modalOverlay} onClick={() => { setViewingReceipt(null); setIsZoomed(false); }}>
-                    <div className={`${styles.modalContent} ${styles.receiptModalContent}`} onClick={e => e.stopPropagation()}>
-                        <div className={styles.modalCloseOuter}>
-                            <button 
-                                className={styles.modalCloseInner} 
-                                onClick={() => { setViewingReceipt(null); setIsZoomed(false); }}
-                                aria-label="Close receipt"
-                            >&times;</button>
-                            
-                            <div 
-                                className={`${styles.zoomContainer} ${isZoomed ? styles.zoomContainerOpen : styles.zoomContainerClosed}`}
-                            >
-                                <img 
-                                    src={viewingReceipt} 
-                                    alt="Receipt Full Size" 
-                                    onClick={() => setIsZoomed(!isZoomed)}
-                                    className={`${styles.receiptImg} ${isZoomed ? styles.zoomedIn : styles.zoomedOut}`}
-                                />
-                            </div>
-                        </div>
+                <div
+                    className={styles.receiptViewerOverlay}
+                    onClick={() => { setViewingReceipt(null); setIsZoomed(false); }}
+                >
+                    <button
+                        className={styles.receiptViewerClose}
+                        onClick={(e) => { e.stopPropagation(); setViewingReceipt(null); setIsZoomed(false); }}
+                        aria-label="Stäng kvitto"
+                    >
+                        <X size={22} strokeWidth={2.5} />
+                    </button>
+                    <div
+                        ref={zoomContainerRef}
+                        className={`${styles.zoomContainer} ${isZoomed ? styles.zoomContainerOpen : styles.zoomContainerClosed}`}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <img
+                            src={viewingReceipt}
+                            alt="Receipt Full Size"
+                            onClick={() => setIsZoomed(!isZoomed)}
+                            className={`${styles.receiptImg} ${isZoomed ? styles.zoomedIn : styles.zoomedOut}`}
+                        />
                     </div>
                 </div>
              )}
@@ -406,12 +536,52 @@ export const Even: React.FC = () => {
 
              {/* EXPENSE MODAL */}
              {showExpenseModal && (
-                 <ExpenseModal 
+                 <ExpenseModal
                      onClose={() => {
                          setShowExpenseModal(false);
                          setEditingExpense(null);
                      }}
                      initialExpense={editingExpense || undefined}
+                 />
+             )}
+
+             {/* RECEIPT CLAIM MODAL */}
+             {claimingExpense && (() => {
+                 // Pull the freshest copy of the expense from context so live edits reflect inside the modal
+                 const fresh = expenses.find(e => e.id === claimingExpense.id) || claimingExpense;
+                 return (
+                     <ReceiptClaimModal
+                         expense={fresh}
+                         onClose={() => setClaimingExpense(null)}
+                     />
+                 );
+             })()}
+
+             {/* ADD EXPENSE CHOICE SHEET */}
+             {showChoiceSheet && (
+                 <AddExpenseChoiceSheet
+                     onClose={() => setShowChoiceSheet(false)}
+                     onChooseScan={() => {
+                         setShowChoiceSheet(false);
+                         setShowScanModal(true);
+                     }}
+                     onChooseManual={() => {
+                         setShowChoiceSheet(false);
+                         setEditingExpense(null);
+                         setShowExpenseModal(true);
+                     }}
+                 />
+             )}
+
+             {/* SCAN RECEIPT MODAL */}
+             {showScanModal && (
+                 <ScanReceiptModal
+                     onClose={() => setShowScanModal(false)}
+                     onCreated={(exp) => {
+                         setShowScanModal(false);
+                         // Open claim modal so the user can immediately claim their items
+                         setClaimingExpense(exp);
+                     }}
                  />
              )}
         </div>
