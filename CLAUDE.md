@@ -37,7 +37,7 @@ Cloud Functions live in `functions/` as a separate npm package (Node 22, region 
 - **React 19 + TypeScript strict** (incl. `noUnusedLocals`, `noUnusedParameters`)
 - **Vite 8**, ESLint 9 flat config
 - **Firebase 12**: Auth, Firestore, Storage, Realtime DB, Functions — initialized in [src/services/firebase.ts](src/services/firebase.ts) with hardcoded web API key
-- **react-router-dom 7**, **react-globe.gl** + Three.js for the country globe, **leaflet** + Google Maps loader for trip maps, **recharts** (currently unused — flag candidate)
+- **react-router-dom 7**, **react-globe.gl** + Three.js for the country globe, **leaflet** + Google Maps loader for trip maps, **recharts** (powers the INSIGHTS tab in [src/components/InsightsTab.tsx](src/components/InsightsTab.tsx))
 
 ### Routing topology — non-obvious
 [src/App.tsx](src/App.tsx) has two distinct trees of protected routes:
