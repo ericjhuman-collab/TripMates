@@ -3,7 +3,7 @@ import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { ArrowLeft, Info, Camera } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
-import { addActivity, updateActivity, getSavedLists, getSavedActivities, updateActivity as updateMasterActivity, type Activity, type ActivityList } from '../services/activities';
+import { addActivity, addTripActivityWithPrefs, updateActivity, getSavedLists, getSavedActivities, updateActivity as updateMasterActivity, type Activity, type ActivityList } from '../services/activities';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../services/firebase';
 import { CustomSelect } from '../components/CustomSelect';
@@ -161,13 +161,22 @@ export const ActivityEditorPage: React.FC = () => {
 
             if (existingActivity?.id) {
                 await updateActivity(existingActivity.id, data);
-            } else {
-                await addActivity(data as Activity);
+            } else if (trip && tripId && appUser) {
+                // Use the prefs-aware variant so members with autoJoinActivities are pre-RSVP'd
+                // and the rest are notified (respecting muteNotifications).
+                await addTripActivityWithPrefs(
+                    data as Activity,
+                    trip.members || [],
+                    { uid: appUser.uid, name: appUser.name || appUser.fullName || 'A member', avatarUrl: appUser.avatarUrl },
+                );
                 if (importedFromId) {
                     await updateMasterActivity(importedFromId, {
                         usedInTrips: [...new Set([...usedInTripsRef, tripId])]
                     });
                 }
+            } else {
+                // Fallback: no trip context (e.g. saved-library activity)
+                await addActivity(data as Activity);
             }
 
             navigate(-1);

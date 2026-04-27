@@ -11,10 +11,12 @@ export interface Activity {
     locationName: string;
     address: string; 
     location: { lat: number; lng: number } | null;
-    votes?: Record<string, string>; 
+    votes?: Record<string, string>;
     enableVoting?: boolean;
     voteQuestion?: string;
     votingClosed?: boolean;
+    /** UIDs that have RSVP'd as 'going'. Pre-populated for members with autoJoinActivities=true. */
+    attendees?: string[];
     mapIcon?: string;
     imageUrl?: string;  
     tripId?: string; // Optional for saved templates
@@ -125,6 +127,58 @@ const getMockActivities = (): Activity[] => {
 
 export const addActivity = async (activity: Omit<Activity, 'id'>) => {
     const docRef = await addDoc(collection(db, 'activities'), activity);
+    return docRef.id;
+};
+
+import { getAllMemberPrefs } from './memberPrefs';
+import { notifyTripMembers } from './social';
+
+/**
+ * Add an activity AND apply the trip's per-member preferences:
+ *  - Pre-populate `attendees` with members who have `autoJoinActivities=true`
+ *  - Notify all trip members (respecting their `muteNotifications` pref)
+ *
+ * `tripMembers` is the full member uid list from the trip doc; pass it from the caller
+ * to avoid an extra round-trip.
+ */
+export const addTripActivityWithPrefs = async (
+    activity: Omit<Activity, 'id'>,
+    tripMembers: string[],
+    actor: { uid: string; name: string; avatarUrl?: string },
+): Promise<string> => {
+    if (!activity.tripId) throw new Error('addTripActivityWithPrefs requires tripId on activity');
+
+    const prefsMap = await getAllMemberPrefs(activity.tripId);
+
+    // Auto-attend: anyone with autoJoinActivities=true (creator is implicit, no need to add)
+    const autoAttendees = tripMembers.filter(uid => {
+        if (uid === actor.uid) return false;
+        const p = prefsMap.get(uid);
+        return p?.autoJoinActivities === true;
+    });
+
+    const attendees = Array.from(new Set([
+        actor.uid,
+        ...(activity.attendees || []),
+        ...autoAttendees,
+    ]));
+
+    const docRef = await addDoc(collection(db, 'activities'), { ...activity, attendees });
+
+    // Fan-out notifications (respects muteNotifications per member).
+    notifyTripMembers(
+        tripMembers.filter(uid => uid !== actor.uid),
+        {
+            type: 'trip:new_activity',
+            tripId: activity.tripId,
+            fromUid: actor.uid,
+            fromName: actor.name,
+            fromAvatarUrl: actor.avatarUrl,
+            message: `${actor.name} added a new activity: ${activity.title}`,
+            linkUrl: `/admin/${activity.tripId}`,
+        },
+    ).catch(e => console.warn('Activity notification fan-out failed', e));
+
     return docRef.id;
 };
 

@@ -114,25 +114,30 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Fetch all user trips + merge mock data
     useEffect(() => {
+        let cancelled = false;
         const fetchUserTrips = async () => {
             let realTrips: Trip[] = [];
             if (appUser?.trips && appUser.trips.length > 0) {
                 try {
                     const tripPromises = appUser.trips.map(id => getDoc(doc(db, 'trips', id)));
                     const tripDocs = await Promise.all(tripPromises);
+                    if (cancelled) return;
                     realTrips = tripDocs.filter(d => d.exists()).map(d => ({ ...d.data(), id: d.id } as Trip));
                 } catch (e) {
                     console.error('Failed to fetch user trips', e);
                 }
             }
+            if (cancelled) return;
             // Stop merging mock trips so new users see a clean state
             const merged = [...realTrips];
             setUserTrips(merged);
         };
         fetchUserTrips();
+        return () => { cancelled = true; };
     }, [appUser?.trips]);
 
     useEffect(() => {
+        let cancelled = false;
         const loadTrip = async () => {
             if (!appUser || !currentUser) {
                 setActiveTrip(null);
@@ -151,11 +156,13 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 try {
                     const snap = await getDoc(doc(db, 'trips', appUser.activeTripId));
+                    if (cancelled) return;
                     if (snap.exists()) {
                         setActiveTrip({ ...snap.data(), id: snap.id } as Trip);
                     } else {
                         setActiveTrip(null);
                         await updateDoc(doc(db, 'users', currentUser.uid), { activeTripId: null });
+                        if (cancelled) return;
                         await refreshAppUser();
                     }
                 } catch (e) {
@@ -174,6 +181,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         return;
                     }
                     await updateDoc(doc(db, 'users', currentUser.uid), { activeTripId: autoTrip.id });
+                    if (cancelled) return;
                     await refreshAppUser();
                     return; // refreshAppUser will re-trigger this effect
                 }
@@ -181,10 +189,12 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
                 setActiveTrip(null);
             }
+            if (cancelled) return;
             setLoading(false);
         };
 
         loadTrip();
+        return () => { cancelled = true; };
         // appUser / currentUser are intentionally omitted — only .activeTripId and .uid are
         // read (both included above). Adding them would cause re-runs on unrelated profile fields.
         // MOCK_TRIPS is a module-level constant and cannot change.

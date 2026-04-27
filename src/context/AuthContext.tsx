@@ -12,11 +12,19 @@ export interface AppUser {
     email: string;
     name: string;
     fullName?: string;
+    firstName?: string;
+    lastName?: string;
     role: 'admin' | 'user';
     hasAgreed: boolean;
     avatarUrl?: string;
     phoneNumber?: string;
     sharePhoneNumber?: boolean;
+    /** Globally unique handle for @-mentions and search. Lowercase, 3-20 chars. */
+    username?: string;
+    /** ISO 639-1 (e.g. 'sv', 'en'). UI is not yet i18n; this stores the preference. */
+    language?: 'sv' | 'en';
+    /** ISO 3166-1 alpha-2 (e.g. 'SE', 'NO'). User's home country. */
+    country?: string;
     trips?: string[];
     activeTripId?: string | null;
     friends?: string[];
@@ -114,12 +122,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     email: currentUser.email || '',
                     name: currentUser.displayName || currentUser.email?.split('@')[0] || 'Traveler',
                     fullName: existingData.fullName || '',
-                    avatarUrl: existingData.avatarUrl,
                     role: isAdmin ? 'admin' : 'user',
-                    hasAgreed: false,
-                    trips: [],
-                    activeTripId: null,
-                    friends: []
+                    hasAgreed: existingData.hasAgreed ?? false,
+                    trips: existingData.trips || [],
+                    activeTripId: existingData.activeTripId ?? null,
+                    friends: existingData.friends || [],
+                    ...(existingData.avatarUrl ? { avatarUrl: existingData.avatarUrl } : {}),
                 };
                 await setDoc(doc(db, 'users', currentUser.uid), newUser, { merge: true });
                 setAppUser(newUser);
@@ -130,48 +138,61 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [currentUser]);
 
     useEffect(() => {
+        let cancelled = false;
         const unsubscribe = onAuthStateChanged(auth, async (user) => {
+            if (cancelled) return;
             setCurrentUser(user);
-            if (user) {
-                const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (userDoc.exists() && userDoc.data().role) {
-                    const data = { ...userDoc.data(), uid: user.uid } as AppUser;
-                    // If the email is in the admin list, always ensure they have admin role
-                    if (ADMIN_EMAILS.includes(user.email || '') && data.role !== 'admin') {
-                        const updated = { ...data, role: 'admin' as const };
-                        await setDoc(doc(db, 'users', user.uid), updated, { merge: true });
-                        setAppUser(updated);
+            try {
+                if (user) {
+                    const userDoc = await getDoc(doc(db, 'users', user.uid));
+                    if (cancelled) return;
+                    if (userDoc.exists() && userDoc.data().role) {
+                        const data = { ...userDoc.data(), uid: user.uid } as AppUser;
+                        // If the email is in the admin list, always ensure they have admin role
+                        if (ADMIN_EMAILS.includes(user.email || '') && data.role !== 'admin') {
+                            const updated = { ...data, role: 'admin' as const };
+                            await setDoc(doc(db, 'users', user.uid), updated, { merge: true });
+                            if (cancelled) return;
+                            setAppUser(updated);
+                        } else {
+                            setAppUser(data);
+                        }
                     } else {
-                        setAppUser(data);
+                        // First login OR partial creation from Login.tsx — auto-assign defaults.
+                        // Preserve any existing fields (trips/activeTripId/etc) from a prior partial doc.
+                        const isAdmin = ADMIN_EMAILS.includes(user.email || '');
+                        const existingData = userDoc.exists() ? userDoc.data() : {};
+
+                        const newUser: AppUser = {
+                            uid: user.uid,
+                            email: user.email || '',
+                            name: user.displayName || user.email?.split('@')[0] || 'Traveler',
+                            fullName: existingData.fullName || '',
+                            role: isAdmin ? 'admin' : 'user',
+                            hasAgreed: existingData.hasAgreed ?? false,
+                            trips: existingData.trips || [],
+                            activeTripId: existingData.activeTripId ?? null,
+                            friends: existingData.friends || [],
+                            ...(existingData.avatarUrl ? { avatarUrl: existingData.avatarUrl } : {}),
+                        };
+                        await setDoc(doc(db, 'users', user.uid), newUser, { merge: true });
+                        if (cancelled) return;
+                        setAppUser(newUser);
                     }
                 } else {
-                    // First login OR partial creation from Login.tsx — auto-assign defaults
-                    const isAdmin = ADMIN_EMAILS.includes(user.email || '');
-                    const existingData = userDoc.exists() ? userDoc.data() : {};
-                    
-                    const newUser: AppUser = {
-                        uid: user.uid,
-                        email: user.email || '',
-                        name: user.displayName || user.email?.split('@')[0] || 'Traveler',
-                        fullName: existingData.fullName || '',
-                        avatarUrl: existingData.avatarUrl,
-                        role: isAdmin ? 'admin' : 'user',
-                        hasAgreed: false,
-                        trips: [],
-                        activeTripId: null,
-                        friends: []
-                    };
-                    await setDoc(doc(db, 'users', user.uid), newUser, { merge: true });
-                    setAppUser(newUser);
+                    setAppUser(null);
+                    setViewAsUser(false);
                 }
-            } else {
-                setAppUser(null);
-                setViewAsUser(false);
+            } catch (e) {
+                console.error('AuthContext: failed to sync user doc', e);
             }
             setLoading(false);
         });
 
-        return unsubscribe;
+        return () => {
+            cancelled = true;
+            unsubscribe();
+        };
     }, []);
 
     const effectiveAppUser = mockUser || appUser;

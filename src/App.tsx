@@ -4,7 +4,8 @@ import { TripProvider } from './context/TripContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
-import { Agreement } from './pages/Agreement';
+import { Terms } from './pages/Terms';
+import { Privacy } from './pages/Privacy';
 import { Home } from './pages/Home';
 import { Games } from './pages/Games';
 import { Members } from './pages/Members';
@@ -30,7 +31,8 @@ function App() {
             <div className="app-container">
               <Routes>
                 <Route path="/login" element={<Login />} />
-                <Route path="/agreement" element={<Agreement />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
 
                 <Route element={<ProtectedRoute />}>
                   <Route element={<Layout />}>

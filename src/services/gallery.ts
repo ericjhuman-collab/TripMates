@@ -1,6 +1,7 @@
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, query, orderBy, where, onSnapshot, serverTimestamp, getDocs } from 'firebase/firestore';
 import { storage, db } from './firebase';
+import { getAllMemberPrefs } from './memberPrefs';
 
 export interface GalleryImage {
     id: string;
@@ -48,7 +49,23 @@ export const uploadImageToGallery = async (
     // 4. Get the public download URL
     const publicUrl = await getDownloadURL(uploadTask.ref);
 
-    // 5. Save metadata to Firestore under trips/{tripId}/gallery
+    // 5. Filter requested tags by each member's `allowPhotoTags` pref before saving.
+    let allowedTags: string[] = [];
+    if (tags?.taggedMembers?.length) {
+        try {
+            const prefsMap = await getAllMemberPrefs(tripId);
+            allowedTags = tags.taggedMembers.filter(uid => {
+                const p = prefsMap.get(uid);
+                // Default = allowed (true). Only filter out members who explicitly opted out.
+                return p?.allowPhotoTags !== false;
+            });
+        } catch (e) {
+            console.warn('Could not load member prefs; honoring requested tags as-is', e);
+            allowedTags = tags.taggedMembers;
+        }
+    }
+
+    // 6. Save metadata to Firestore under trips/{tripId}/gallery
     const storagePath = `trips/${tripId}/gallery/${fileName}`;
     const galleryRef = collection(db, `trips/${tripId}/gallery`);
     await addDoc(galleryRef, {
@@ -61,7 +78,7 @@ export const uploadImageToGallery = async (
         likes: [],
         ...(tags?.activityId   ? { activityId: tags.activityId }     : {}),
         ...(tags?.activityName ? { activityName: tags.activityName }  : {}),
-        ...(tags?.taggedMembers?.length ? { taggedMembers: tags.taggedMembers } : {}),
+        ...(allowedTags.length ? { taggedMembers: allowedTags } : {}),
     });
 
     return publicUrl;

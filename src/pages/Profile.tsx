@@ -11,6 +11,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { getAllActivities, type Activity } from '../services/activities';
 import { getActivityGallery, getTripGallery, type GalleryImage } from '../services/gallery';
 import { followUser, unfollowUser, getNotifications, markNotificationRead, type SocialNotification } from '../services/social';
+import { changeUsername, isUsernameAvailable, normalizeUsername, validateUsername } from '../services/username';
 import { cityToCountry } from '../utils/cityToCountry';
 import { CountriesGlobe } from '../components/CountriesGlobe';
 import { Groups } from './Groups';
@@ -179,6 +180,68 @@ export const Profile: React.FC = () => {
 
     const [isEditingProfile] = useState(false);
     const [editForm, setEditForm] = useState({ name: '', phoneNumber: '', email: '', avatarUrl: '', sharePhoneNumber: false, shareLocation: true });
+
+    // ── Username editor state ─────────────────────────────────────────────
+    const [usernameInput, setUsernameInput] = useState('');
+    const [usernameStatus, setUsernameStatus] = useState<
+        | { kind: 'idle' }
+        | { kind: 'invalid'; reason: string }
+        | { kind: 'checking' }
+        | { kind: 'available' }
+        | { kind: 'taken' }
+        | { kind: 'unchanged' }
+    >({ kind: 'idle' });
+    const [savingUsername, setSavingUsername] = useState(false);
+
+    // Sync local field with appUser.username when it loads.
+    useEffect(() => {
+        if (appUser?.username !== undefined) {
+            setUsernameInput(appUser.username || '');
+        }
+    }, [appUser?.username]);
+
+    // Debounced live availability check.
+    useEffect(() => {
+        if (!isOwner) return;
+        const candidate = normalizeUsername(usernameInput);
+        if (!candidate) { setUsernameStatus({ kind: 'idle' }); return; }
+        if (candidate === (appUser?.username || '')) {
+            setUsernameStatus({ kind: 'unchanged' }); return;
+        }
+        const v = validateUsername(candidate);
+        if (!v.valid) { setUsernameStatus({ kind: 'invalid', reason: v.reason || 'Invalid username.' }); return; }
+        setUsernameStatus({ kind: 'checking' });
+        let cancelled = false;
+        const t = setTimeout(async () => {
+            try {
+                const free = await isUsernameAvailable(candidate);
+                if (cancelled) return;
+                setUsernameStatus(free ? { kind: 'available' } : { kind: 'taken' });
+            } catch (e) {
+                if (cancelled) return;
+                console.error('Username availability check failed', e);
+                setUsernameStatus({ kind: 'idle' });
+            }
+        }, 350);
+        return () => { cancelled = true; clearTimeout(t); };
+    }, [usernameInput, appUser?.username, isOwner]);
+
+    const handleSaveUsername = async () => {
+        if (!appUser) return;
+        const next = normalizeUsername(usernameInput);
+        if (usernameStatus.kind !== 'available') return;
+        setSavingUsername(true);
+        try {
+            await changeUsername(appUser.uid, appUser.username, next);
+            // The auth context will re-read user doc on next refresh; for snappier UX
+            // we could call updateProfile but changeUsername already wrote the field.
+        } catch (e) {
+            console.error('Failed to change username', e);
+            alert('Could not change username: ' + (e instanceof Error ? e.message : 'unknown'));
+        } finally {
+            setSavingUsername(false);
+        }
+    };
 
     useEffect(() => {
         if (viewTripDetails) {
@@ -686,6 +749,36 @@ export const Profile: React.FC = () => {
 
                         <div className={styles.settingsFields}>
                             <div>
+                                <label className={styles.settingsLabel}>Username</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                                    <span style={{ display: 'inline-flex', alignItems: 'center', padding: '0 0.6rem', background: '#f3f4f6', border: '1px solid #d1d5db', borderRight: 'none', borderRadius: '8px 0 0 8px', color: '#6b7280' }}>@</span>
+                                    <input
+                                        value={usernameInput}
+                                        onChange={e => setUsernameInput(normalizeUsername(e.target.value))}
+                                        placeholder="username"
+                                        className="input-field"
+                                        style={{ borderRadius: '0 8px 8px 0', flex: 1 }}
+                                        maxLength={20}
+                                    />
+                                    <button
+                                        type="button"
+                                        className="btn btn-secondary"
+                                        disabled={usernameStatus.kind !== 'available' || savingUsername}
+                                        onClick={handleSaveUsername}
+                                    >
+                                        {savingUsername ? 'Saving…' : 'Save'}
+                                    </button>
+                                </div>
+                                <p style={{ fontSize: '0.75rem', marginTop: '0.25rem', color: 'var(--color-text-muted)' }}>
+                                    {usernameStatus.kind === 'invalid' && <span style={{ color: '#b91c1c' }}>{usernameStatus.reason}</span>}
+                                    {usernameStatus.kind === 'checking' && 'Checking availability…'}
+                                    {usernameStatus.kind === 'available' && <span style={{ color: '#15803d' }}>✓ Available</span>}
+                                    {usernameStatus.kind === 'taken' && <span style={{ color: '#b91c1c' }}>Already taken.</span>}
+                                    {usernameStatus.kind === 'unchanged' && 'This is your current username.'}
+                                    {usernameStatus.kind === 'idle' && 'Lowercase letters, numbers, periods, underscores. 3–20 characters.'}
+                                </p>
+                            </div>
+                            <div>
                                 <label className={styles.settingsLabel}>Display Name</label>
                                 <input value={editForm.name} onChange={e => setEditForm(prev => ({ ...prev, name: e.target.value }))} placeholder="Name" className="input-field" />
                             </div>
@@ -714,18 +807,19 @@ export const Profile: React.FC = () => {
                                 </label>
                             </div>
                             <div>
-                                <label className={styles.checkboxLabel}>
-                                    <input
-                                        type="checkbox"
-                                        checked={editForm.shareLocation}
-                                        onChange={e => setEditForm(prev => ({ ...prev, shareLocation: e.target.checked }))}
-                                    />
-                                    <span>Share live location on trips</span>
-                                </label>
-                            </div>
-                            <div>
                                 <label className={styles.settingsLabel}>Email Address</label>
-                                <input value={editForm.email} onChange={e => setEditForm(prev => ({ ...prev, email: e.target.value }))} placeholder="Email" className="input-field" />
+                                <input
+                                    value={editForm.email}
+                                    placeholder="Email"
+                                    className="input-field"
+                                    disabled
+                                    readOnly
+                                    title="Email cannot be changed. Contact support to change your email address."
+                                    style={{ opacity: 0.6, cursor: 'not-allowed' }}
+                                />
+                                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                                    Email cannot be changed after registration.
+                                </p>
                             </div>
                             <button className={`btn btn-primary ${styles.saveBtn}`} onClick={handleSaveProfile}>Save Changes</button>
                         </div>

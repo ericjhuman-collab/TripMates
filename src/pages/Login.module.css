@@ -85,3 +85,153 @@
 .link:hover {
   color: var(--color-text);
 }
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.selectRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+}
+
+.selectLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  text-align: left;
+}
+
+.select {
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  font-size: 0.95rem;
+  font-family: inherit;
+  color: var(--color-text);
+}
+
+.pwRules {
+  list-style: none;
+  padding: 0.5rem 0.75rem;
+  margin: 0;
+  background: #f9fafb;
+  border-radius: 8px;
+  font-size: 0.78rem;
+  text-align: left;
+}
+
+.pwRules li {
+  padding: 0.1rem 0;
+}
+
+.pwRules li::before {
+  display: inline-block;
+  width: 1.1rem;
+  font-weight: 700;
+}
+
+.ruleMet {
+  color: #166534;
+}
+
+.ruleMet::before {
+  content: '✓';
+  color: #16a34a;
+}
+
+.ruleUnmet {
+  color: var(--color-text-muted);
+}
+
+.ruleUnmet::before {
+  content: '○';
+}
+
+.termsLabel {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text);
+  text-align: left;
+  padding: 0.25rem 0;
+}
+
+.termsLabel input[type='checkbox'] {
+  margin-top: 0.25rem;
+  flex-shrink: 0;
+}
+
+.termsLabel a {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.fieldWithInfo {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+.fieldWithInfo > .input-field,
+.fieldWithInfo > input {
+  flex: 1;
+}
+
+.infoButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.infoButton:hover,
+.infoButton[aria-expanded='true'] {
+  background: #e5e7eb;
+  color: var(--color-primary);
+}
+
+.fieldHelpBox {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1e3a8a;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  text-align: left;
+}
+
+/* Field-level validation: red border + light red bg. !important wins over
+   the global .input-field utility regardless of cascade order. */
+.invalid {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+}
+
+.invalid:focus {
+  outline-color: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+.termsLabelInvalid {
+  background: #fef2f2;
+  border: 1px solid #dc2626;
+  border-radius: 8px;
+  padding: 0.5rem 0.6rem;
+  margin: -0.25rem -0.6rem;
+}

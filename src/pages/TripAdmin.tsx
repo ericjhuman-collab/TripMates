@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTrip, type Trip, type TripDestination } from '../context/TripContext';
-import { ArrowLeft, Plus, Edit2, Trash2, Calendar as CalendarIcon, Users, Settings, Share2, CheckSquare, Ghost, X, Camera } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Calendar as CalendarIcon, Users, Settings, Share2, CheckSquare, Ghost, X, Camera, Info, CheckCircle2, AlertCircle, MapPin, Phone, BellOff, Tag, Trophy, LogOut, Copy } from 'lucide-react';
+import { getMemberPrefs, updateMemberPrefs, type MemberPrefs, DEFAULT_MEMBER_PREFS } from '../services/memberPrefs';
+import { SUPPORTED_CURRENCIES } from '../utils/currencies';
 import { getAllActivities, type Activity, deleteActivity } from '../services/activities';
 import { getBingoBoard, initBingoBoard, saveBingoBoard, type BingoSquare } from '../services/bingo';
 import { useAuth, type AppUser } from '../context/AuthContext';
@@ -63,7 +65,16 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
         allowMemberActivities: trip.allowMemberActivities || false,
         destinations: trip.destinations || [],
         imageUrl: trip.imageUrl || '',
+        baseCurrency: trip.baseCurrency || 'SEK',
     });
+    const [showCurrencyInfo, setShowCurrencyInfo] = useState(false);
+    const [toast, setToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
+
+    useEffect(() => {
+        if (!toast) return;
+        const t = setTimeout(() => setToast(null), 2800);
+        return () => clearTimeout(t);
+    }, [toast]);
     const [, setCoverFile] = useState<File | null>(null);
     
     // Bingo Editing State
@@ -156,10 +167,10 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                 imageUrl: finalImageUrl,
                 allowMemberActivities: tripForm.allowMemberActivities
             });
-            alert('Trip settings updated!');
+            setToast({ kind: 'success', message: 'Inställningar sparade' });
         } catch (e) {
             console.error('Failed to update trip', e);
-            alert('Failed to save.');
+            setToast({ kind: 'error', message: 'Kunde inte spara. Försök igen.' });
         } finally {
             setSavingTrip(false);
         }
@@ -204,7 +215,10 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
             </div>
 
             <div className={styles.sections}>
-                
+
+                {/* ── Member view: shown to non-admin members ── */}
+                {!isAdmin && <MemberView trip={trip} users={users} />}
+
                 {/* ── Admin Only Sections ── */}
                 {isAdmin && (
                     <>
@@ -274,6 +288,33 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                     { value: 'Company Retreat', label: 'Company Retreat' },
                                     { value: 'Business Event', label: 'Business Event' }
                                 ]}
+                            />
+                        </div>
+                        <div>
+                            <label className={styles.fieldLabel} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <span>Even-valuta</span>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowCurrencyInfo(true)}
+                                    aria-label="Mer info om valutaomräkning"
+                                    style={{
+                                        background: 'none',
+                                        border: 'none',
+                                        padding: 0,
+                                        cursor: 'pointer',
+                                        color: 'var(--color-text-muted)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <Info size={16} />
+                                </button>
+                            </label>
+                            <CustomSelect
+                                className="input-field"
+                                value={tripForm.baseCurrency}
+                                onChange={baseCurrency => setTripForm({ ...tripForm, baseCurrency })}
+                                options={SUPPORTED_CURRENCIES.map(c => ({ value: c.code, label: `${c.code} — ${c.name}` }))}
                             />
                         </div>
                         <div>
@@ -368,6 +409,14 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
 
                         <button className={styles.addDestinationBtn} onClick={handledAddDestination}>
                             <Plus size={18} /> Add another stop
+                        </button>
+
+                        <button
+                            className={`btn btn-primary ${styles.saveBtn}`}
+                            onClick={handleSaveTripDetails}
+                            disabled={savingTrip}
+                        >
+                            {savingTrip ? 'Sparar…' : 'Spara ändringar'}
                         </button>
                     </div>
                 </div>
@@ -703,6 +752,50 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                 document.body
             )}
 
+            {toast && createPortal(
+                <div className={styles.toast} role="status" aria-live="polite">
+                    <div className={`${styles.toastInner} ${toast.kind === 'success' ? styles.toastSuccess : styles.toastError}`}>
+                        {toast.kind === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
+                        <span>{toast.message}</span>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {showCurrencyInfo && createPortal(
+                <div className={`modal-backdrop ${styles.modalBackdrop}`} onClick={() => setShowCurrencyInfo(false)}>
+                    <div className={`card animate-fade-in ${styles.modalCard}`} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>Even-valuta</h2>
+                            <button onClick={() => setShowCurrencyInfo(false)} className={styles.modalCloseBtn} title="Stäng">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.modalForm}>
+                            <p style={{ margin: '0 0 0.75rem 0', lineHeight: 1.5 }}>
+                                Even-valutan är resans <strong>gemensamma redovisningsvaluta</strong>. Alla utgifter,
+                                balanser och slutavräkningar visas och summeras i den här valutan oavsett vilken
+                                valuta varje enskilt kvitto är i.
+                            </p>
+                            <p style={{ margin: '0 0 0.75rem 0', lineHeight: 1.5 }}>
+                                <strong>Så här räknar vi om:</strong> När någon laddar upp ett kvitto i en annan valuta
+                                (t.ex. NOK eller EUR) används <strong>ECB:s officiella mittkurs</strong> för det datum
+                                som står på kvittot. Originalbeloppet visas alltid kvar — omräkningen är bara för att
+                                kunna jämföra och summera.
+                            </p>
+                            <p style={{ margin: 0, lineHeight: 1.5, color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                                <strong>Obs:</strong> Det här är en referenskurs. Det belopp som faktiskt dragits
+                                från ditt kort kan skilja sig något åt eftersom banker och kortutgivare lägger på
+                                egna växlingsavgifter, marginaler och använder sina egna kurser för dagen. Använd
+                                Even-summan som riktlinje vid uppgörelsen — inte som exakt återbetalning av en
+                                korttransaktion.
+                            </p>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
             {destinationToRemove && createPortal(
                 <div className={`modal-backdrop ${styles.modalBackdrop}`} onClick={() => setDestinationToRemove(null)}>
                     <div className={`card animate-fade-in ${styles.modalCard}`} onClick={e => e.stopPropagation()}>
@@ -736,3 +829,241 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
         </div>
     );
 };
+
+// ── Member view: shown when current user is a member but not an admin ────────
+const MemberView: React.FC<{ trip: Trip; users: AppUser[] }> = ({ trip, users }) => {
+    const { currentUser } = useAuth();
+    const { leaveTrip } = useTrip();
+    const navigate = useNavigate();
+    const [prefs, setPrefs] = useState<MemberPrefs>(DEFAULT_MEMBER_PREFS);
+    const [savingKey, setSavingKey] = useState<keyof MemberPrefs | null>(null);
+    const [confirmLeave, setConfirmLeave] = useState(false);
+    const [copied, setCopied] = useState(false);
+
+    useEffect(() => {
+        if (!currentUser) return;
+        let cancelled = false;
+        getMemberPrefs(trip.id, currentUser.uid)
+            .then(p => { if (!cancelled) setPrefs(p); })
+            .catch(e => console.error('Failed to load member prefs', e));
+        return () => { cancelled = true; };
+    }, [trip.id, currentUser]);
+
+    const togglePref = async (key: keyof MemberPrefs, value: boolean) => {
+        if (!currentUser) return;
+        setSavingKey(key);
+        const prev = prefs[key];
+        setPrefs(p => ({ ...p, [key]: value }));
+        try {
+            await updateMemberPrefs(trip.id, currentUser.uid, { [key]: value });
+        } catch (e) {
+            console.error('Failed to update pref', e);
+            setPrefs(p => ({ ...p, [key]: prev }));
+            alert('Could not save that change. Please try again.');
+        } finally {
+            setSavingKey(null);
+        }
+    };
+
+    const handleLeave = async () => {
+        try {
+            await leaveTrip(trip.id);
+            navigate('/');
+        } catch (e) {
+            console.error('Failed to leave trip', e);
+            alert('Could not leave the trip. Please try again.');
+        }
+    };
+
+    const handleCopyCode = async () => {
+        try {
+            await navigator.clipboard.writeText(trip.id);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        } catch (e) {
+            console.error('Clipboard write failed', e);
+        }
+    };
+
+    const startEnd = [trip.startDate, trip.endDate].filter(Boolean).join(' → ') || 'No dates set';
+    const adminMembers = users.filter(u => trip.adminIds?.includes(u.uid));
+    const regularMembers = users.filter(u => trip.members?.includes(u.uid) && !trip.adminIds?.includes(u.uid));
+
+    return (
+        <>
+            {/* Trip info — read only */}
+            <div className={`glass-panel ${styles.panel}`}>
+                <h3 className={styles.sectionTitleDark}><Info size={18} /> Trip Info</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem 1.25rem', fontSize: '0.9rem' }}>
+                    <div><strong>Name:</strong><br />{trip.name || '—'}</div>
+                    <div><strong>Type:</strong><br />{trip.type || '—'}</div>
+                    <div><strong>Destination:</strong><br />{trip.destination || '—'}</div>
+                    <div><strong>Dates:</strong><br />{startEnd}</div>
+                    <div><strong>Accommodation:</strong><br />{trip.accommodation || '—'}</div>
+                    <div><strong>Currency:</strong><br />{trip.baseCurrency || 'SEK'}</div>
+                </div>
+                <p style={{ marginTop: '0.75rem', fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                    Only trip admins can change these. Contact an admin if something is wrong.
+                </p>
+            </div>
+
+            {/* Members — read only */}
+            <div className={`glass-panel ${styles.panel}`}>
+                <h3 className={styles.sectionTitleDark}><Users size={18} /> Members ({trip.members?.length || 0})</h3>
+                <div className={styles.codeRow}>
+                    <div className={styles.codeLabel}>Code: <span className={styles.codeValue}>{trip.id}</span></div>
+                    <button onClick={handleCopyCode} className={`btn ${styles.inviteBtn}`} disabled={trip.inviteClosed}>
+                        <Copy size={14} /> {copied ? 'Copied!' : 'Copy code'}
+                    </button>
+                </div>
+                {trip.inviteClosed && (
+                    <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                        The invite code is locked. Ask an admin to share an invite directly.
+                    </p>
+                )}
+                <div className={styles.membersList}>
+                    {[...adminMembers, ...regularMembers].map(u => {
+                        const isCreator = u.uid === trip.createdBy;
+                        const isThisAdmin = trip.adminIds?.includes(u.uid);
+                        return (
+                            <div key={u.uid} className={styles.memberRow}>
+                                <div className={styles.memberRowLeft}>
+                                    {u.avatarUrl
+                                        ? <img src={u.avatarUrl} alt={u.name} className={styles.memberAvatar} />
+                                        : <div className={styles.memberAvatarPlaceholder}><Users size={14} color="#9ca3af" /></div>
+                                    }
+                                    <div className={styles.memberNameBox}>
+                                        <div className={styles.memberName}>
+                                            {u.name || u.fullName || 'Member'}
+                                            {u.uid === currentUser?.uid && <span style={{ marginLeft: 6, color: 'var(--color-text-muted)', fontSize: '0.78rem' }}>(you)</span>}
+                                        </div>
+                                        {isCreator
+                                            ? <span className={styles.adminBadge}>Admin</span>
+                                            : isThisAdmin ? <span className={styles.adminBadge}>Submanager</span> : null}
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+
+            {/* My trip preferences — writable */}
+            <div className={`glass-panel ${styles.panel}`}>
+                <h3 className={styles.sectionTitleDark}><Settings size={18} /> My Settings for This Trip</h3>
+                <p style={{ fontSize: '0.82rem', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
+                    These settings only apply to this trip. They override your global profile preferences while you're here.
+                </p>
+                <PrefRow
+                    icon={<MapPin size={16} />}
+                    label="Share my live location"
+                    description="Other members of this trip can see where you are on the map."
+                    value={prefs.shareLocation}
+                    saving={savingKey === 'shareLocation'}
+                    onChange={v => togglePref('shareLocation', v)}
+                />
+                <PrefRow
+                    icon={<Phone size={16} />}
+                    label="Share my phone number"
+                    description="Members can see your number so they can call or text you."
+                    value={prefs.sharePhoneNumber}
+                    saving={savingKey === 'sharePhoneNumber'}
+                    onChange={v => togglePref('sharePhoneNumber', v)}
+                />
+                <PrefRow
+                    icon={<Tag size={16} />}
+                    label="Allow others to tag me in photos"
+                    description="When someone uploads a gallery photo they can tag you in it."
+                    value={prefs.allowPhotoTags}
+                    saving={savingKey === 'allowPhotoTags'}
+                    onChange={v => togglePref('allowPhotoTags', v)}
+                />
+                <PrefRow
+                    icon={<Trophy size={16} />}
+                    label="Show me on leaderboards"
+                    description="Drunk-leaderboard, bingo-leaderboard, etc."
+                    value={prefs.showOnLeaderboard}
+                    saving={savingKey === 'showOnLeaderboard'}
+                    onChange={v => togglePref('showOnLeaderboard', v)}
+                />
+                <PrefRow
+                    icon={<CheckSquare size={16} />}
+                    label="Auto-RSVP to new activities"
+                    description="When an admin adds an activity, you're automatically marked as 'going'."
+                    value={prefs.autoJoinActivities}
+                    saving={savingKey === 'autoJoinActivities'}
+                    onChange={v => togglePref('autoJoinActivities', v)}
+                />
+                <PrefRow
+                    icon={<BellOff size={16} />}
+                    label="Mute notifications from this trip"
+                    description="No push or email pings about new activities, expenses, or messages."
+                    value={prefs.muteNotifications}
+                    saving={savingKey === 'muteNotifications'}
+                    onChange={v => togglePref('muteNotifications', v)}
+                />
+            </div>
+
+            {/* Leave trip */}
+            <div className={`glass-panel ${styles.panel}`}>
+                <h3 className={styles.sectionTitleDark}><LogOut size={18} /> Leave This Trip</h3>
+                {!confirmLeave ? (
+                    <>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: '0 0 0.75rem' }}>
+                            Leaving the trip removes you from members. Your past expenses and photos remain
+                            visible to other members. You'll need a fresh invite to rejoin.
+                        </p>
+                        <button onClick={() => setConfirmLeave(true)} className="btn" style={{ background: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca' }}>
+                            Leave trip
+                        </button>
+                    </>
+                ) : (
+                    <>
+                        <p style={{ fontSize: '0.9rem', color: '#b91c1c', margin: '0 0 0.75rem' }}>
+                            Are you sure? This cannot be undone.
+                        </p>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button onClick={handleLeave} className="btn" style={{ background: '#dc2626', color: 'white' }}>
+                                Yes, leave trip
+                            </button>
+                            <button onClick={() => setConfirmLeave(false)} className="btn">
+                                Cancel
+                            </button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </>
+    );
+};
+
+interface PrefRowProps {
+    icon: React.ReactNode;
+    label: string;
+    description: string;
+    value: boolean;
+    saving: boolean;
+    onChange: (v: boolean) => void;
+}
+
+const PrefRow: React.FC<PrefRowProps> = ({ icon, label, description, value, saving, onChange }) => (
+    <label
+        style={{
+            display: 'flex', alignItems: 'flex-start', gap: '0.75rem',
+            padding: '0.75rem 0', borderTop: '1px solid #f3f4f6', cursor: 'pointer',
+        }}
+    >
+        <span style={{ color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>{icon}</span>
+        <div style={{ flex: 1 }}>
+            <div style={{ fontSize: '0.9rem', fontWeight: 500 }}>{label}</div>
+            <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.15rem' }}>{description}</div>
+        </div>
+        <input
+            type="checkbox"
+            checked={value}
+            disabled={saving}
+            onChange={e => onChange(e.target.checked)}
+            style={{ width: 18, height: 18, marginTop: '0.15rem', cursor: 'pointer' }}
+        />
+    </label>
+);

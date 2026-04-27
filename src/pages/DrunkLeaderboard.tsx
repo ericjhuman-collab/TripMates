@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { collection, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { getAllActivities, type Activity } from '../services/activities';
+import { getAllMemberPrefs } from '../services/memberPrefs';
 import { Beer, Trophy, Medal, Trash2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
@@ -13,6 +14,7 @@ export const DrunkLeaderboard: React.FC = () => {
     const isAdmin = effectiveRole === 'admin';
     const [users, setUsers] = useState<AppUser[]>([]);
     const [activities, setActivities] = useState<Activity[]>([]);
+    const [hiddenUids, setHiddenUids] = useState<Set<string>>(new Set());
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
@@ -23,10 +25,20 @@ export const DrunkLeaderboard: React.FC = () => {
                 setUsers(usersList);
 
                 if (activeTrip) {
-                    const activitiesList = await getAllActivities(activeTrip.id);
+                    const [activitiesList, prefsMap] = await Promise.all([
+                        getAllActivities(activeTrip.id),
+                        getAllMemberPrefs(activeTrip.id),
+                    ]);
                     setActivities(activitiesList);
+                    // Members who explicitly opted out of being shown on leaderboards.
+                    const hidden = new Set<string>();
+                    prefsMap.forEach((p, uid) => {
+                        if (p.showOnLeaderboard === false) hidden.add(uid);
+                    });
+                    setHiddenUids(hidden);
                 } else {
                     setActivities([]);
+                    setHiddenUids(new Set());
                 }
             } catch (error) {
                 console.error('Error fetching leaderboard data:', error);
@@ -66,10 +78,13 @@ export const DrunkLeaderboard: React.FC = () => {
         }
     });
 
-    const leaderboard = users.map(user => ({
-        ...user,
-        votes: voteCounts[user.uid] || 0
-    })).sort((a, b) => b.votes - a.votes);
+    const leaderboard = users
+        .filter(user => !hiddenUids.has(user.uid))
+        .map(user => ({
+            ...user,
+            votes: voteCounts[user.uid] || 0
+        }))
+        .sort((a, b) => b.votes - a.votes);
 
     const handleReset = async () => {
         if (!isAdmin) return;
