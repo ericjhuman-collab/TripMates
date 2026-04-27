@@ -63,7 +63,7 @@ When adding new mutating call paths on trips, keep in mind that `isTripAdmin` do
 
 Gallery has three update rules layered: like-toggle (only `likes`), uploader/admin tag edit (activityId/Name/taggedMembers), and **any-trip-member tag-people-only** (just `taggedMembers`). The third was added so members can tag friends in photos they didn't upload.
 
-User-doc email field is intentionally absent — `auth.currentUser.email` is the only source of truth. Phone (`phoneNumber` + `sharePhoneNumber`) still lives on the user doc to support trip-member phone display in Members.tsx, but is a known PII gap pending a follow-up plan.
+User-doc email field is intentionally absent — `auth.currentUser.email` is the only source of truth. Phone has the same posture: `phoneNumber` lives in `users/{uid}/private/contact` (rule: owner always; others iff `sharePhoneNumber == true`); only `sharePhoneNumber` (the opt-in flag) remains on the public doc. Use `services/userContact.ts` for read/write — never touch the subcollection directly.
 
 ### Search
 [src/utils/searchFields.ts](src/utils/searchFields.ts) derives `nameLower` and `lastNameLower` (lowercase + diacritic-stripped) at user-doc write time. Layout's user search ([Layout.tsx](src/components/Layout.tsx) `runSearch`) queries those two fields plus the `usernames/{handle}` collection in parallel and merges by uid. Email and phone are deliberately not searchable (GDPR + enumeration risk). When you add a new write path that touches `name`/`lastName`, call `deriveUserSearchFields` and merge the result into the payload — otherwise the doc disappears from search.
