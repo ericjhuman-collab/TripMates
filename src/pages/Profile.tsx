@@ -100,6 +100,10 @@ export const Profile: React.FC = () => {
     const [showHamburger, setShowHamburger] = useState(
         Boolean((location.state as { openMenu?: boolean } | null)?.openMenu)
     );
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = useState('');
+    const [deleteInProgress, setDeleteInProgress] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
 
     useEffect(() => {
         const state = location.state as { openMenu?: boolean } | null;
@@ -410,6 +414,20 @@ export const Profile: React.FC = () => {
         } catch (error) {
             console.error('Failed to send password reset email:', error);
             alert('Failed to send password reset email.');
+        }
+    };
+
+    const handleDeleteAccount = async () => {
+        setDeleteError('');
+        setDeleteInProgress(true);
+        try {
+            const { deleteMyAccount } = await import('../services/userAccount');
+            await deleteMyAccount();
+            navigate('/login', { replace: true });
+        } catch (err) {
+            console.error('Account deletion failed', err);
+            setDeleteError(err instanceof Error ? err.message : 'Could not delete account.');
+            setDeleteInProgress(false);
         }
     };
 
@@ -868,8 +886,63 @@ export const Profile: React.FC = () => {
                             <h4 className={styles.sectionSubtitle}>Security</h4>
                             <button onClick={handlePasswordReset} className={`btn ${styles.securityBtn}`}>Send Password Reset Email</button>
                         </div>
+                        <hr className={styles.divider} />
+                        <div className={styles.dangerZone}>
+                            <h3 className={styles.dangerZoneTitle}>Danger zone</h3>
+                            <p className={styles.dangerZoneText}>
+                                Permanently delete your account. Your profile, username, avatar, and contact details are removed. Trip data you contributed (photos, expenses) stays so other members can still see their history; your name will appear as "Unknown user".
+                            </p>
+                            <button
+                                type="button"
+                                className={styles.dangerBtn}
+                                onClick={() => { setShowDeleteModal(true); setDeleteConfirmText(''); setDeleteError(''); }}
+                            >
+                                Delete my account
+                            </button>
+                        </div>
                     </div>
                 </div>
+            )}
+
+            {/* ── Delete-account confirm modal ── */}
+            {showDeleteModal && createPortal(
+                <div className={styles.deleteModalBackdrop} onClick={() => !deleteInProgress && setShowDeleteModal(false)}>
+                    <div className={styles.deleteModalCard} onClick={e => e.stopPropagation()}>
+                        <h2 className={styles.deleteModalTitle}>Delete account?</h2>
+                        <p className={styles.deleteModalBody}>
+                            This action cannot be undone. Your profile, avatar, username and contact details will be permanently removed. Type <strong>DELETE</strong> below to confirm.
+                        </p>
+                        <input
+                            type="text"
+                            className="input-field"
+                            value={deleteConfirmText}
+                            onChange={e => setDeleteConfirmText(e.target.value)}
+                            placeholder="DELETE"
+                            disabled={deleteInProgress}
+                            autoFocus
+                        />
+                        {deleteError && <p className={styles.deleteModalError}>{deleteError}</p>}
+                        <div className={styles.deleteModalActions}>
+                            <button
+                                type="button"
+                                className="btn"
+                                onClick={() => setShowDeleteModal(false)}
+                                disabled={deleteInProgress}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                className={styles.dangerBtn}
+                                onClick={handleDeleteAccount}
+                                disabled={deleteConfirmText !== 'DELETE' || deleteInProgress}
+                            >
+                                {deleteInProgress ? 'Deleting…' : 'Delete forever'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
             )}
 
             {/* ── Hamburger side drawer (with notifications sub-view) ── */}

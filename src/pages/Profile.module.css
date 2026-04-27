@@ -1764,3 +1764,97 @@
 .statGlobeBtn:hover {
   background: rgba(30,41,59,0.06);
 }
+
+/* ── Danger zone ──────────────────────────── */
+.dangerZone {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 12px;
+}
+
+.dangerZoneTitle {
+    margin: 0 0 0.5rem;
+    color: #991b1b;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.dangerZoneText {
+    margin: 0 0 0.75rem;
+    color: #7f1d1d;
+    font-size: 0.85rem;
+    line-height: 1.5;
+}
+
+.dangerBtn {
+    background: #dc2626;
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.6rem 1.25rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+}
+
+.dangerBtn:hover:not(:disabled) {
+    background: #b91c1c;
+}
+
+.dangerBtn:disabled {
+    opacity: 0.5;
+    cursor: wait;
+}
+
+/* ── Delete confirm modal ─────────────────── */
+.deleteModalBackdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.55);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    padding: 1rem;
+}
+
+.deleteModalCard {
+    background: #fff;
+    border-radius: 16px;
+    max-width: 400px;
+    width: 100%;
+    padding: 1.5rem;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.deleteModalTitle {
+    margin: 0 0 0.75rem;
+    color: #991b1b;
+    font-size: 1.25rem;
+    font-weight: 700;
+}
+
+.deleteModalBody {
+    color: #4b5563;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    margin: 0 0 1rem;
+}
+
+.deleteModalError {
+    color: #991b1b;
+    font-size: 0.85rem;
+    margin: 0.75rem 0 0;
+}
+
+.deleteModalActions {
+    display: flex;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    justify-content: flex-end;
+}
