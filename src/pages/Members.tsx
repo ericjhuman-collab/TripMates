@@ -164,8 +164,7 @@ export const Members: React.FC = () => {
                                     <img
                                         src={member.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(member.name)}`}
                                         alt={member.name}
-                                        className={styles.avatarImg}
-                                    />
+                                        className={styles.avatarImg} loading="lazy" />
                                 </div>
 
                                 {/* Name + badge */}
@@ -290,7 +289,7 @@ export const Members: React.FC = () => {
                                                     style={{ width: '1.2rem', height: '1.2rem', accentColor: 'var(--color-primary)' }}
                                                 />
                                                 <label htmlFor={`chk_${m.uid}`} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', flex: 1, margin: 0 }}>
-                                                    <img src={m.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.name)}`} alt={m.name} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} />
+                                                    <img src={m.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(m.name)}`} alt={m.name} style={{ width: 24, height: 24, borderRadius: '50%', objectFit: 'cover' }} loading="lazy" />
                                                     <span style={{ fontSize: '0.9rem' }}>{m.fullName || m.name}</span>
                                                 </label>
                                             </div>

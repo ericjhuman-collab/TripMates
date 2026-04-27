@@ -592,8 +592,7 @@ export const Home: React.FC = () => {
                                     <img
                                         src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`}
                                         alt={u.name}
-                                        className={styles.leaderboardAvatar}
-                                    />
+                                        className={styles.leaderboardAvatar} loading="lazy" />
                                     <span className={styles.leaderboardName}>{u.fullName || u.name}</span>
                                 </div>
                                 <div className={styles.leaderboardVotes}>{u.votes} vote{u.votes !== 1 ? 's' : ''}</div>
@@ -736,10 +735,10 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
                                 const votedFor = users.find(u => u.uid === votedForId);
                                 return (
                                     <div key={voterId} className={styles.voteResultRow}>
-                                        <img src={voter?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${voter?.name}`} alt={voter?.name} className={styles.voteResultAvatar} />
+                                        <img src={voter?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${voter?.name}`} alt={voter?.name} className={styles.voteResultAvatar} loading="lazy" />
                                         <span className={styles.voteResultVoterName}>{voter?.name}</span>
                                         <span className={styles.voteResultFor}>voted for</span>
-                                        <img src={votedFor?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${votedFor?.name}`} alt={votedFor?.name} className={styles.voteResultAvatar} />
+                                        <img src={votedFor?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${votedFor?.name}`} alt={votedFor?.name} className={styles.voteResultAvatar} loading="lazy" />
                                         <span className={styles.voteResultTargetName}>{votedFor?.name}</span>
                                     </div>
                                 );
@@ -776,7 +775,7 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
                                     disabled={saving}
                                     className={styles.voteOptionBtn}
                                 >
-                                    <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`} alt={u.name} className={styles.voteOptionAvatar} />
+                                    <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${u.name}`} alt={u.name} className={styles.voteOptionAvatar} loading="lazy" />
                                     <div className={styles.voteOptionNameGroup}>
                                         <div className={styles.voteOptionName}>{u.name}</div>
                                         <div className={styles.voteOptionSubName}>{u.fullName}</div>

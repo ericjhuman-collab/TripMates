@@ -178,7 +178,7 @@ export const Groups: React.FC<{ onBack: () => void }> = () => {
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                         {searchResults.map(u => (
                                             <div key={u.uid} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'var(--color-bg-card)', padding: '0.6rem 1rem', borderRadius: 12 }}>
-                                                <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`} alt={u.name} style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                                                <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`} alt={u.name} style={{ width: 32, height: 32, borderRadius: '50%' }} loading="lazy" />
                                                 <div style={{ flex: 1 }}>
                                                     <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>{u.fullName || u.name}</div>
                                                 </div>
@@ -195,7 +195,7 @@ export const Groups: React.FC<{ onBack: () => void }> = () => {
                             <div style={{ display: 'flex', gap: '0.5rem', overflowX: 'auto', paddingBottom: '0.5rem' }}>
                                 {followingUsers.map(u => (
                                     <div key={u.uid} style={{ background: 'var(--color-bg-card)', borderRadius: 12, padding: '0.75rem', flexShrink: 0, width: 85, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.4rem' }}>
-                                        <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`} alt={u.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
+                                        <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`} alt={u.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} loading="lazy" />
                                         <div style={{ fontSize: '0.75rem', fontWeight: 600, textAlign: 'center', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>{u.fullName || u.name}</div>
                                         <button onClick={() => handleAddMember(u.uid)} style={{ border: 'none', background: 'var(--color-primary)', color: '#fff', borderRadius: 99, padding: '0.2rem 0.6rem', fontSize: '0.7rem' }}>+ Add</button>
                                     </div>
@@ -208,7 +208,7 @@ export const Groups: React.FC<{ onBack: () => void }> = () => {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                         {loadingMembers ? <div style={{ display: 'flex', justifyContent: 'center', padding: '2rem' }}><Loader2 className="animate-spin" /></div> : groupMembers.map(member => (
                             <div key={member.uid} className={styles.settingsCard} style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '1rem', margin: 0 }}>
-                                <img src={member.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(member.name)}`} alt={member.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
+                                <img src={member.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(member.name)}`} alt={member.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} loading="lazy" />
                                 <div style={{ flex: 1 }}>
                                     <h4 style={{ margin: 0, fontSize: '1rem' }}>{member.fullName || member.name}</h4>
                                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>@{member.name}</p>

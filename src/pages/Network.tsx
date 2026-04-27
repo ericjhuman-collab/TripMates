@@ -121,7 +121,7 @@ export const Network: React.FC = () => {
                     const isFollowed = localFollowing.includes(u.uid);
                     return (
                         <div key={u.uid} className="card" style={{ display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.85rem' }}>
-                            <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`} alt={u.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} />
+                            <img src={u.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${encodeURIComponent(u.name)}`} alt={u.name} style={{ width: 44, height: 44, borderRadius: '50%', objectFit: 'cover' }} loading="lazy" />
                             <div style={{ flex: 1 }}>
                                 <h4 style={{ margin: 0, fontSize: '1rem' }}>{u.fullName || u.name}</h4>
                                 {u.fullName && <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>@{u.name}</p>}

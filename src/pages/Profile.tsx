@@ -1049,7 +1049,7 @@ export const Profile: React.FC = () => {
                                     {notifications.map(n => (
                                         <div key={n.id} className={`${styles.notifItem} ${!n.read ? styles.notifItemUnread : ''}`}>
                                             {n.fromAvatarUrl
-                                                ? <img src={n.fromAvatarUrl} className={styles.notifAvatar} alt={n.fromName} />
+                                                ? <img src={n.fromAvatarUrl} className={styles.notifAvatar} alt={n.fromName} loading="lazy" />
                                                 : <div className={styles.notifAvatarPlaceholder}>{n.fromName.charAt(0).toUpperCase()}</div>
                                             }
                                             <div className={styles.notifMeta}>
@@ -1476,7 +1476,7 @@ export const Profile: React.FC = () => {
                             ) : (
                                 activityGalleryImages.map(img => (
                                     <div key={img.id} className={styles.galleryModalThumb}>
-                                        <img src={img.url} alt={img.activityName || 'Photo'} />
+                                        <img src={img.url} alt={img.activityName || 'Photo'} loading="lazy" />
                                         {img.uploadedByName && (
                                             <span className={styles.galleryThumbAuthor}>{img.uploadedByName.split(' ')[0]}</span>
                                         )}
@@ -1508,7 +1508,7 @@ export const Profile: React.FC = () => {
                             ) : (
                                 tripGalleryImages.map(img => (
                                     <div key={img.id} className={styles.galleryModalThumb}>
-                                        <img src={img.url} alt={img.activityName || 'Photo'} />
+                                        <img src={img.url} alt={img.activityName || 'Photo'} loading="lazy" />
                                         {img.activityName && (
                                             <span className={styles.galleryThumbTag}>{img.activityName}</span>
                                         )}

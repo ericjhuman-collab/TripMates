@@ -289,7 +289,7 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                         {activities.map(act => (
                             <div key={act.id} className={tripStyles.activityItem}>
                                 <div className={tripStyles.activityIconBox}>
-                                    <img src={act.imageUrl || getDefaultCover(act.category, act.locationName || act.title)} className={tripStyles.activityCoverThumb} alt="Cover" />
+                                    <img src={act.imageUrl || getDefaultCover(act.category, act.locationName || act.title)} className={tripStyles.activityCoverThumb} alt="Cover" loading="lazy" />
                                 </div>
                                 <div className={tripStyles.activityBody}>
                                     <div className={tripStyles.activityTitleRow}>

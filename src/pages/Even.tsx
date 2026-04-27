@@ -30,7 +30,7 @@ const Avatar = ({ participant, className, zIndex }: { participant: ParticipantLi
     return (
         <div className={className} style={customStyle}>
             {participant.photoURL ? (
-                <img src={participant.photoURL} alt={participant.name} className={styles.avatarImg} />
+                <img src={participant.photoURL} alt={participant.name} className={styles.avatarImg} loading="lazy" />
             ) : (
                 <span className={styles.avatarInitials}>{participant.name?.charAt(0).toUpperCase()}</span>
             )}
@@ -233,7 +233,7 @@ export const Even: React.FC = () => {
                                             }}
                                             aria-label="View receipt"
                                         >
-                                            <img src={expense.receiptUrl} alt="Receipt" className={styles.receiptThumbnail} />
+                                            <img src={expense.receiptUrl} alt="Receipt" className={styles.receiptThumbnail} loading="lazy" />
                                         </button>
                                     )}
                                     <span className={styles.expensePayer}>

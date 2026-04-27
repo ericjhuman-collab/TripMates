@@ -141,8 +141,7 @@ export const Explore: React.FC = () => {
                                         <img
                                             src={author?.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${author?.name}`}
                                             alt={author?.name}
-                                            className={styles.authorAvatar}
-                                        />
+                                            className={styles.authorAvatar} loading="lazy" />
                                         <div>
                                             <div className={styles.authorName}>{author?.name}</div>
                                             <div className={styles.authorDate}>
@@ -166,7 +165,7 @@ export const Explore: React.FC = () => {
                                 {/* Post Visual */}
                                 <div className={styles.destinationVisual}>
                                     {trip.imageUrl && (
-                                        <img src={trip.imageUrl} alt={trip.destination || trip.name} className={styles.destinationImage} />
+                                        <img src={trip.imageUrl} alt={trip.destination || trip.name} className={styles.destinationImage} loading="lazy" />
                                     )}
                                     <div className={`${styles.destinationOverlay} ${trip.imageUrl ? styles.destinationOverlayDark : styles.destinationOverlayLight}`}>
                                         <div className={styles.destinationFlag}>

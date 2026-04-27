@@ -193,7 +193,7 @@ export const Games: React.FC = () => {
                                             return (
                                                 <div key={entry.name} className={styles.leaderboardMiniRow}>
                                                     <span className={styles.leaderboardMiniMedal}>{medals[i]}</span>
-                                                    {member?.avatarUrl && <img src={member.avatarUrl} alt={entry.name} className={styles.leaderboardMiniAvatar} />}
+                                                    {member?.avatarUrl && <img src={member.avatarUrl} alt={entry.name} className={styles.leaderboardMiniAvatar} loading="lazy" />}
                                                     <span className={styles.leaderboardMiniName}>{member?.fullName || entry.name}</span>
                                                     <span className={`${styles.leaderboardMiniScore} ${entry.rows > 0 ? styles.leaderboardMiniScoreHigh : styles.leaderboardMiniScoreZero}`}>
                                                         {entry.rows} {entry.rows === 1 ? 'row' : 'rows'}
@@ -268,7 +268,7 @@ export const Games: React.FC = () => {
                             {members.map(member => (
                                 <button key={member.uid} onClick={() => handleMemberSelect(member.name)} className={`btn ${styles.memberBtn}`}>
                                     {member.avatarUrl ? (
-                                        <img src={member.avatarUrl} alt={member.name} className={styles.memberAvatar} />
+                                        <img src={member.avatarUrl} alt={member.name} className={styles.memberAvatar} loading="lazy" />
                                     ) : (
                                         <div className={styles.memberAvatarPlaceholder}>
                                             {member.name.charAt(0).toUpperCase()}
@@ -316,7 +316,7 @@ export const Games: React.FC = () => {
                                                 {i < 3 ? medals[i] : `${i + 1}.`}
                                             </span>
                                             {member?.avatarUrl ? (
-                                                <img src={member.avatarUrl} alt={entry.name} className={styles.leaderboardFullAvatar} />
+                                                <img src={member.avatarUrl} alt={entry.name} className={styles.leaderboardFullAvatar} loading="lazy" />
                                             ) : (
                                                 <div className={styles.memberAvatarPlaceholder} style={{ width: 32, height: 32, fontSize: '0.85rem' }}>
                                                     {entry.name.charAt(0).toUpperCase()}

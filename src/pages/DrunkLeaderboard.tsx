@@ -160,8 +160,7 @@ export const DrunkLeaderboard: React.FC = () => {
                                 <img
                                     src={user.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`}
                                     alt={user.name}
-                                    className={`${styles.avatar} ${avatarClass}`}
-                                />
+                                    className={`${styles.avatar} ${avatarClass}`} loading="lazy" />
                                 <div>
                                     <div className={styles.userName}>{user.name}</div>
                                 </div>

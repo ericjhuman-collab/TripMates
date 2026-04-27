@@ -449,8 +449,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                         <img
                                             src={act.imageUrl || getDefaultCover(act.category, act.locationName || act.title)}
                                             alt={act.title}
-                                            className={styles.activityCoverThumb}
-                                        />
+                                            className={styles.activityCoverThumb} loading="lazy" />
                                     </div>
                                     <div className={styles.activityBody}>
                                         <div className={styles.activityTitleRow}>
@@ -521,7 +520,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                 <div key={uid} className={styles.memberRow}>
                                     <div className={styles.memberRowLeft}>
                                         {u?.avatarUrl
-                                            ? <img src={u.avatarUrl} alt={displayName} className={styles.memberAvatar} />
+                                            ? <img src={u.avatarUrl} alt={displayName} className={styles.memberAvatar} loading="lazy" />
                                             : <div className={styles.memberAvatarPlaceholder}><Users size={14} color="#9ca3af" /></div>
                                         }
                                         <div className={styles.memberNameBox}>
@@ -929,7 +928,7 @@ const MemberView: React.FC<{ trip: Trip; users: AppUser[] }> = ({ trip, users })
                             <div key={u.uid} className={styles.memberRow}>
                                 <div className={styles.memberRowLeft}>
                                     {u.avatarUrl
-                                        ? <img src={u.avatarUrl} alt={u.name} className={styles.memberAvatar} />
+                                        ? <img src={u.avatarUrl} alt={u.name} className={styles.memberAvatar} loading="lazy" />
                                         : <div className={styles.memberAvatarPlaceholder}><Users size={14} color="#9ca3af" /></div>
                                     }
                                     <div className={styles.memberNameBox}>

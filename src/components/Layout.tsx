@@ -340,7 +340,7 @@ export const Layout: React.FC = () => {
                                         >
                                             <div className={styles.searchResultAvatar}>
                                                 {u.avatarUrl
-                                                    ? <img src={u.avatarUrl} alt={u.name} />
+                                                    ? <img src={u.avatarUrl} alt={u.name} loading="lazy" />
                                                     : <UserIcon size={18} />
                                                 }
                                             </div>
