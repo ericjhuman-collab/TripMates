@@ -629,3 +629,58 @@ describe('bingo/trip_{tripId}', () => {
     );
   });
 });
+
+describe('users/{uid}/private/{contactId}', () => {
+  beforeEach(async () => {
+    await seedTrip();
+  });
+
+  it('owner can read and write own private contact', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(ALICE), 'users', ALICE, 'private', 'contact'),
+        { phoneNumber: '+46700000000' })
+    );
+    await assertSucceeds(
+      getDoc(doc(asUser(ALICE), 'users', ALICE, 'private', 'contact'))
+    );
+  });
+
+  it('other authed user can read when sharePhoneNumber is true', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users', ALICE), {
+        uid: ALICE, role: 'user', name: 'Alice',
+        sharePhoneNumber: true,
+        followers: [], following: [],
+      });
+      await setDoc(doc(db, 'users', ALICE, 'private', 'contact'),
+        { phoneNumber: '+46700000000' });
+    });
+    await assertSucceeds(
+      getDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'contact'))
+    );
+  });
+
+  it('other authed user CANNOT read when sharePhoneNumber is false/missing', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users', ALICE), {
+        uid: ALICE, role: 'user', name: 'Alice',
+        sharePhoneNumber: false,
+        followers: [], following: [],
+      });
+      await setDoc(doc(db, 'users', ALICE, 'private', 'contact'),
+        { phoneNumber: '+46700000000' });
+    });
+    await assertFails(
+      getDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'contact'))
+    );
+  });
+
+  it('non-owner cannot write private contact', async () => {
+    await assertFails(
+      setDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'contact'),
+        { phoneNumber: '+46711111111' })
+    );
+  });
+});

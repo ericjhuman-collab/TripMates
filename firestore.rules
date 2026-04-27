@@ -82,6 +82,20 @@ service cloud.firestore {
       match /scanQuota/{day} {
         allow read, write: if false;
       }
+
+      // ── Subcollection: private contact details ─────────────────────────
+      // Holds phone number (and any future contact PII) so it's NOT exposed
+      // by the public users/{uid} doc. Read access:
+      //   - always allowed for the owner,
+      //   - allowed for any other authed user IFF the parent doc has
+      //     sharePhoneNumber == true (opt-in by the owner).
+      // Write access: owner only.
+      match /private/{contactId} {
+        allow read: if isMe(uid)
+          || (isAuthed()
+              && get(/databases/$(database)/documents/users/$(uid)).data.sharePhoneNumber == true);
+        allow create, update, delete: if isMe(uid);
+      }
     }
 
     // ─── trips/{tripId} ───────────────────────────────────────────────────
