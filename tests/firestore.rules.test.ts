@@ -472,4 +472,25 @@ describe('gallery — like toggle', () => {
       updateDoc(doc(asUser(CAROL), 'trips', TRIP_ID, 'gallery', 'img1'), { likes: arrayUnion(CAROL) })
     );
   });
+
+  it('uploader CAN edit tags (activityId/activityName/taggedMembers) after upload', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asUser(ALICE), 'trips', TRIP_ID, 'gallery', 'img1'),
+        { activityId: 'a1', activityName: 'Lunch', taggedMembers: [BOB] })
+    );
+  });
+
+  it('non-uploader, non-admin member CANNOT edit tags', async () => {
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'trips', TRIP_ID, 'gallery', 'img1'),
+        { activityId: 'a1', activityName: 'Lunch', taggedMembers: [BOB] })
+    );
+  });
+
+  it('uploader cannot sneak in other-field edits via the tag path', async () => {
+    await assertFails(
+      updateDoc(doc(asUser(ALICE), 'trips', TRIP_ID, 'gallery', 'img1'),
+        { activityName: 'Lunch', uploadedBy: 'someoneElse' })
+    );
+  });
 });

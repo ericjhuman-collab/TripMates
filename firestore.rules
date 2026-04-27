@@ -131,6 +131,17 @@ service cloud.firestore {
             addedSelfTo(resource.data.likes, request.resource.data.likes)
             || removedSelfFrom(resource.data.likes, request.resource.data.likes)
           );
+        // Edit tags (post-upload): uploader or trip admin may change
+        // activityId/activityName/taggedMembers, nothing else.
+        allow update: if isTripMember(tripId)
+          && (resource.data.uploadedBy == request.auth.uid || isTripAdmin(tripId))
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['activityId', 'activityName', 'taggedMembers']);
+        // Tag people: any trip member may change ONLY taggedMembers, even
+        // on photos they didn't upload (so anyone in the trip can tag friends).
+        allow update: if isTripMember(tripId)
+          && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['taggedMembers']);
         // Uploader or trip admin may delete.
         allow delete: if isTripMember(tripId)
           && (resource.data.uploadedBy == request.auth.uid || isTripAdmin(tripId));

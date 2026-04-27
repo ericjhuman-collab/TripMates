@@ -8,6 +8,7 @@ import {
     sendPasswordResetEmail,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { deriveUserSearchFields } from '../utils/searchFields';
 import { generateAndClaimUsername } from '../services/username';
 import styles from './Login.module.css';
 
@@ -190,6 +191,7 @@ export const Login: React.FC = () => {
                         activeTripId: null,
                         friends: [],
                         ...(trimmedPhone ? { phoneNumber: trimmedPhone } : {}),
+                        ...deriveUserSearchFields({ name: first, lastName: last }),
                     },
                     { merge: true },
                 );

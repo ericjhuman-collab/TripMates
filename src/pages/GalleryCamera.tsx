@@ -5,9 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { useTrip, type Trip } from '../context/TripContext';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { uploadImageToGallery, subscribeToGallery, toggleLikeImage, deleteImage, type GalleryImage, type UploadTags } from '../services/gallery';
+import { uploadImageToGallery, subscribeToGallery, toggleLikeImage, deleteImage, updateImageTags, type GalleryImage, type UploadTags } from '../services/gallery';
 import { getAllActivities, type Activity } from '../services/activities';
-import { Heart, Trash2, Tag, Users } from 'lucide-react';
+import { Heart, Trash2, Tag, Users, Edit3, ArrowDownAZ, Filter } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './GalleryCamera.module.css';
 
@@ -46,6 +46,71 @@ export const GalleryCamera: React.FC = () => {
     const [taggedMemberUids, setTaggedMemberUids] = useState<string[]>([]);
     const [showTripPicker, setShowTripPicker] = useState(false);
 
+    // ── Sort & filter state ────────────────
+    type SortMode = 'newest' | 'oldest' | 'mostLiked';
+    const [sortBy, setSortBy] = useState<SortMode>('newest');
+    const [filterActivityId, setFilterActivityId] = useState<string>(''); // '' = all
+    const [filterTaggedUids, setFilterTaggedUids] = useState<string[]>([]); // empty = no member filter
+    const [showFilterPanel, setShowFilterPanel] = useState(false);
+
+    // ── Edit-tags modal (post-upload) ──────
+    const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
+    const [editTagActivityId, setEditTagActivityId] = useState('');
+    const [editTagActivityName, setEditTagActivityName] = useState('');
+    const [editTaggedMemberUids, setEditTaggedMemberUids] = useState<string[]>([]);
+    const [savingEditTags, setSavingEditTags] = useState(false);
+
+    const openEditTags = (img: GalleryImage) => {
+        setEditingImage(img);
+        setEditTagActivityId(img.activityId || '');
+        setEditTagActivityName(img.activityName || '');
+        setEditTaggedMemberUids(img.taggedMembers || []);
+    };
+
+    const canEditActivityForEditing = !!editingImage && (
+        editingImage.uploadedBy === appUser?.uid || appUser?.role === 'admin'
+    );
+
+    const saveEditTags = async () => {
+        if (!editingImage || !selectedTripId) return;
+        setSavingEditTags(true);
+        try {
+            const tags: { activityId?: string | null; activityName?: string | null; taggedMembers: string[] } = {
+                taggedMembers: editTaggedMemberUids,
+            };
+            if (canEditActivityForEditing) {
+                tags.activityId = editTagActivityId || null;
+                tags.activityName = editTagActivityName || null;
+            }
+            await updateImageTags(selectedTripId, editingImage.id, tags);
+            setEditingImage(null);
+        } catch (e) {
+            console.error('Failed to update tags', e);
+            alert('Could not save tags. Please try again.');
+        } finally {
+            setSavingEditTags(false);
+        }
+    };
+
+    // Apply sort + filters to the raw subscription list.
+    const visibleImages = React.useMemo(() => {
+        let list = images;
+        if (filterActivityId) list = list.filter(img => img.activityId === filterActivityId);
+        if (filterTaggedUids.length > 0) {
+            list = list.filter(img => filterTaggedUids.every(uid => img.taggedMembers?.includes(uid)));
+        }
+        const sorted = [...list];
+        sorted.sort((a, b) => {
+            if (sortBy === 'mostLiked') return (b.likes?.length || 0) - (a.likes?.length || 0);
+            const aTime = a.createdAt?.getTime() || 0;
+            const bTime = b.createdAt?.getTime() || 0;
+            return sortBy === 'oldest' ? aTime - bTime : bTime - aTime;
+        });
+        return sorted;
+    }, [images, sortBy, filterActivityId, filterTaggedUids]);
+
+    const activeFilterCount = (filterActivityId ? 1 : 0) + (filterTaggedUids.length > 0 ? 1 : 0);
+
     useEffect(() => {
         const fetchTrips = async () => {
             if (!appUser?.trips || appUser.trips.length === 0) return;
@@ -72,16 +137,33 @@ export const GalleryCamera: React.FC = () => {
         return () => unsubscribe();
     }, [selectedTripId]);
 
-    // Fetch activities and members for the selected trip (for tagging)
+    // Keep selectedTripId in sync if the user picks a different active trip elsewhere.
     useEffect(() => {
-        if (!selectedTripId) return;
+        if (activeTrip?.id && activeTrip.id !== selectedTripId) {
+            setSelectedTripId(activeTrip.id);
+        }
+    }, [activeTrip?.id, selectedTripId]);
+
+    // Fetch activities and members for the selected trip (for tagging + filter UI).
+    useEffect(() => {
+        if (!selectedTripId) {
+            setTripActivities([]);
+            setTripMembers([]);
+            return;
+        }
+        // Activities are scoped server-side by tripId.
         getAllActivities(selectedTripId).then(setTripActivities).catch(console.error);
 
-        // Fetch member display names from their user docs
+        // Members come from the trip's `members[]`. Filter out `mock_*` dev placeholders
+        // so the tagger / filter UI only shows real users actually in this trip.
         const trip = userTrips.find(t => t.id === selectedTripId);
-        if (!trip?.members?.length) return;
+        const realMemberUids = (trip?.members || []).filter(uid => !uid.startsWith('mock_'));
+        if (realMemberUids.length === 0) {
+            setTripMembers([]);
+            return;
+        }
         Promise.all(
-            trip.members.map(async (uid) => {
+            realMemberUids.map(async (uid) => {
                 try {
                     const snap = await getDoc(doc(db, 'users', uid));
                     if (snap.exists()) {
@@ -247,16 +329,102 @@ export const GalleryCamera: React.FC = () => {
                 {/* GALLERY MODE */}
                 {!isCamera && (
                     <div className={styles.galleryContainer}>
+                        {/* Sort & filter toolbar */}
+                        {images.length > 0 && (
+                            <div className={styles.galleryToolbar}>
+                                <label className={styles.toolbarSortWrap}>
+                                    <ArrowDownAZ size={14} />
+                                    <select
+                                        value={sortBy}
+                                        onChange={e => setSortBy(e.target.value as SortMode)}
+                                        className={styles.toolbarSelect}
+                                    >
+                                        <option value="newest">Newest first</option>
+                                        <option value="oldest">Oldest first</option>
+                                        <option value="mostLiked">Most liked</option>
+                                    </select>
+                                </label>
+                                <button
+                                    type="button"
+                                    className={`${styles.toolbarFilterBtn} ${activeFilterCount > 0 ? styles.toolbarFilterBtnActive : ''}`}
+                                    onClick={() => setShowFilterPanel(v => !v)}
+                                >
+                                    <Filter size={14} />
+                                    Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Filter panel */}
+                        {showFilterPanel && (
+                            <div className={styles.filterPanel}>
+                                {tripActivities.length > 0 && (
+                                    <div className={styles.filterSection}>
+                                        <div className={styles.filterLabel}>Activity</div>
+                                        <select
+                                            value={filterActivityId}
+                                            onChange={e => setFilterActivityId(e.target.value)}
+                                            className={styles.toolbarSelect}
+                                        >
+                                            <option value="">All activities</option>
+                                            {tripActivities.map(a => (
+                                                <option key={a.id} value={a.id}>{a.locationName || a.title}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                )}
+                                {tripMembers.length > 1 && (
+                                    <div className={styles.filterSection}>
+                                        <div className={styles.filterLabel}>Tagged members (must include all)</div>
+                                        <div className={styles.tagChips}>
+                                            {tripMembers.map(m => {
+                                                const on = filterTaggedUids.includes(m.uid);
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        key={m.uid}
+                                                        className={`${styles.tagChip} ${on ? styles.tagChipActive : ''}`}
+                                                        onClick={() => setFilterTaggedUids(prev =>
+                                                            on ? prev.filter(u => u !== m.uid) : [...prev, m.uid]
+                                                        )}
+                                                    >
+                                                        {m.name.split(' ')[0]}
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+                                {activeFilterCount > 0 && (
+                                    <button
+                                        type="button"
+                                        className={styles.filterClearBtn}
+                                        onClick={() => { setFilterActivityId(''); setFilterTaggedUids([]); }}
+                                    >
+                                        Clear filters
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         <div className={styles.galleryGrid}>
                             {images.length === 0 ? (
                                 <div className={styles.galleryEmpty}>
                                     <ImageIcon size={48} className={styles.galleryEmptyIcon} />
                                     <p>No images yet. Switch to camera to take the first memory!</p>
                                 </div>
+                            ) : visibleImages.length === 0 ? (
+                                <div className={styles.galleryEmpty}>
+                                    <Filter size={32} className={styles.galleryEmptyIcon} />
+                                    <p>No photos match your filters.</p>
+                                </div>
                             ) : (
-                                images.map((img: GalleryImage) => {
+                                visibleImages.map((img: GalleryImage) => {
                                     const isLikedByMe = img.likes?.includes(appUser?.uid || '');
                                     const isUploader = img.uploadedBy === appUser?.uid || appUser?.role === 'admin';
+                                    // Any trip member can open the tag editor — uploaders/admins get full
+                                    // edit (activity + people), everyone else can only tag people.
+                                    const canEditTags = true;
                                     return (
                                         <div key={img.id} className={styles.galleryItem}>
                                             <img src={img.url} alt="Gallery item" className={styles.galleryItemImage} loading="lazy" />
@@ -280,6 +448,15 @@ export const GalleryCamera: React.FC = () => {
                                                     <span className={styles.likeCount}>{img.likes?.length || 0}</span>
                                                 </button>
                                                 <div className={styles.actionButtons}>
+                                                    {canEditTags && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); openEditTags(img); }}
+                                                            className={styles.iconActionBtn}
+                                                            title="Edit tags"
+                                                        >
+                                                            <Edit3 size={14} />
+                                                        </button>
+                                                    )}
                                                     {isUploader && (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleDelete(img.id, img.storagePath); }}
@@ -400,6 +577,88 @@ export const GalleryCamera: React.FC = () => {
                                 </button>
                             ))}
                         </div>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* ── Edit Tags Modal (post-upload) ───────── */}
+            {editingImage && createPortal(
+                <div className={styles.tagModalBackdrop}>
+                    <div className={styles.tagModal}>
+                        <img src={editingImage.url} alt="Edit tags" className={styles.tagModalPreview} />
+                        <div className={styles.tagModalBody}>
+                            <h3 className={styles.tagModalTitle}>Edit tags</h3>
+
+                            {canEditActivityForEditing && tripActivities.length > 0 && (
+                                <div className={styles.tagSection}>
+                                    <div className={styles.tagSectionLabel}><Tag size={14} /> Activity</div>
+                                    <div className={styles.tagChips}>
+                                        <button
+                                            className={`${styles.tagChip} ${!editTagActivityId ? styles.tagChipActive : ''}`}
+                                            onClick={() => { setEditTagActivityId(''); setEditTagActivityName(''); }}
+                                        >
+                                            None
+                                        </button>
+                                        {tripActivities.map(a => (
+                                            <button
+                                                key={a.id}
+                                                className={`${styles.tagChip} ${editTagActivityId === a.id ? styles.tagChipActive : ''}`}
+                                                onClick={() => { setEditTagActivityId(a.id || ''); setEditTagActivityName(a.locationName || a.title); }}
+                                            >
+                                                {a.locationName || a.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {tripMembers.length > 1 && (
+                                <div className={styles.tagSection}>
+                                    <div className={styles.tagSectionLabel}><Users size={14} /> Tag people</div>
+                                    <div className={styles.tagChips}>
+                                        {tripMembers.map(m => {
+                                            const tagged = editTaggedMemberUids.includes(m.uid);
+                                            return (
+                                                <button
+                                                    key={m.uid}
+                                                    className={`${styles.tagChip} ${tagged ? styles.tagChipActive : ''}`}
+                                                    onClick={() => setEditTaggedMemberUids(prev =>
+                                                        tagged ? prev.filter(u => u !== m.uid) : [...prev, m.uid]
+                                                    )}
+                                                >
+                                                    {m.name.split(' ')[0]}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className={styles.tagModalActions}>
+                                <button
+                                    className={styles.tagSkipBtn}
+                                    onClick={() => setEditingImage(null)}
+                                    disabled={savingEditTags}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn btn-primary"
+                                    style={{ flex: 1 }}
+                                    onClick={saveEditTags}
+                                    disabled={savingEditTags}
+                                >
+                                    {savingEditTags ? 'Saving…' : 'Save tags'}
+                                </button>
+                            </div>
+                        </div>
+                        <button
+                            className={styles.tagModalClose}
+                            onClick={() => setEditingImage(null)}
+                        >
+                            <X size={20} />
+                        </button>
                     </div>
                 </div>,
                 document.body

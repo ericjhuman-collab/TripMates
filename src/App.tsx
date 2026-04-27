@@ -45,8 +45,8 @@ function App() {
                     <Route path="/even" element={<Even />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/:uid" element={<Profile />} />
+                    <Route path="/gallery" element={<GalleryCamera />} />
                   </Route>
-                  <Route path="/gallery" element={<GalleryCamera />} />
                   <Route path="/admin/:tripId" element={<TripAdmin />} />
                   <Route path="/admin/:tripId/activity/new" element={<ActivityEditorPage />} />
                   <Route path="/admin/:tripId/activity/:activityId" element={<ActivityEditorPage />} />

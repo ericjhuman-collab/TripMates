@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Users, Building2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
@@ -96,7 +96,19 @@ export const Profile: React.FC = () => {
     const [joiningTrip, setJoiningTrip] = useState(false);
 
     // ── UI drawers ─────────────────────────────
-    const [showHamburger, setShowHamburger] = useState(false);
+    const location = useLocation();
+    const [showHamburger, setShowHamburger] = useState(
+        Boolean((location.state as { openMenu?: boolean } | null)?.openMenu)
+    );
+
+    useEffect(() => {
+        const state = location.state as { openMenu?: boolean } | null;
+        if (state?.openMenu) {
+            setShowHamburger(true);
+            window.history.replaceState({}, '');
+        }
+    }, [location.state]);
+
     const [showNotifications, setShowNotifications] = useState(false);
     const [notifications, setNotifications] = useState<SocialNotification[]>([]);
     const unreadCount = notifications.filter(n => !n.read).length;
@@ -428,6 +440,17 @@ export const Profile: React.FC = () => {
             : current.filter(c => c !== country);
         await updateProfile({ manualVisitedCountries: updated });
     };
+
+    const handleToggleBucketlistCountry = async (country: string, add: boolean) => {
+        if (!appUser) return;
+        const current = appUser.bucketlistCountries ?? [];
+        const updated = add
+            ? [...new Set([...current, country])]
+            : current.filter(c => c !== country);
+        await updateProfile({ bucketlistCountries: updated });
+    };
+
+    const bucketlistCountries: string[] = (isOwner ? appUser : targetUser)?.bucketlistCountries ?? [];
 
     const displayUser = isOwner ? appUser : targetUser;
 
@@ -933,9 +956,11 @@ export const Profile: React.FC = () => {
             {showGlobe && createPortal(
                 <CountriesGlobe
                     visitedCountries={allVisitedCountries}
+                    bucketlistCountries={bucketlistCountries}
                     canEdit={isOwner}
                     onClose={() => setShowGlobe(false)}
-                    onToggleCountry={handleToggleCountry}
+                    onToggleVisited={handleToggleCountry}
+                    onToggleBucketlist={handleToggleBucketlistCountry}
                     initialFocus={{ lat: 56, lng: 14 }}
                 />,
                 document.body

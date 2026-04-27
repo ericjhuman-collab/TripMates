@@ -162,7 +162,10 @@ export const subscribeToGallery = (tripId: string, callback: (images: GalleryIma
                 createdAt: data.createdAt?.toDate() || new Date(),
                 tripId: data.tripId,
                 likes: data.likes || [],
-                storagePath: data.storagePath
+                storagePath: data.storagePath,
+                activityId: data.activityId,
+                activityName: data.activityName,
+                taggedMembers: data.taggedMembers || [],
             });
         });
         callback(images);
@@ -174,8 +177,43 @@ export const subscribeToGallery = (tripId: string, callback: (images: GalleryIma
 /**
  * Toggles a like for the current user on a specific gallery image.
  */
-import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove, deleteDoc, deleteField } from 'firebase/firestore';
 import { deleteObject } from 'firebase/storage';
+
+/**
+ * Update an existing gallery image's tags (post-upload tagging).
+ * Filters `taggedMembers` against each member's allowPhotoTags pref — same rule as upload.
+ * Pass `null` for `activityId`/`activityName` to clear them. Pass [] for taggedMembers to clear.
+ */
+export const updateImageTags = async (
+    tripId: string,
+    imageId: string,
+    tags: { activityId?: string | null; activityName?: string | null; taggedMembers?: string[] },
+): Promise<void> => {
+    const updates: Record<string, unknown> = {};
+
+    if (tags.activityId !== undefined) {
+        updates.activityId = tags.activityId === null ? deleteField() : tags.activityId;
+    }
+    if (tags.activityName !== undefined) {
+        updates.activityName = tags.activityName === null ? deleteField() : tags.activityName;
+    }
+    if (tags.taggedMembers !== undefined) {
+        let allowed: string[] = tags.taggedMembers;
+        if (allowed.length > 0) {
+            try {
+                const prefsMap = await getAllMemberPrefs(tripId);
+                allowed = allowed.filter(uid => prefsMap.get(uid)?.allowPhotoTags !== false);
+            } catch (e) {
+                console.warn('Could not load member prefs; honoring tags as-is', e);
+            }
+        }
+        updates.taggedMembers = allowed.length > 0 ? allowed : deleteField();
+    }
+
+    if (Object.keys(updates).length === 0) return;
+    await updateDoc(doc(db, `trips/${tripId}/gallery`, imageId), updates);
+};
 
 export const toggleLikeImage = async (tripId: string, imageId: string, userId: string, isLiked: boolean) => {
     const imageRef = doc(db, `trips/${tripId}/gallery`, imageId);

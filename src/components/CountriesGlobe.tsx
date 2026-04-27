@@ -19,19 +19,25 @@ interface GeoFeature {
     geometry: unknown;
 }
 
+type Mode = 'visited' | 'bucketlist';
+
 interface Props {
     visitedCountries: string[];
+    bucketlistCountries: string[];
     canEdit: boolean;
     onClose: () => void;
-    onToggleCountry: (country: string, add: boolean) => void;
+    onToggleVisited: (country: string, add: boolean) => void;
+    onToggleBucketlist: (country: string, add: boolean) => void;
     initialFocus?: { lat: number; lng: number };
 }
 
 export const CountriesGlobe: React.FC<Props> = ({
     visitedCountries,
+    bucketlistCountries,
     canEdit,
     onClose,
-    onToggleCountry,
+    onToggleVisited,
+    onToggleBucketlist,
     initialFocus = { lat: 52, lng: 14 },
 }) => {
     const globeRef = useRef<GlobeMethods | undefined>(undefined);
@@ -39,6 +45,7 @@ export const CountriesGlobe: React.FC<Props> = ({
     const [hovered, setHovered] = useState<GeoFeature | null>(null);
     const [showListPanel, setShowListPanel] = useState(false);
     const [listSearch, setListSearch] = useState('');
+    const [mode, setMode] = useState<Mode>('visited');
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
@@ -59,28 +66,39 @@ export const CountriesGlobe: React.FC<Props> = ({
         return () => clearTimeout(timer);
     }, [countries.length, initialFocus.lat, initialFocus.lng]);
 
-    const visitedSet = useMemo(() => new Set(visitedCountries.map(c => c.toLowerCase())), [visitedCountries]);
+    const activeList = mode === 'visited' ? visitedCountries : bucketlistCountries;
+    const onToggle = mode === 'visited' ? onToggleVisited : onToggleBucketlist;
+
+    const activeSet = useMemo(() => new Set(activeList.map(c => c.toLowerCase())), [activeList]);
+
+    // Mode-specific colors so the two maps look distinct.
+    const activeFill = mode === 'visited'
+        ? 'rgba(30,58,95,0.92)'   // navy
+        : 'rgba(217,119,6,0.92)'; // warm amber for bucketlist
+    const hoverAdd = mode === 'visited'
+        ? 'rgba(244,185,66,0.9)'
+        : 'rgba(30,58,95,0.55)';
+    const hoverRemove = 'rgba(239,68,68,0.85)';
 
     const getPolygonColor = useCallback((feat: object) => {
         const f = feat as GeoFeature;
         const name = f.properties.NAME || '';
-        const isVisited = visitedSet.has(name.toLowerCase());
+        const isOn = activeSet.has(name.toLowerCase());
         const isHov = hovered?.properties?.NAME === name;
-        if (isHov && canEdit) return isVisited ? 'rgba(239,68,68,0.85)' : 'rgba(244,185,66,0.9)';
-        if (isVisited) return 'rgba(30,58,95,0.92)';         // TripMates navy
-        return 'rgba(232,218,196,0.88)';                     // warm sand — clear on blue bg
-    }, [visitedSet, hovered, canEdit]);
+        if (isHov && canEdit) return isOn ? hoverRemove : hoverAdd;
+        if (isOn) return activeFill;
+        return 'rgba(232,218,196,0.88)';
+    }, [activeSet, hovered, canEdit, activeFill, hoverAdd]);
 
     const handlePolygonClick = useCallback((feat: object) => {
         if (!canEdit) return;
         const f = feat as GeoFeature;
         const name = f.properties.NAME;
         if (!name) return;
-        const alreadyVisited = visitedSet.has(name.toLowerCase());
-        onToggleCountry(name, !alreadyVisited);
-    }, [canEdit, visitedSet, onToggleCountry]);
+        const alreadyOn = activeSet.has(name.toLowerCase());
+        onToggle(name, !alreadyOn);
+    }, [canEdit, activeSet, onToggle]);
 
-    // All country names from GeoJSON sorted alphabetically
     const allCountryNames = countries
         .map(c => c.properties.NAME)
         .sort((a, b) => a.localeCompare(b));
@@ -89,6 +107,13 @@ export const CountriesGlobe: React.FC<Props> = ({
         name.toLowerCase().includes(listSearch.toLowerCase())
     );
 
+    const tabLabel = mode === 'visited' ? 'Countries Visited' : 'Bucketlist';
+    const emptyText = canEdit
+        ? (mode === 'visited'
+            ? 'Tap a country on the globe or tap + to add countries'
+            : 'Tap a country on the globe or tap + to add to your bucketlist')
+        : (mode === 'visited' ? 'No countries visited yet' : 'No bucketlist countries yet');
+
     return (
         <div className={styles.fullscreen}>
             {/* Top bar */}
@@ -96,12 +121,28 @@ export const CountriesGlobe: React.FC<Props> = ({
                 <button className={styles.topBtn} onClick={onClose} title="Close">
                     <ArrowLeft size={22} />
                 </button>
-                <div className={styles.topCenter}>
-                    <span className={styles.topTitle}>Countries Visited</span>
-                    <span className={styles.topBadge}>{visitedCountries.length}</span>
+                <div className={styles.tabSwitch} role="tablist" aria-label="Map mode">
+                    <button
+                        role="tab"
+                        aria-selected={mode === 'visited'}
+                        className={`${styles.tabBtn} ${mode === 'visited' ? styles.tabBtnActive : ''}`}
+                        onClick={() => setMode('visited')}
+                    >
+                        <span>Countries Visited</span>
+                        <span className={styles.tabBadge}>{visitedCountries.length}</span>
+                    </button>
+                    <button
+                        role="tab"
+                        aria-selected={mode === 'bucketlist'}
+                        className={`${styles.tabBtn} ${mode === 'bucketlist' ? styles.tabBtnActive : ''}`}
+                        onClick={() => setMode('bucketlist')}
+                    >
+                        <span>Bucketlist</span>
+                        <span className={styles.tabBadge}>{bucketlistCountries.length}</span>
+                    </button>
                 </div>
                 {canEdit ? (
-                    <button className={styles.topBtn} onClick={() => setShowListPanel(true)} title="Add or remove countries">
+                    <button className={styles.topBtn} onClick={() => setShowListPanel(true)} title={`Add or remove ${tabLabel.toLowerCase()}`}>
                         <Plus size={22} />
                     </button>
                 ) : <div style={{ width: 40 }} />}
@@ -129,8 +170,10 @@ export const CountriesGlobe: React.FC<Props> = ({
                         polygonLabel={(feat) => {
                             const f = feat as GeoFeature;
                             const name = f.properties.NAME;
-                            const visited = visitedSet.has(name?.toLowerCase());
-                            const action = canEdit ? (visited ? '✕ Tap to remove' : '+ Tap to add') : (visited ? '✓ Visited' : '');
+                            const on = activeSet.has(name?.toLowerCase());
+                            const action = canEdit
+                                ? (on ? '✕ Tap to remove' : '+ Tap to add')
+                                : (on ? (mode === 'visited' ? '✓ Visited' : '★ Bucketlist') : '');
                             return `<div style="background:rgba(240,248,255,0.96);color:#1e3a5f;border-radius:10px;padding:7px 12px;font-size:13px;font-family:sans-serif;font-weight:600;box-shadow:0 4px 16px rgba(30,58,95,0.18);border:1px solid rgba(140,195,230,0.4)">${name}${action ? `<br/><span style="font-weight:400;font-size:11px;opacity:0.65">${action}</span>` : ''}</div>`;
                         }}
                     />
@@ -139,17 +182,15 @@ export const CountriesGlobe: React.FC<Props> = ({
 
             {/* Chips */}
             <div className={styles.chipArea}>
-                {visitedCountries.length === 0 ? (
-                    <p className={styles.emptyHint}>
-                        {canEdit ? 'Tap a country on the globe or tap + to add countries' : 'No countries visited yet'}
-                    </p>
+                {activeList.length === 0 ? (
+                    <p className={styles.emptyHint}>{emptyText}</p>
                 ) : (
                     <div className={styles.chipList}>
-                        {[...visitedCountries].sort().map(c => (
+                        {[...activeList].sort().map(c => (
                             <div key={c} className={styles.chip}>
                                 {c}
                                 {canEdit && (
-                                    <button className={styles.chipX} onClick={() => onToggleCountry(c, false)} title={`Remove ${c}`} aria-label={`Remove ${c}`}>
+                                    <button className={styles.chipX} onClick={() => onToggle(c, false)} title={`Remove ${c}`} aria-label={`Remove ${c}`}>
                                         <X size={10} />
                                     </button>
                                 )}
@@ -166,7 +207,7 @@ export const CountriesGlobe: React.FC<Props> = ({
                         <button className={styles.topBtn} onClick={() => { setShowListPanel(false); setListSearch(''); }} title="Back" aria-label="Back">
                             <ArrowLeft size={20} />
                         </button>
-                        <span className={styles.topTitle}>Add / Remove Countries</span>
+                        <span className={styles.topTitle}>{mode === 'visited' ? 'Add / Remove Countries' : 'Add / Remove Bucketlist'}</span>
                         <div style={{ width: 40 }} />
                     </div>
 
@@ -188,13 +229,13 @@ export const CountriesGlobe: React.FC<Props> = ({
 
                     <ul className={styles.countryList}>
                         {filteredList.map(name => {
-                            const visited = visitedSet.has(name.toLowerCase());
+                            const on = activeSet.has(name.toLowerCase());
                             return (
-                                <li key={name} className={styles.countryItem} onClick={() => onToggleCountry(name, !visited)}>
-                                    <span className={`${styles.countryDot} ${visited ? styles.countryDotVisited : ''}`} />
+                                <li key={name} className={styles.countryItem} onClick={() => onToggle(name, !on)}>
+                                    <span className={`${styles.countryDot} ${on ? styles.countryDotVisited : ''}`} />
                                     <span className={styles.countryName}>{name}</span>
-                                    <span className={`${styles.countryToggle} ${visited ? styles.countryToggleOn : ''}`}>
-                                        {visited ? <Check size={14} /> : <Plus size={14} />}
+                                    <span className={`${styles.countryToggle} ${on ? styles.countryToggleOn : ''}`}>
+                                        {on ? <Check size={14} /> : <Plus size={14} />}
                                     </span>
                                 </li>
                             );

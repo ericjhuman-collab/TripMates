@@ -65,6 +65,64 @@
   border: 1px solid rgba(30,58,95,0.1);
 }
 
+/* ── Tab switch (Visited / Bucketlist) ───────────────── */
+.tabSwitch {
+  display: inline-flex;
+  background: rgba(255,255,255,0.55);
+  border: 1.5px solid rgba(180,215,240,0.5);
+  border-radius: 999px;
+  padding: 3px;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  gap: 2px;
+}
+
+.tabBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(30,58,95,0.65);
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: inherit;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  transition: background 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+
+.tabBtn:hover {
+  color: #1e3a5f;
+}
+
+.tabBtnActive {
+  background: #1e3a5f;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(30,58,95,0.18);
+}
+
+.tabBtnActive:hover {
+  color: #fff;
+}
+
+.tabBadge {
+  background: rgba(30,58,95,0.12);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.05rem 0.45rem;
+  min-width: 1.3rem;
+  text-align: center;
+}
+
+.tabBtnActive .tabBadge {
+  background: rgba(255,255,255,0.22);
+}
+
 /* ── Search pane ─────────────────────────────────────── */
 .searchPane {
   padding: 0.5rem 1.25rem;

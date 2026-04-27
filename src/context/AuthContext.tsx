@@ -3,6 +3,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { auth, db } from '../services/firebase';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { deriveUserSearchFields } from '../utils/searchFields';
 
 // ── Hardcoded admin emails ────────────────────────────────────────────────────
 const ADMIN_EMAILS = ['charlie.nilsson@live.com', 'erichuman@me.com'];
@@ -14,6 +15,10 @@ export interface AppUser {
     fullName?: string;
     firstName?: string;
     lastName?: string;
+    /** Lowercase, diacritic-stripped derivative of `name`. Used for prefix search. */
+    nameLower?: string;
+    /** Lowercase, diacritic-stripped derivative of `lastName` (or last token of `name`). */
+    lastNameLower?: string;
     role: 'admin' | 'user';
     hasAgreed: boolean;
     avatarUrl?: string;
@@ -33,6 +38,7 @@ export interface AppUser {
     followers?: string[];
     initialsStyle?: { bg: string; color: string };
     manualVisitedCountries?: string[]; // Countries manually added by user via globe
+    bucketlistCountries?: string[]; // Countries the user wants to visit (separate from visited)
     
     // B2B & Groups additions
     accountType?: 'personal' | 'business'; // To determine active dashboard
@@ -99,13 +105,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!currentUser) return;
         try {
             const userRef = doc(db, 'users', currentUser.uid);
-            await setDoc(userRef, data, { merge: true });
-            setAppUser(prev => prev ? { ...prev, ...data } : null);
+            const payload: Partial<AppUser> = { ...data };
+            if (data.name !== undefined || data.lastName !== undefined) {
+                Object.assign(payload, deriveUserSearchFields({
+                    name: data.name ?? appUser?.name,
+                    lastName: data.lastName ?? appUser?.lastName,
+                }));
+            }
+            await setDoc(userRef, payload, { merge: true });
+            setAppUser(prev => prev ? { ...prev, ...payload } : null);
         } catch (e) {
             console.error("Failed to update profile", e);
             throw e;
         }
-    }, [currentUser]);
+    }, [currentUser, appUser]);
 
     const refreshAppUser = useCallback(async () => {
         if (!currentUser) return;
@@ -129,6 +142,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     friends: existingData.friends || [],
                     ...(existingData.avatarUrl ? { avatarUrl: existingData.avatarUrl } : {}),
                 };
+                Object.assign(newUser, deriveUserSearchFields({ name: newUser.name, lastName: existingData.lastName }));
                 await setDoc(doc(db, 'users', currentUser.uid), newUser, { merge: true });
                 setAppUser(newUser);
             }
@@ -157,6 +171,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         } else {
                             setAppUser(data);
                         }
+                        // Backfill search fields for legacy docs that predate them.
+                        if (!userDoc.data().nameLower) {
+                            const searchFields = deriveUserSearchFields({ name: data.name, lastName: data.lastName });
+                            if (searchFields.nameLower || searchFields.lastNameLower) {
+                                await setDoc(doc(db, 'users', user.uid), searchFields, { merge: true });
+                            }
+                        }
                     } else {
                         // First login OR partial creation from Login.tsx — auto-assign defaults.
                         // Preserve any existing fields (trips/activeTripId/etc) from a prior partial doc.
@@ -175,6 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             friends: existingData.friends || [],
                             ...(existingData.avatarUrl ? { avatarUrl: existingData.avatarUrl } : {}),
                         };
+                        Object.assign(newUser, deriveUserSearchFields({ name: newUser.name, lastName: existingData.lastName }));
                         await setDoc(doc(db, 'users', user.uid), newUser, { merge: true });
                         if (cancelled) return;
                         setAppUser(newUser);

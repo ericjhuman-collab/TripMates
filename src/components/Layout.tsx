@@ -1,11 +1,13 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Grid, ArrowLeft, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X } from 'lucide-react';
+import { Home, Grid, ArrowLeft, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { db } from '../services/firebase';
-import { collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
+import { searchUsersByUsernamePrefix } from '../services/username';
+import { normalizeSearchInput } from '../utils/searchFields';
 import styles from './Layout.module.css';
 
 const CATEGORY_LABELS: Record<TripCategory, string> = {
@@ -93,25 +95,61 @@ export const Layout: React.FC = () => {
         }
     }, [searchOpen]);
 
-    // Debounced Firestore search
-    const runSearch = useCallback(async (q: string) => {
-        if (q.trim().length < 2) { setSearchResults([]); return; }
+    // Debounced Firestore search across name, last name, and username.
+    const runSearch = useCallback(async (rawQuery: string) => {
+        const normalized = normalizeSearchInput(rawQuery);
+        if (normalized.length < 2) { setSearchResults([]); return; }
         setIsSearching(true);
         try {
-            // Search by name prefix (case-sensitive in Firestore — store lowercase name for better results)
+            const upper = normalized + '\uf8ff';
+
             const nameQ = query(
                 collection(db, 'users'),
-                where('name', '>=', q),
-                where('name', '<=', q + '\uf8ff'),
-                limit(10)
+                where('nameLower', '>=', normalized),
+                where('nameLower', '<=', upper),
+                limit(10),
             );
-            const snap = await getDocs(nameQ);
-            const results: UserResult[] = snap.docs.map(d => ({
-                uid: d.id,
-                name: d.data().name || d.id,
-                avatarUrl: d.data().avatarUrl,
-            })).filter(u => u.uid !== appUser?.uid); // exclude self
-            setSearchResults(results);
+            const lastNameQ = query(
+                collection(db, 'users'),
+                where('lastNameLower', '>=', normalized),
+                where('lastNameLower', '<=', upper),
+                limit(10),
+            );
+
+            const [nameSnap, lastNameSnap, usernameHits] = await Promise.all([
+                getDocs(nameQ),
+                getDocs(lastNameQ),
+                searchUsersByUsernamePrefix(rawQuery, 10),
+            ]);
+
+            const merged = new Map<string, UserResult>();
+            const addDoc = (d: { id: string; data: () => Record<string, unknown> }) => {
+                if (d.id === appUser?.uid) return;
+                if (merged.has(d.id)) return;
+                const data = d.data();
+                merged.set(d.id, {
+                    uid: d.id,
+                    name: (data.name as string) || (data.username as string) || d.id,
+                    avatarUrl: data.avatarUrl as string | undefined,
+                });
+            };
+            nameSnap.docs.forEach(addDoc);
+            lastNameSnap.docs.forEach(addDoc);
+
+            // Username matches give us uids only; fetch the user docs to get name/avatar.
+            const missingUids = usernameHits
+                .map(h => h.uid)
+                .filter(uid => uid && uid !== appUser?.uid && !merged.has(uid));
+            if (missingUids.length > 0) {
+                const userDocsQ = query(
+                    collection(db, 'users'),
+                    where(documentId(), 'in', missingUids.slice(0, 10)),
+                );
+                const userSnap = await getDocs(userDocsQ);
+                userSnap.docs.forEach(addDoc);
+            }
+
+            setSearchResults(Array.from(merged.values()).slice(0, 10));
         } catch (e) {
             console.error('Search error', e);
         }
@@ -145,7 +183,7 @@ export const Layout: React.FC = () => {
     const isOwnProfileActive = location.pathname === '/profile' || location.pathname === `/profile/${appUser?.uid}`;
 
     return (
-        <div className={`app-container ${styles.appContainer} ${isProfilePage ? styles.appContainerNoNav : styles.appContainerWithNav}`}>
+        <div className={`app-container ${styles.appContainer} ${styles.appContainerWithNav}`}>
             <header className={styles.header}>
                 {isProfilePage ? (
                     <div className={styles.profileHeaderRow}>
@@ -259,6 +297,15 @@ export const Layout: React.FC = () => {
                         >
                             {searchOpen ? <X size={22} /> : <Search size={22} />}
                         </button>
+
+                        {/* Hamburger menu — opens the same drawer as on /profile */}
+                        <button
+                            onClick={() => navigate('/profile', { state: { openMenu: true } })}
+                            title="Menu"
+                            className={styles.searchIconBtn}
+                        >
+                            <Menu size={22} />
+                        </button>
                     </div>
                 )}
             </header>
@@ -311,8 +358,7 @@ export const Layout: React.FC = () => {
                 <Outlet />
             </main>
 
-            {!isProfilePage && (
-                <nav className={`nav-container ${styles.navBar}`}>
+            <nav className={`nav-container ${styles.navBar}`}>
                     <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Home size={22} />
                         <span>Trip</span>
@@ -345,7 +391,6 @@ export const Layout: React.FC = () => {
                         <span>Profile</span>
                     </button>
                 </nav>
-            )}
         </div>
     );
 };
