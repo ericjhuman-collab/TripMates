@@ -21,8 +21,6 @@ export interface AppUser {
     sharePhoneNumber?: boolean;
     /** Globally unique handle for @-mentions and search. Lowercase, 3-20 chars. */
     username?: string;
-    /** ISO 639-1 (e.g. 'sv', 'en'). UI is not yet i18n; this stores the preference. */
-    language?: 'sv' | 'en';
     /** ISO 3166-1 alpha-2 (e.g. 'SE', 'NO'). User's home country. */
     country?: string;
     trips?: string[];

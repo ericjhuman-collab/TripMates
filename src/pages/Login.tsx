@@ -50,11 +50,6 @@ const passwordValid = (pw: string) => {
 };
 
 // ── Static option lists ───────────────────────────────────────────────────
-const LANGUAGES: { code: 'sv' | 'en'; label: string }[] = [
-    { code: 'sv', label: 'Svenska' },
-    { code: 'en', label: 'English' },
-];
-
 const COUNTRIES: { code: string; label: string }[] = [
     { code: 'SE', label: 'Sverige' },
     { code: 'NO', label: 'Norge' },
@@ -70,12 +65,6 @@ const COUNTRIES: { code: string; label: string }[] = [
     { code: 'OTHER', label: 'Other' },
 ];
 
-// Detect a sensible default language from browser settings.
-const detectLanguage = (): 'sv' | 'en' => {
-    const lang = (typeof navigator !== 'undefined' ? navigator.language : '').toLowerCase();
-    return lang.startsWith('sv') ? 'sv' : 'en';
-};
-
 export const Login: React.FC = () => {
     const [mode, setMode] = useState<Mode>('signin');
     const [email, setEmail] = useState('');
@@ -84,7 +73,6 @@ export const Login: React.FC = () => {
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
-    const [language, setLanguage] = useState<'sv' | 'en'>(detectLanguage());
     const [country, setCountry] = useState('SE');
     const [agreedToTerms, setAgreedToTerms] = useState(false);
     const [showPhoneInfo, setShowPhoneInfo] = useState(false);
@@ -191,7 +179,6 @@ export const Login: React.FC = () => {
                         fullName: `${first} ${last}`,
                         role: 'user',
                         hasAgreed: true,
-                        language,
                         country,
                         trips: [],
                         activeTripId: null,
@@ -340,32 +327,18 @@ export const Login: React.FC = () => {
                                 </div>
                             )}
 
-                            <div className={styles.selectRow}>
-                                <label className={styles.selectLabel}>
-                                    Country
-                                    <select
-                                        className={styles.select}
-                                        value={country}
-                                        onChange={e => setCountry(e.target.value)}
-                                    >
-                                        {COUNTRIES.map(c => (
-                                            <option key={c.code} value={c.code}>{c.label}</option>
-                                        ))}
-                                    </select>
-                                </label>
-                                <label className={styles.selectLabel}>
-                                    Language
-                                    <select
-                                        className={styles.select}
-                                        value={language}
-                                        onChange={e => setLanguage(e.target.value as 'sv' | 'en')}
-                                    >
-                                        {LANGUAGES.map(l => (
-                                            <option key={l.code} value={l.code}>{l.label}</option>
-                                        ))}
-                                    </select>
-                                </label>
-                            </div>
+                            <label className={styles.selectLabel}>
+                                Country
+                                <select
+                                    className={styles.select}
+                                    value={country}
+                                    onChange={e => setCountry(e.target.value)}
+                                >
+                                    {COUNTRIES.map(c => (
+                                        <option key={c.code} value={c.code}>{c.label}</option>
+                                    ))}
+                                </select>
+                            </label>
 
                             <label className={`${styles.termsLabel} ${fieldErrors.has('terms') ? styles.termsLabelInvalid : ''}`}>
                                 <input

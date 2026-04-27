@@ -31,7 +31,7 @@ export const Privacy: React.FC = () => (
             <h2>2. Data we collect</h2>
             <p>We collect the following categories of personal data:</p>
             <ul>
-                <li><strong>Account data:</strong> first name, last name, email, password (hashed by Firebase Auth), language and country preferences.</li>
+                <li><strong>Account data:</strong> first name, last name, email, password (hashed by Firebase Auth), and country preference.</li>
                 <li><strong>Profile data (optional):</strong> phone number, avatar, profile color.</li>
                 <li><strong>Trip data:</strong> trips you create or join, members, destinations, dates, accommodations, activities.</li>
                 <li><strong>Expense data:</strong> amounts, currencies, who paid, who participated, receipt images.</li>
