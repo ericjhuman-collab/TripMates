@@ -121,7 +121,25 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         }
                     }).catch(console.error);
                 },
-                (err) => console.error("Geolocation error:", err),
+                (err) => {
+                    // PERMISSION_DENIED (1) is the user's choice, not a bug —
+                    // log quietly. POSITION_UNAVAILABLE (2) and TIMEOUT (3) are
+                    // transient; warn but don't error. Stop watching on denial
+                    // so we don't keep prompting/firing.
+                    if (err.code === err.PERMISSION_DENIED) {
+                        console.info('Location sharing declined; skipping live location.');
+                        if (watchIdRef.current !== null) {
+                            navigator.geolocation.clearWatch(watchIdRef.current);
+                            watchIdRef.current = null;
+                        }
+                        return;
+                    }
+                    if (err.code === err.POSITION_UNAVAILABLE || err.code === err.TIMEOUT) {
+                        console.warn('Geolocation unavailable:', err.message);
+                        return;
+                    }
+                    console.error('Geolocation error:', err);
+                },
                 { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
             );
         }
