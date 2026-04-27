@@ -229,6 +229,47 @@ describe('trips/{tripId}', () => {
   });
 });
 
+describe('trips/{tripId} — submanager (admin but not creator)', () => {
+  beforeEach(async () => {
+    // Seed BOB as an additional admin (Submanager); ALICE remains creator.
+    await seedTrip({ adminIds: [ALICE, BOB] });
+  });
+
+  it('submanager CAN update trip metadata', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asUser(BOB), 'trips', TRIP_ID), { name: 'Renamed by sub' })
+    );
+  });
+
+  it('submanager CANNOT modify adminIds (no self-promotion or demoting creator)', async () => {
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'trips', TRIP_ID), { adminIds: [BOB] })
+    );
+  });
+
+  it('submanager CANNOT modify createdBy (no ownership takeover)', async () => {
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'trips', TRIP_ID), { createdBy: BOB })
+    );
+  });
+
+  it('submanager CANNOT remove members (no kick of creator or anyone)', async () => {
+    await assertFails(
+      updateDoc(doc(asUser(BOB), 'trips', TRIP_ID), { members: arrayRemove(ALICE) })
+    );
+  });
+
+  it('submanager CANNOT delete trip', async () => {
+    await assertFails(deleteDoc(doc(asUser(BOB), 'trips', TRIP_ID)));
+  });
+
+  it('submanager CAN still leave (remove self) via the leave rule', async () => {
+    await assertSucceeds(
+      updateDoc(doc(asUser(BOB), 'trips', TRIP_ID), { members: arrayRemove(BOB) })
+    );
+  });
+});
+
 describe('expenses/{expenseId}', () => {
   beforeEach(async () => {
     await seedTrip();

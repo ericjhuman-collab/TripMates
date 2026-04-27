@@ -157,7 +157,7 @@ export const CountriesGlobe: React.FC<Props> = ({
                         height={globeSize}
                         backgroundColor="rgba(0,0,0,0)"
                         showAtmosphere
-                        atmosphereColor="rgba(160,210,240,0.45)"
+                        atmosphereColor="#a0d2f0"
                         atmosphereAltitude={0.15}
                         globeImageUrl={WHITE_GLOBE_IMG}
                         polygonsData={countries}

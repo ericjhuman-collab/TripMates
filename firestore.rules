@@ -94,8 +94,20 @@ service cloud.firestore {
         && request.auth.uid in request.resource.data.adminIds
         && request.auth.uid in request.resource.data.members;
 
-      // (1) Trip admin updates trip data.
-      allow update: if isTripAdmin(tripId);
+      // (1a) Creator: full update of trip data.
+      allow update: if isAuthed()
+        && resource.data.createdBy == request.auth.uid
+        && isTripAdmin(tripId);
+
+      // (1b) Submanager (admin but NOT creator): may update trip settings
+      // but never the ownership/membership topology. Locks out:
+      //  - createdBy   (no self-promotion to owner)
+      //  - adminIds    (no demoting the creator or adding new admins)
+      //  - members     (no kicking the creator or anyone else)
+      allow update: if isTripAdmin(tripId)
+        && resource.data.createdBy != request.auth.uid
+        && !request.resource.data.diff(resource.data).affectedKeys()
+             .hasAny(['createdBy', 'adminIds', 'members']);
 
       // (2) Invitee joins: only adds self to members, invite not closed.
       allow update: if isAuthed()
@@ -108,7 +120,9 @@ service cloud.firestore {
         && onlyChanging(['members'])
         && removedSelfFrom(resource.data.members, request.resource.data.members);
 
-      allow delete: if isTripAdmin(tripId);
+      // Only the creator may delete the entire trip.
+      allow delete: if isAuthed()
+        && resource.data.createdBy == request.auth.uid;
 
       // ── Subcollection: per-member trip preferences ─────────────────────
       // Each member can write their own prefs. Trip members can read each
