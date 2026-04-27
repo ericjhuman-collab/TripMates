@@ -1,8 +1,276 @@
-rules_version='2';
+rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ─── Helpers ──────────────────────────────────────────────────────────
+    function isAuthed() {
+      return request.auth != null;
+    }
+    function isMe(uid) {
+      return isAuthed() && request.auth.uid == uid;
+    }
+    function tripDoc(tripId) {
+      return get(/databases/$(database)/documents/trips/$(tripId)).data;
+    }
+    function isTripMember(tripId) {
+      return isAuthed() && request.auth.uid in tripDoc(tripId).members;
+    }
+    function isTripAdmin(tripId) {
+      return isAuthed() && request.auth.uid in tripDoc(tripId).adminIds;
+    }
+    function onlyChanging(allowedFields) {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(allowedFields);
+    }
+    // True when the only delta to a list field is adding exactly request.auth.uid.
+    function addedSelfTo(oldList, newList) {
+      return newList.hasAll(oldList)
+        && newList.size() == oldList.size() + 1
+        && (request.auth.uid in newList)
+        && !(request.auth.uid in oldList);
+    }
+    function removedSelfFrom(oldList, newList) {
+      return oldList.hasAll(newList)
+        && oldList.size() == newList.size() + 1
+        && (request.auth.uid in oldList)
+        && !(request.auth.uid in newList);
+    }
+
+    // ─── users/{uid} ──────────────────────────────────────────────────────
+    // Any authenticated user may read profiles (we accept that email/phone
+    // live on the same doc until Layer 3 splits public vs private fields).
+    match /users/{uid} {
+      allow read: if isAuthed();
+
+      allow create: if isMe(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.role == 'user';
+
+      // Owner may update most fields. Lock role and uid so no self-promotion
+      // and no identity rewrites.
+      allow update: if isMe(uid)
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.role == resource.data.role;
+
+      // Bilateral follow: another user may toggle exactly themselves
+      // in this user's `followers` array. No other field may change.
+      // Use .get() with a [] default so it works even if the target user has
+      // never had a `followers` field written yet (first follower).
+      allow update: if isAuthed()
+        && !isMe(uid)
+        && onlyChanging(['followers'])
+        && (
+          addedSelfTo(resource.data.get('followers', []), request.resource.data.get('followers', []))
+          || removedSelfFrom(resource.data.get('followers', []), request.resource.data.get('followers', []))
+        );
+
+      allow delete: if false;
+
+      // Notifications: owner reads; any authed user can create one as long
+      // as they stamp their own uid as fromUid; owner marks read; owner deletes.
+      match /notifications/{notifId} {
+        allow read: if isMe(uid);
+        allow create: if isAuthed()
+          && request.resource.data.fromUid == request.auth.uid;
+        allow update: if isMe(uid)
+          && onlyChanging(['read']);
+        allow delete: if isMe(uid);
+      }
+
+      // Scan quota: Cloud Function only. Admin SDK bypasses rules.
+      match /scanQuota/{day} {
+        allow read, write: if false;
+      }
+    }
+
+    // ─── trips/{tripId} ───────────────────────────────────────────────────
+    match /trips/{tripId} {
+      allow read: if isAuthed()
+        && request.auth.uid in resource.data.members;
+
+      allow create: if isAuthed()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.auth.uid in request.resource.data.adminIds
+        && request.auth.uid in request.resource.data.members;
+
+      // (1) Trip admin updates trip data.
+      allow update: if isTripAdmin(tripId);
+
+      // (2) Invitee joins: only adds self to members, invite not closed.
+      allow update: if isAuthed()
+        && resource.data.inviteClosed != true
+        && onlyChanging(['members'])
+        && addedSelfTo(resource.data.members, request.resource.data.members);
+
+      // (3) Member leaves: only removes self from members.
+      allow update: if isAuthed()
+        && onlyChanging(['members'])
+        && removedSelfFrom(resource.data.members, request.resource.data.members);
+
+      allow delete: if isTripAdmin(tripId);
+
+      // ── Subcollection: per-member trip preferences ─────────────────────
+      // Each member can write their own prefs. Trip members can read each
+      // other's prefs (e.g. to know if a member shares their phone number).
+      match /memberPrefs/{uid} {
+        allow read: if isAuthed() && (isMe(uid) || isTripMember(tripId));
+        allow create, update: if isMe(uid) && isTripMember(tripId);
+        allow delete: if isMe(uid);
+      }
+
+      // ── Subcollection: trip gallery ────────────────────────────────────
+      match /gallery/{imageId} {
+        allow read: if isTripMember(tripId);
+        allow create: if isTripMember(tripId)
+          && request.resource.data.uploadedBy == request.auth.uid;
+        // Like / unlike: only `likes` changes, only self toggled.
+        allow update: if isTripMember(tripId)
+          && onlyChanging(['likes'])
+          && (
+            addedSelfTo(resource.data.likes, request.resource.data.likes)
+            || removedSelfFrom(resource.data.likes, request.resource.data.likes)
+          );
+        // Uploader or trip admin may delete.
+        allow delete: if isTripMember(tripId)
+          && (resource.data.uploadedBy == request.auth.uid || isTripAdmin(tripId));
+      }
+    }
+
+    // ─── activities/{activityId} ──────────────────────────────────────────
+    match /activities/{activityId} {
+      allow read: if isAuthed() && (
+        (resource.data.tripId != null && isTripMember(resource.data.tripId))
+        || (resource.data.isSavedActivity == true
+            && resource.data.ownerId == request.auth.uid)
+        || (resource.data.isSavedActivity == true
+            && resource.data.isShared == true)
+      );
+
+      allow create: if isAuthed() && (
+        // Trip activity: must be member, and either admin OR trip allows member adds.
+        (request.resource.data.tripId != null
+          && isTripMember(request.resource.data.tripId)
+          && (isTripAdmin(request.resource.data.tripId)
+              || tripDoc(request.resource.data.tripId).allowMemberActivities == true))
+        // Saved-library activity: owner is self.
+        || (request.resource.data.isSavedActivity == true
+            && request.resource.data.ownerId == request.auth.uid)
+      );
+
+      // Creator or trip admin may update freely.
+      allow update: if isAuthed() && (
+        resource.data.createdBy == request.auth.uid
+        || (resource.data.tripId != null && isTripAdmin(resource.data.tripId))
+      );
+      // Voting: any trip member may set/change ONLY their own vote entry.
+      allow update: if isAuthed()
+        && resource.data.tripId != null
+        && isTripMember(resource.data.tripId)
+        && onlyChanging(['votes'])
+        && request.resource.data.votes.diff(resource.data.votes)
+            .affectedKeys().hasOnly([request.auth.uid]);
+
+      allow delete: if isAuthed() && (
+        resource.data.createdBy == request.auth.uid
+        || (resource.data.tripId != null && isTripAdmin(resource.data.tripId))
+        || (resource.data.isSavedActivity == true
+            && resource.data.ownerId == request.auth.uid)
+      );
+    }
+
+    // ─── activityLists/{listId} ───────────────────────────────────────────
+    match /activityLists/{listId} {
+      allow read: if isAuthed() && (
+        resource.data.ownerId == request.auth.uid
+        || resource.data.isShared == true
+      );
+      allow create: if isAuthed()
+        && request.resource.data.ownerId == request.auth.uid;
+      allow update, delete: if isAuthed()
+        && resource.data.ownerId == request.auth.uid;
+    }
+
+    // ─── expenses/{expenseId} ─────────────────────────────────────────────
+    match /expenses/{expenseId} {
+      allow read: if isAuthed() && isTripMember(resource.data.tripId);
+
+      allow create: if isAuthed()
+        && isTripMember(request.resource.data.tripId)
+        && request.resource.data.creatorId == request.auth.uid;
+
+      allow update, delete: if isAuthed() && (
+        resource.data.creatorId == request.auth.uid
+        || resource.data.payerId == request.auth.uid
+        || isTripAdmin(resource.data.tripId)
+      );
+    }
+
+    // ─── payments/{paymentId} ─────────────────────────────────────────────
+    // NOTE: settle-up generates many docs at once. Layer 2 will move this to
+    // a Cloud Function; until then we allow trip members to manage payments.
+    match /payments/{paymentId} {
+      allow read: if isAuthed() && isTripMember(resource.data.tripId);
+      allow create: if isAuthed()
+        && isTripMember(request.resource.data.tripId);
+      allow update: if isAuthed() && isTripMember(resource.data.tripId);
+      // Trip members may delete PENDING payments — settle-up replaces them.
+      // Only admins may delete COMPLETED payments (audit safety).
+      allow delete: if isAuthed() && (
+        (resource.data.status == 'PENDING' && isTripMember(resource.data.tripId))
+        || isTripAdmin(resource.data.tripId)
+      );
+    }
+
+    // ─── odds/{sessionId} ─────────────────────────────────────────────────
+    match /odds/{sessionId} {
+      allow read: if isAuthed() && isTripMember(resource.data.tripId);
+      allow create: if isAuthed()
+        && isTripMember(request.resource.data.tripId)
+        && request.resource.data.challengerId == request.auth.uid;
+      // Only the two parties to the challenge may advance state.
+      allow update: if isAuthed() && (
+        resource.data.challengerId == request.auth.uid
+        || resource.data.targetId == request.auth.uid
+      );
+      allow delete: if isAuthed() && isTripAdmin(resource.data.tripId);
+    }
+
+    // ─── bingo/{key} where key = "trip_<tripId>" ─────────────────────────
+    match /bingo/{key} {
+      allow read, write: if isAuthed()
+        && key.matches('trip_.+')
+        && isTripMember(key.split('_')[1]);
+    }
+
+    // ─── usernames/{name} ─────────────────────────────────────────────────
+    // Acts as a uniqueness lock for handles. Doc id = the username (lowercase).
+    // Anyone authenticated can read (for availability checks and prefix search).
+    // Only the user claiming the name can create the lock — and only with their own uid.
+    // Updates are forbidden (change = delete + create); only the owner may delete.
+    match /usernames/{name} {
+      allow read: if isAuthed();
+      allow create: if isAuthed()
+        && request.resource.data.uid == request.auth.uid;
+      allow update: if false;
+      allow delete: if isAuthed()
+        && resource.data.uid == request.auth.uid;
+    }
+
+    // ─── groups/{groupId} ─────────────────────────────────────────────────
+    match /groups/{groupId} {
+      allow read: if isAuthed() && request.auth.uid in resource.data.members;
+      allow create: if isAuthed()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.auth.uid in request.resource.data.members;
+      allow update: if isAuthed() && request.auth.uid in resource.data.members;
+      allow delete: if isAuthed()
+        && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ─── Default deny ─────────────────────────────────────────────────────
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
