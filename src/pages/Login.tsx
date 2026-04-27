@@ -6,6 +6,7 @@ import {
     signInWithEmailAndPassword,
     createUserWithEmailAndPassword,
     sendPasswordResetEmail,
+    sendEmailVerification,
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { deriveUserSearchFields } from '../utils/searchFields';
@@ -171,6 +172,12 @@ export const Login: React.FC = () => {
                 setMode('signin');
             } else if (mode === 'signup') {
                 const cred = await createUserWithEmailAndPassword(auth, email, password);
+                // Fire-and-forget verification email. Failure (e.g. quota) is
+                // non-fatal; the in-app banner has a Resend button so users
+                // can recover.
+                sendEmailVerification(cred.user).catch(e => {
+                    console.error('Failed to send verification email', e);
+                });
                 const first = firstName.trim();
                 const last = lastName.trim();
                 const trimmedPhone = phoneNumber.trim();
