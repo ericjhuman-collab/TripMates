@@ -10,6 +10,7 @@ import { EvenProvider } from './context/EvenContext';
 import { OddsProvider } from './context/OddsContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { EnvBanner } from './components/EnvBanner';
 import './App.css';
 
 // Route-level code splitting — keeps the initial JS bundle small. Home is
@@ -40,6 +41,7 @@ function App() {
     <Router>
       <AppErrorBoundary>
         <ToastProvider>
+          <EnvBanner />
           <AuthProvider>
             <TripProvider>
               <EvenProvider>

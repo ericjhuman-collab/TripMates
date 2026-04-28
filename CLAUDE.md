@@ -27,7 +27,7 @@ firebase deploy --only hosting       # builds dist/ from `npm run build`
 
 There is **no app-level test suite** — only `tests/firestore.rules.test.ts` covers security rules. Don't promise React component tests pass; we have none.
 
-There is **no staging Firebase project** — `.firebaserc` only defines `alen-8797d` (prod). Anything you deploy hits real users. Treat rule and function deploys with care.
+A **staging Firebase project** alias (`staging`) is declared in `.firebaserc` and the web SDK supports an env switch via `VITE_FIREBASE_ENV=staging` (see [src/services/firebase.ts](src/services/firebase.ts)). The actual project still has to be created in Firebase Console and the placeholder values in `STAGING_CONFIG` filled in — see [docs/staging-setup.md](docs/staging-setup.md). Until that's done, every deploy still hits prod (`alen-8797d`); treat rule and function deploys with care. When staging is wired, an amber `STAGING` strip ([EnvBanner.tsx](src/components/EnvBanner.tsx)) renders at the top of the app to disambiguate.
 
 Cloud Functions live in `functions/` as a separate npm package (Node 22, region `europe-west1`). Currently only `scanReceipt` (Gemini-based OCR for expense receipts).
 

@@ -1,6 +1,8 @@
 {
   "projects": {
-    "default": "alen-8797d"
+    "default": "alen-8797d",
+    "prod": "alen-8797d",
+    "staging": "REPLACE_WITH_STAGING_PROJECT_ID"
   },
   "targets": {},
   "etags": {}
