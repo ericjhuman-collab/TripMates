@@ -6,6 +6,7 @@ import { Bookmark, BookmarkCheck, MapPin, Filter } from 'lucide-react';
 import type { Trip } from '../context/TripContext';
 import type { Activity } from '../services/activities';
 import { CustomSelect } from '../components/CustomSelect';
+import { Spinner } from '../components/Spinner';
 import styles from './Explore.module.css';
 
 interface FeedPost {
@@ -122,7 +123,7 @@ export const Explore: React.FC = () => {
             </div>
 
             {loading ? (
-                <p className={styles.loadingText}>Loading explore feed...</p>
+                <Spinner label="Loading explore feed…" fullHeight />
             ) : filteredPosts.length === 0 ? (
                 <div className={styles.emptyState}>
                     <p>No posts found for the selected theme.</p>
