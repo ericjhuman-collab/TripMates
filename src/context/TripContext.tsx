@@ -1,5 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { useToast } from '../components/Toast';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
@@ -91,6 +92,7 @@ const generateShortCode = () => {
 };
 
 export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const toast = useToast();
     const { currentUser, appUser, refreshAppUser } = useAuth();
     const [activeTrip, setActiveTrip] = useState<Trip | null>(null);
     const [userTrips, setUserTrips] = useState<Trip[]>([]);
@@ -219,7 +221,7 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!currentUser && !appUser?.uid?.startsWith('mock')) throw new Error("Not authenticated");
 
         if (appUser && appUser.uid?.startsWith('mock')) {
-            alert("Mock Mode: Simulating trip creation. Returning to profile.");
+            toast.info("Mock Mode: Simulating trip creation. Returning to profile.");
             return 'MOCK_NEW';
         }
 

@@ -7,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Phone, MessageCircle, Plus, X, Loader2 } from 'lucide-react';
 import styles from './Members.module.css';
+import { useToast } from '../components/Toast';
 
 interface Group {
     id: string;
@@ -16,6 +17,7 @@ interface Group {
 }
 
 export const Members: React.FC = () => {
+    const toast = useToast();
     const { appUser } = useAuth();
     const { activeTrip } = useTrip();
     const navigate = useNavigate();
@@ -120,10 +122,10 @@ export const Members: React.FC = () => {
             setShowGroupModal(false);
             setNewGroupName('');
             setIsCreatingNewGroup(false);
-            alert("Members added to group successfully!");
+            toast.success("Members added to group successfully!");
         } catch (error) {
             console.error("Error saving group assignment:", error);
-            alert("Failed to update group.");
+            toast.error("Failed to update group.");
         } finally {
             setIsSavingGroup(false);
         }

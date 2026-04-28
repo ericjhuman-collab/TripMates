@@ -4,6 +4,7 @@ import { X, Trash2, Plus } from 'lucide-react';
 import type { Expense, ReceiptItem } from '../services/even';
 import { useEven } from '../context/useEven';
 import styles from './EditReceiptModal.module.css';
+import { useToast } from './Toast';
 
 interface Props {
     expense: Expense;
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export const EditReceiptModal: React.FC<Props> = ({ expense, onClose }) => {
+    const toast = useToast();
     const { updateExpense } = useEven();
     const [items, setItems] = useState<ReceiptItem[]>(() =>
         (expense.items || []).map(it => ({ ...it, allocations: { ...it.allocations } }))
@@ -64,7 +66,7 @@ export const EditReceiptModal: React.FC<Props> = ({ expense, onClose }) => {
             onClose();
         } catch (e) {
             console.error('Failed to save edits', e);
-            alert('Kunde inte spara ändringarna.');
+            toast.error('Kunde inte spara ändringarna.');
         } finally {
             setSaving(false);
         }

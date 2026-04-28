@@ -6,6 +6,7 @@ import { useEven } from '../context/useEven';
 import type { Expense, ReceiptItem } from '../services/even';
 import { EditReceiptModal } from './EditReceiptModal';
 import styles from './ReceiptClaimModal.module.css';
+import { useToast } from './Toast';
 
 interface ReceiptClaimModalProps {
     expense: Expense;
@@ -13,6 +14,7 @@ interface ReceiptClaimModalProps {
 }
 
 export const ReceiptClaimModal: React.FC<ReceiptClaimModalProps> = ({ expense, onClose }) => {
+    const toast = useToast();
     const { appUser } = useAuth();
     const { participants, updateExpense, deleteExpense } = useEven();
     const currency = expense.currency || 'SEK';
@@ -51,7 +53,7 @@ export const ReceiptClaimModal: React.FC<ReceiptClaimModalProps> = ({ expense, o
             onClose();
         } catch (e) {
             console.error('Failed to delete', e);
-            alert('Kunde inte radera kvittot.');
+            toast.error('Kunde inte radera kvittot.');
         }
     };
 
@@ -160,7 +162,7 @@ export const ReceiptClaimModal: React.FC<ReceiptClaimModalProps> = ({ expense, o
             onClose();
         } catch (e) {
             console.error('Failed to save claims', e);
-            alert('Kunde inte spara dina val. Försök igen.');
+            toast.error('Kunde inte spara dina val. Försök igen.');
         } finally {
             setIsSaving(false);
         }

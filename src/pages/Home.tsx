@@ -9,6 +9,7 @@ import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { AppUser } from '../context/AuthContext';
 import styles from './Home.module.css';
+import { useToast } from '../components/Toast';
 
 // Map view bundles leaflet + Google Maps loader; lazy-load it so the
 // schedule view (the default) doesn't pay that cost.
@@ -678,6 +679,7 @@ const ActivityCard: React.FC<{ activity: Activity, isAdmin: boolean, users: AppU
 };
 
 const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: boolean, onGoToLeaderboard?: () => void, onUpdate?: () => void, onClose: (e: React.MouseEvent) => void }> = ({ activity, users, isAdmin, onGoToLeaderboard, onUpdate, onClose }) => {
+    const toast = useToast();
     const { appUser } = useAuth();
     const [saving, setSaving] = useState(false);
     const [localClosed, setLocalClosed] = useState(false);
@@ -702,7 +704,7 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
             onClose({ stopPropagation: () => { } } as React.MouseEvent);
         } catch (e) {
             console.error('Failed to cast vote', e);
-            alert('Failed to cast vote.');
+            toast.error('Failed to cast vote.');
         } finally {
             setSaving(false);
         }

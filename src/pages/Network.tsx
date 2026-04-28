@@ -5,8 +5,10 @@ import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { UserPlus, UserMinus, Search, Loader2 } from 'lucide-react';
 import styles from './Profile.module.css';
+import { useToast } from '../components/Toast';
 
 export const Network: React.FC = () => {
+    const toast = useToast();
     const { appUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'following' | 'followers'>('following');
     const [searchQuery, setSearchQuery] = useState('');
@@ -102,7 +104,7 @@ export const Network: React.FC = () => {
             console.error("Follow error", e);
             // Revert on fail
             setLocalFollowing(localFollowing);
-            alert("Failed to update follow status.");
+            toast.error("Failed to update follow status.");
         }
     };
 

@@ -9,6 +9,7 @@ import { JoinTripHandler } from './pages/JoinTripHandler';
 import { EvenProvider } from './context/EvenContext';
 import { OddsProvider } from './context/OddsContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
+import { ToastProvider } from './components/Toast';
 import './App.css';
 
 // Route-level code splitting — keeps the initial JS bundle small. Home is
@@ -38,11 +39,12 @@ function App() {
   return (
     <Router>
       <AppErrorBoundary>
-        <AuthProvider>
-          <TripProvider>
-            <EvenProvider>
-              <OddsProvider>
-              <div className="app-container">
+        <ToastProvider>
+          <AuthProvider>
+            <TripProvider>
+              <EvenProvider>
+                <OddsProvider>
+                <div className="app-container">
                 <Suspense fallback={<RouteFallback />}>
                 <Routes>
                 <Route path="/login" element={<Login />} />
@@ -70,11 +72,12 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
                 </Suspense>
-              </div>
-              </OddsProvider>
-            </EvenProvider>
-          </TripProvider>
-        </AuthProvider>
+                </div>
+                </OddsProvider>
+              </EvenProvider>
+            </TripProvider>
+          </AuthProvider>
+        </ToastProvider>
       </AppErrorBoundary>
     </Router>
   );

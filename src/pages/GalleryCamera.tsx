@@ -10,6 +10,7 @@ import { getAllActivities, type Activity } from '../services/activities';
 import { Heart, Trash2, Tag, Users, Edit3, ArrowDownAZ, Filter } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './GalleryCamera.module.css';
+import { useToast } from '../components/Toast';
 
 type Mode = 'gallery' | 'camera';
 
@@ -20,6 +21,7 @@ interface TripMember {
 }
 
 export const GalleryCamera: React.FC = () => {
+    const toast = useToast();
     const navigate = useNavigate();
     const { appUser } = useAuth();
     const { activeTrip } = useTrip();
@@ -87,7 +89,7 @@ export const GalleryCamera: React.FC = () => {
             setEditingImage(null);
         } catch (e) {
             console.error('Failed to update tags', e);
-            alert('Could not save tags. Please try again.');
+            toast.error('Could not save tags. Please try again.');
         } finally {
             setSavingEditTags(false);
         }
@@ -263,7 +265,7 @@ export const GalleryCamera: React.FC = () => {
             await uploadImageToGallery(selectedTripId, pendingFile, appUser.uid, appUser.name, tags);
         } catch (error) {
             console.error('Upload error:', error);
-            alert('Failed to upload the image.');
+            toast.error('Failed to upload the image.');
         } finally {
             setIsUploading(false);
             if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
@@ -289,7 +291,7 @@ export const GalleryCamera: React.FC = () => {
                 await deleteImage(selectedTripId, imageId, storagePath);
             } catch (error) {
                 console.error('Delete error:', error);
-                alert('Failed to delete the image.');
+                toast.error('Failed to delete the image.');
             }
         }
     };

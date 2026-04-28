@@ -7,8 +7,10 @@ import { Beer, Trophy, Medal, Trash2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import styles from './DrunkLeaderboard.module.css';
+import { useToast } from '../components/Toast';
 
 export const DrunkLeaderboard: React.FC = () => {
+    const toast = useToast();
     const { effectiveRole } = useAuth();
     const { activeTrip } = useTrip();
     const isAdmin = effectiveRole === 'admin';
@@ -101,10 +103,10 @@ export const DrunkLeaderboard: React.FC = () => {
             });
             await Promise.all(updatePromises);
             setActivities(prev => prev.map(a => ({ ...a, votes: {} })));
-            alert('Leaderboard has been reset.');
+            toast.success('Leaderboard has been reset.');
         } catch (error) {
             console.error('Error resetting leaderboard:', error);
-            alert('Failed to reset leaderboard.');
+            toast.error('Failed to reset leaderboard.');
         } finally {
             setLoading(false);
         }

@@ -7,6 +7,7 @@ import { fetchPopulatedUsers } from '../services/network';
 import type { AppUser } from '../context/AuthContext';
 import styles from './Profile.module.css'; // Reuse some standard list styles
 import { Search } from 'lucide-react';
+import { useToast } from '../components/Toast';
 
 export interface Group {
     id: string;
@@ -16,6 +17,7 @@ export interface Group {
 }
 
 export const Groups: React.FC<{ onBack: () => void }> = () => {
+    const toast = useToast();
     const { appUser, currentUser } = useAuth();
     const [groups, setGroups] = useState<Group[]>([]);
     const [loading, setLoading] = useState(true);
@@ -70,7 +72,7 @@ export const Groups: React.FC<{ onBack: () => void }> = () => {
             setIsCreating(false);
         } catch (error) {
             console.error("Error creating group:", error);
-            alert("Failed to create group.");
+            toast.error("Failed to create group.");
         }
     };
 
@@ -144,7 +146,7 @@ export const Groups: React.FC<{ onBack: () => void }> = () => {
             setSearchResults(prev => prev.filter(f => f.uid !== targetUid));
         } catch (e) {
             console.error(e);
-            alert("Failed to add member to group");
+            toast.error("Failed to add member to group");
         }
     }
 

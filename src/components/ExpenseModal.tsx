@@ -16,6 +16,7 @@ import heic2any from 'heic2any';
 import { downscaleImage } from '../utils/imageDownscale';
 import { findPotentialDuplicates } from '../utils/expenseDuplicates';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
+import { useToast } from './Toast';
 
 interface ExpenseModalProps {
     onClose: () => void;
@@ -42,6 +43,7 @@ const Avatar = ({ participant, className }: { participant: ParticipantLike, clas
 };
 
 export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpense }) => {
+    const toast = useToast();
     const { activeTrip } = useTrip();
     const { appUser } = useAuth();
     const { participants, addExpense, updateExpense, expenses } = useEven();
@@ -191,7 +193,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
                     });
                 } catch (conversionError) {
                     console.error("Failed to convert HEIC to JPEG:", conversionError);
-                    alert("Nu kunde vi inte konvertera HEIC-bilden. Försök med en annan bild.");
+                    toast.error("Nu kunde vi inte konvertera HEIC-bilden. Försök med en annan bild.");
                     return;
                 }
             }
@@ -231,19 +233,19 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
             if (error instanceof ScanError) {
                 switch (error.reason) {
                     case 'quota-exceeded':
-                        alert(error.message);
+                        toast.error(error.message);
                         break;
                     case 'rate-limited':
-                        alert('Skanningstjänsten är överbelastad just nu. Vänta ett par sekunder och försök igen.');
+                        toast.error('Skanningstjänsten är överbelastad just nu. Vänta ett par sekunder och försök igen.');
                         break;
                     case 'image-too-large':
-                        alert(error.message);
+                        toast.error(error.message);
                         break;
                     default:
-                        alert('Kunde inte bearbeta kvittot. Försök igen.');
+                        toast.error('Kunde inte bearbeta kvittot. Försök igen.');
                 }
             } else {
-                alert('Kunde inte bearbeta kvittot. Försök igen.');
+                toast.error('Kunde inte bearbeta kvittot. Försök igen.');
             }
         } finally {
             setIsUploadingReceipt(false);
@@ -378,7 +380,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
         } catch (e) {
             console.error('Failed to save expense', e);
             const msg = e instanceof Error ? e.message : 'Unknown error';
-            alert(`Could not save expense: ${msg}`);
+            toast.error(`Could not save expense: ${msg}`);
         } finally {
             setIsSaving(false);
         }
@@ -402,7 +404,7 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
             onClose();
         } catch (e) {
             console.error(e);
-            alert("Kunde inte spara kostnaden. Försök igen.");
+            toast.error("Kunde inte spara kostnaden. Försök igen.");
         } finally {
             setIsSaving(false);
         }

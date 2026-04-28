@@ -9,8 +9,10 @@ import { X, Trophy, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './Games.module.css';
 import { OddsGame } from '../components/OddsGame';
+import { useToast } from '../components/Toast';
 
 export const Games: React.FC = () => {
+    const toast = useToast();
     const { appUser, effectiveRole } = useAuth();
     const { activeTrip } = useTrip();
     const isAdmin = effectiveRole === 'admin';
@@ -116,7 +118,7 @@ export const Games: React.FC = () => {
                 setSquares(newSquares);
                 await saveBingoBoard(activeTrip.id, newSquares);
             } else {
-                alert(`Already completed by ${sq.completedBy}`);
+                toast.info(`Already completed by ${sq.completedBy}`);
             }
             return;
         }

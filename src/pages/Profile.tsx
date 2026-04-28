@@ -24,6 +24,7 @@ import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import styles from './Profile.module.css';
 import adminStyles from './TripAdmin.module.css';
+import { useToast } from '../components/Toast';
 
 // ── ActivitySlide: shows cover image, or a Tripmates library default ─────────
 interface ActivitySlideProps {
@@ -72,6 +73,7 @@ const ActivitySlide: React.FC<ActivitySlideProps> = React.memo(({ activity, onPh
 ActivitySlide.displayName = 'ActivitySlide';
 
 export const Profile: React.FC = () => {
+    const toast = useToast();
     const { logoutMock, appUser, updateProfile } = useAuth();
     const { activeTrip, createTrip, joinTrip, userTrips: contextUserTrips, updateTrip } = useTrip();
 
@@ -268,7 +270,7 @@ export const Profile: React.FC = () => {
             // we could call updateProfile but changeUsername already wrote the field.
         } catch (e) {
             console.error('Failed to change username', e);
-            alert('Could not change username: ' + (e instanceof Error ? e.message : 'unknown'));
+            toast.error('Could not change username: ' + (e instanceof Error ? e.message : 'unknown'));
         } finally {
             setSavingUsername(false);
         }
@@ -393,7 +395,7 @@ export const Profile: React.FC = () => {
             }
         } catch (err) {
             console.error('Failed to save profile', err);
-            alert('Failed to save profile changes.');
+            toast.error('Failed to save profile changes.');
         }
     };
 
@@ -412,7 +414,7 @@ export const Profile: React.FC = () => {
             setEditForm(prev => ({ ...prev, avatarUrl: url }));
         } catch (e) {
             console.error('Avatar upload failed', e);
-            alert('Failed to upload avatar.');
+            toast.error('Failed to upload avatar.');
         }
         setAvatarUploading(false);
     };
@@ -424,10 +426,10 @@ export const Profile: React.FC = () => {
         if (!email) return;
         try {
             await sendPasswordResetEmail(auth, email);
-            alert(`A password reset link has been sent to ${email}.`);
+            toast.success(`A password reset link has been sent to ${email}.`);
         } catch (error) {
             console.error('Failed to send password reset email:', error);
-            alert('Failed to send password reset email.');
+            toast.error('Failed to send password reset email.');
         }
     };
 
@@ -1316,7 +1318,7 @@ export const Profile: React.FC = () => {
                                         navigate('/');
                                     } catch (err: unknown) {
                                         console.error('Failed to create trip:', err);
-                                        alert('Failed to create trip: ' + ((err as Error).message || 'Unknown error'));
+                                        toast.error('Failed to create trip: ' + ((err as Error).message || 'Unknown error'));
                                     } finally {
                                         setCreatingTrip(false);
                                     }
@@ -1363,11 +1365,11 @@ export const Profile: React.FC = () => {
                                             setJoinTripCode('');
                                             navigate('/');
                                         } else {
-                                            alert('Invalid trip code or trip not found.');
+                                            toast.error('Invalid trip code or trip not found.');
                                         }
                                     } catch (err: unknown) {
                                         console.error('Failed to join trip', err);
-                                        alert('Failed to join trip: ' + ((err as Error).message || 'Unknown error'));
+                                        toast.error('Failed to join trip: ' + ((err as Error).message || 'Unknown error'));
                                     } finally {
                                         setJoiningTrip(false);
                                     }

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTrip, type Trip, type TripDestination } from '../context/TripContext';
-import { ArrowLeft, Plus, Edit2, Trash2, Calendar as CalendarIcon, Users, Settings, Share2, CheckSquare, Ghost, X, Camera, Info, CheckCircle2, AlertCircle, MapPin, Phone, BellOff, Tag, Trophy, LogOut, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, Edit2, Trash2, Calendar as CalendarIcon, Users, Settings, Share2, CheckSquare, Ghost, X, Camera, Info, MapPin, Phone, BellOff, Tag, Trophy, LogOut, Copy } from 'lucide-react';
 import { getMemberPrefs, updateMemberPrefs, type MemberPrefs, DEFAULT_MEMBER_PREFS } from '../services/memberPrefs';
 import { SUPPORTED_CURRENCIES } from '../utils/currencies';
 import { getAllActivities, type Activity, deleteActivity } from '../services/activities';
@@ -14,6 +14,7 @@ import { db, storage } from '../services/firebase';
 import { CustomSelect } from '../components/CustomSelect';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './TripAdmin.module.css';
+import { useToast } from '../components/Toast';
 
 /** Thin router wrapper — resolves trip from URL params, then delegates to TripAdminInner */
 export const TripAdmin: React.FC = () => {
@@ -34,6 +35,7 @@ export const TripAdmin: React.FC = () => {
 
 /** Inner component — all hooks live here, trip is guaranteed non-null */
 const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
+    const toast = useToast();
     const navigate = useNavigate();
     const { updateTrip } = useTrip();
     const { currentUser } = useAuth();
@@ -68,13 +70,6 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
         baseCurrency: trip.baseCurrency || 'SEK',
     });
     const [showCurrencyInfo, setShowCurrencyInfo] = useState(false);
-    const [toast, setToast] = useState<{ kind: 'success' | 'error'; message: string } | null>(null);
-
-    useEffect(() => {
-        if (!toast) return;
-        const t = setTimeout(() => setToast(null), 2800);
-        return () => clearTimeout(t);
-    }, [toast]);
     const [, setCoverFile] = useState<File | null>(null);
     
     // Bingo Editing State
@@ -167,10 +162,10 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                 imageUrl: finalImageUrl,
                 allowMemberActivities: tripForm.allowMemberActivities
             });
-            setToast({ kind: 'success', message: 'Inställningar sparade' });
+            toast.success('Inställningar sparade');
         } catch (e) {
             console.error('Failed to update trip', e);
-            setToast({ kind: 'error', message: 'Kunde inte spara. Försök igen.' });
+            toast.error('Kunde inte spara. Försök igen.');
         } finally {
             setSavingTrip(false);
         }
@@ -182,7 +177,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
             navigator.share({ title: 'Join Trip', text }).catch(console.error);
         } else {
             navigator.clipboard.writeText(text);
-            alert('Invite link copied to clipboard!');
+            toast.success('Invite link copied to clipboard!');
         }
     };
 
@@ -678,7 +673,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                             }
                                         } catch (e) {
                                             console.error('Failed to remove member:', e);
-                                            alert('Failed to remove member. Is this a local preview mock trip?');
+                                            toast.error('Failed to remove member. Is this a local preview mock trip?');
                                         }
                                     }
                                     setUserToKick(null);
@@ -736,7 +731,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                             setShowEditBingoModal(false);
                                         } catch(e) {
                                             console.error(e);
-                                            alert("Failed to save Bingo Board.");
+                                            toast.error("Failed to save Bingo Board.");
                                         } finally {
                                             setSavingBingo(false);
                                         }
@@ -746,16 +741,6 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                 {savingBingo ? 'Saving...' : 'Save Bingo Board'}
                             </button>
                         </div>
-                    </div>
-                </div>,
-                document.body
-            )}
-
-            {toast && createPortal(
-                <div className={styles.toast} role="status" aria-live="polite">
-                    <div className={`${styles.toastInner} ${toast.kind === 'success' ? styles.toastSuccess : styles.toastError}`}>
-                        {toast.kind === 'success' ? <CheckCircle2 size={20} /> : <AlertCircle size={20} />}
-                        <span>{toast.message}</span>
                     </div>
                 </div>,
                 document.body
@@ -831,6 +816,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
 
 // ── Member view: shown when current user is a member but not an admin ────────
 const MemberView: React.FC<{ trip: Trip; users: AppUser[] }> = ({ trip, users }) => {
+    const toast = useToast();
     const { currentUser } = useAuth();
     const { leaveTrip } = useTrip();
     const navigate = useNavigate();
@@ -858,7 +844,7 @@ const MemberView: React.FC<{ trip: Trip; users: AppUser[] }> = ({ trip, users })
         } catch (e) {
             console.error('Failed to update pref', e);
             setPrefs(p => ({ ...p, [key]: prev }));
-            alert('Could not save that change. Please try again.');
+            toast.error('Could not save that change. Please try again.');
         } finally {
             setSavingKey(null);
         }
@@ -870,7 +856,7 @@ const MemberView: React.FC<{ trip: Trip; users: AppUser[] }> = ({ trip, users })
             navigate('/');
         } catch (e) {
             console.error('Failed to leave trip', e);
-            alert('Could not leave the trip. Please try again.');
+            toast.error('Could not leave the trip. Please try again.');
         }
     };
 

@@ -8,8 +8,10 @@ import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './Profile.module.css';
 import tripStyles from './TripAdmin.module.css';
+import { useToast } from '../components/Toast';
 
 export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
+    const toast = useToast();
     const { currentUser } = useAuth();
     const navigate = useNavigate();
     const { userTrips } = useTrip();
@@ -86,7 +88,7 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setNewTitle('');
         } catch (e) {
             console.error(e);
-            alert("Failed to create list.");
+            toast.error("Failed to create list.");
         } finally {
             setCreatingList(false);
         }
@@ -134,7 +136,7 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setActivities(prev => [{ ...rawActivity, id: newId }, ...prev]);
         } catch (e) {
             console.error(e);
-            alert("Failed to add place");
+            toast.error("Failed to add place");
         }
     };
 
@@ -155,7 +157,7 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
             setEditingNoteId(null);
         } catch (e) {
             console.error(e);
-            alert("Failed to save note");
+            toast.error("Failed to save note");
         }
     };
 

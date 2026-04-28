@@ -11,8 +11,10 @@ import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './TripAdmin.module.css';
 import editorStyles from './ActivityEditorPage.module.css';
+import { useToast } from '../components/Toast';
 
 export const ActivityEditorPage: React.FC = () => {
+    const toast = useToast();
     const { tripId } = useParams<{ tripId: string }>();
     const location = useLocation();
     const navigate = useNavigate();
@@ -116,12 +118,12 @@ export const ActivityEditorPage: React.FC = () => {
     // ── Submit ────────────────────────────────────────────────
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!title.trim()) { alert('Please enter an Activity Title.'); return; }
-        if (!date || !time) { alert('Please select a Date and Start Time.'); return; }
-        if (!tripId) { alert('Trip ID missing.'); return; }
+        if (!title.trim()) { toast.error('Please enter an Activity Title.'); return; }
+        if (!date || !time) { toast.error('Please select a Date and Start Time.'); return; }
+        if (!tripId) { toast.error('Trip ID missing.'); return; }
 
         const userId = appUser?.uid || currentUser?.uid;
-        if (!userId) { alert('Not logged in.'); return; }
+        if (!userId) { toast.error('Not logged in.'); return; }
 
         setSaving(true);
         try {
@@ -182,7 +184,7 @@ export const ActivityEditorPage: React.FC = () => {
             navigate(-1);
         } catch (err) {
             console.error(err);
-            alert('Failed to save activity');
+            toast.error('Failed to save activity');
         } finally {
             setSaving(false);
         }

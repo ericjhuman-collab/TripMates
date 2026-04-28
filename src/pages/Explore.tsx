@@ -8,6 +8,7 @@ import type { Activity } from '../services/activities';
 import { CustomSelect } from '../components/CustomSelect';
 import { Spinner } from '../components/Spinner';
 import styles from './Explore.module.css';
+import { useToast } from '../components/Toast';
 
 interface FeedPost {
     trip: Trip;
@@ -28,6 +29,7 @@ const getFlagForDestination = (destination: string): string => {
 };
 
 export const Explore: React.FC = () => {
+    const toast = useToast();
     const { appUser } = useAuth();
     const [posts, setPosts] = useState<FeedPost[]>([]);
     const [loading, setLoading] = useState(true);
@@ -106,7 +108,7 @@ export const Explore: React.FC = () => {
             }
         } catch (err) {
             console.error('Failed to update bucketlist:', err);
-            alert('Failed to update bucketlist. Please try again.');
+            toast.error('Failed to update bucketlist. Please try again.');
         } finally {
             setIsSaving({ ...isSaving, [trip.id]: false });
         }
