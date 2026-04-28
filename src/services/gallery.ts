@@ -1,5 +1,5 @@
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
-import { collection, addDoc, query, orderBy, where, onSnapshot, serverTimestamp, getDocs } from 'firebase/firestore';
+import { collection, addDoc, query, orderBy, where, onSnapshot, serverTimestamp, getDocs, limit as firestoreLimit } from 'firebase/firestore';
 import { storage, db } from './firebase';
 import { getAllMemberPrefs } from './memberPrefs';
 
@@ -113,12 +113,14 @@ export const getActivityGallery = async (tripId: string, activityId: string): Pr
 };
 
 /**
- * Fetches all gallery images for a trip (one-time, non-realtime).
+ * Fetches the most recent gallery images for a trip (one-time, non-realtime).
+ * Defaults to the latest 50 to keep payloads bounded.
  */
-export const getTripGallery = async (tripId: string): Promise<GalleryImage[]> => {
+export const getTripGallery = async (tripId: string, pageLimit = 50): Promise<GalleryImage[]> => {
     const q = query(
         collection(db, `trips/${tripId}/gallery`),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(pageLimit),
     );
     const snapshot = await getDocs(q);
     return snapshot.docs.map(doc => {
@@ -141,13 +143,19 @@ export const getTripGallery = async (tripId: string): Promise<GalleryImage[]> =>
 
 
 /**
- * Subscribes to the gallery images for a specific trip, ordered by newest first.
- * Useful for real-time updates when an image is uploaded.
+ * Subscribes to the latest gallery images for a specific trip, ordered by
+ * newest first. Defaults to the most recent 50; pass a higher pageLimit to
+ * progressively widen the window (e.g. for "load more" pagination).
  */
-export const subscribeToGallery = (tripId: string, callback: (images: GalleryImage[]) => void) => {
+export const subscribeToGallery = (
+    tripId: string,
+    callback: (images: GalleryImage[]) => void,
+    pageLimit = 50,
+) => {
     const q = query(
         collection(db, `trips/${tripId}/gallery`),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(pageLimit),
     );
 
     return onSnapshot(q, (snapshot) => {

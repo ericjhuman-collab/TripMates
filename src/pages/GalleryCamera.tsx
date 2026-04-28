@@ -28,6 +28,7 @@ export const GalleryCamera: React.FC = () => {
     const [userTrips, setUserTrips] = useState<Trip[]>([]);
     const [selectedTripId, setSelectedTripId] = useState<string>(activeTrip?.id || '');
     const [images, setImages] = useState<GalleryImage[]>([]);
+    const [galleryLimit, setGalleryLimit] = useState(50);
     const [isUploading, setIsUploading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
     const videoRef = useRef<HTMLVideoElement>(null);
@@ -133,8 +134,14 @@ export const GalleryCamera: React.FC = () => {
         if (!selectedTripId) return;
         const unsubscribe = subscribeToGallery(selectedTripId, (newImages) => {
             setImages(newImages);
-        });
+        }, galleryLimit);
         return () => unsubscribe();
+    }, [selectedTripId, galleryLimit]);
+
+    // Reset to first page when switching trips so we don't carry over an
+    // expanded window from the previous trip.
+    useEffect(() => {
+        setGalleryLimit(50);
     }, [selectedTripId]);
 
     // Keep selectedTripId in sync if the user picks a different active trip elsewhere.
@@ -480,6 +487,21 @@ export const GalleryCamera: React.FC = () => {
                                 })
                             )}
                         </div>
+
+                        {/* Load more — only show if the current page is full,
+                            implying more rows likely exist on the server. */}
+                        {images.length > 0 && images.length >= galleryLimit && (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '1rem 0 1.5rem' }}>
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => setGalleryLimit(n => n + 50)}
+                                    aria-label="Load older photos"
+                                >
+                                    Visa fler
+                                </button>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>
