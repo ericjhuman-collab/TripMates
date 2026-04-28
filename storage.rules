@@ -1,17 +1,22 @@
 rules_version = '2';
 
-// Firebase Storage rules for Alen
+// Firebase Storage rules for Alen / TripMates
 // Current app paths:
 //   avatars/{userId}/avatar.{ext}               - profile pictures
 //   trips/{tripId}/cover.{ext}                  - trip cover image
 //   trips/{tripId}/gallery/{fileName}           - shared trip gallery
 //   trips/{tripId}/activities/{activityId}/...  - activity cover images
+//
+// Read access requires an authenticated user. This means link previews
+// (Open Graph / Twitter cards in iMessage, Slack, etc.) will NOT render
+// the underlying image — preview bots aren't logged in. Accepted trade-off
+// for keeping trip media private.
 service firebase.storage {
   match /b/{bucket}/o {
 
-    // Avatars: owner writes, public reads.
+    // Avatars: owner writes, authenticated users read.
     match /avatars/{userId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.auth.uid == userId
         && request.resource.size < 10 * 1024 * 1024
@@ -19,10 +24,11 @@ service firebase.storage {
     }
 
     // Trip assets (covers, gallery, activity images).
-    // Any authenticated user may upload; enforce per-trip membership in app code
-    // until Firestore rules are tightened so we can cross-reference membership.
+    // Any authenticated user may upload; per-trip membership is enforced in
+    // app code (Firestore rules already gate the trip + gallery docs that
+    // reference these binaries).
     match /trips/{tripId}/{allPaths=**} {
-      allow read: if true;
+      allow read: if request.auth != null;
       allow write: if request.auth != null
         && request.resource.size < 25 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');

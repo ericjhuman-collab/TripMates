@@ -72,10 +72,10 @@ User-doc email field is intentionally absent — `auth.currentUser.email` is the
 Every component has `Foo.tsx` + `Foo.module.css` colocated. Global styles live in [src/App.css](src/App.css) (theme variables, `.input-field`, `.btn`, `.glass-panel`) and [src/index.css](src/index.css) (resets, `.app-container`). The app is themed via classes on the body (`theme-default-trip`, `theme-bachelor-party`) that swap `--color-*` CSS variables. Mobile-first, hard-capped to `max-width: 480px` on `.app-container`.
 
 ### Storage layout
-- `avatars/{uid}/avatar.{ext}` — 10 MB cap, public read.
-- `trips/{tripId}/...` — 25 MB cap, public read.
+- `avatars/{uid}/avatar.{ext}` — 10 MB cap, authenticated read.
+- `trips/{tripId}/...` — 25 MB cap, authenticated read.
 
-Public read on storage is currently a deliberate-or-accidental design choice — verify before depending on it.
+Storage reads now require `request.auth != null`. Trade-off: link-preview bots (iMessage, Slack, Twitter, etc.) can't fetch the underlying images, so Open Graph / Twitter card previews on shared TripMates URLs render without the trip image. The text/title still works since `index.html` is publicly served. This was a deliberate choice — keeping trip galleries and avatars private wins over previews.
 
 ## Conventions worth knowing
 
