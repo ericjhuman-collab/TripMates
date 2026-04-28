@@ -1,26 +1,38 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { TripProvider } from './context/TripContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { Layout } from './components/Layout';
-import { Login } from './pages/Login';
-import { Terms } from './pages/Terms';
-import { Privacy } from './pages/Privacy';
 import { Home } from './pages/Home';
-import { Games } from './pages/Games';
-import { Members } from './pages/Members';
-import { Explore } from './pages/Explore';
-import { DrunkLeaderboard } from './pages/DrunkLeaderboard';
 import { JoinTripHandler } from './pages/JoinTripHandler';
-import { Profile } from './pages/Profile';
-import { GalleryCamera } from './pages/GalleryCamera';
-import { Even } from './pages/Even';
 import { EvenProvider } from './context/EvenContext';
 import { OddsProvider } from './context/OddsContext';
-import { TripAdmin } from './pages/TripAdmin';
-import { ActivityEditorPage } from './pages/ActivityEditorPage';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import './App.css';
+
+// Route-level code splitting — keeps the initial JS bundle small. Home is
+// kept eager because it's the landing surface for an authed user.
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const Terms = lazy(() => import('./pages/Terms').then(m => ({ default: m.Terms })));
+const Privacy = lazy(() => import('./pages/Privacy').then(m => ({ default: m.Privacy })));
+const Games = lazy(() => import('./pages/Games').then(m => ({ default: m.Games })));
+const Members = lazy(() => import('./pages/Members').then(m => ({ default: m.Members })));
+const Explore = lazy(() => import('./pages/Explore').then(m => ({ default: m.Explore })));
+const DrunkLeaderboard = lazy(() => import('./pages/DrunkLeaderboard').then(m => ({ default: m.DrunkLeaderboard })));
+const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
+const GalleryCamera = lazy(() => import('./pages/GalleryCamera').then(m => ({ default: m.GalleryCamera })));
+const Even = lazy(() => import('./pages/Even').then(m => ({ default: m.Even })));
+const TripAdmin = lazy(() => import('./pages/TripAdmin').then(m => ({ default: m.TripAdmin })));
+const ActivityEditorPage = lazy(() => import('./pages/ActivityEditorPage').then(m => ({ default: m.ActivityEditorPage })));
+
+function RouteFallback() {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: '#1e3a5f', fontSize: '0.9rem', opacity: 0.6 }}>
+      Loading…
+    </div>
+  );
+}
 
 function App() {
   return (
@@ -31,6 +43,7 @@ function App() {
             <EvenProvider>
               <OddsProvider>
               <div className="app-container">
+                <Suspense fallback={<RouteFallback />}>
                 <Routes>
                 <Route path="/login" element={<Login />} />
                 <Route path="/terms" element={<Terms />} />
@@ -56,6 +69,7 @@ function App() {
 
                 <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
+                </Suspense>
               </div>
               </OddsProvider>
             </EvenProvider>

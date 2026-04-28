@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -8,9 +8,12 @@ import { createPortal } from 'react-dom';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import type { AppUser } from '../context/AuthContext';
-import { MapPage } from './MapPage';
-import { Members } from './Members';
 import styles from './Home.module.css';
+
+// Map view bundles leaflet + Google Maps loader; lazy-load it so the
+// schedule view (the default) doesn't pay that cost.
+const MapPage = lazy(() => import('./MapPage').then(m => ({ default: m.MapPage })));
+const Members = lazy(() => import('./Members').then(m => ({ default: m.Members })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
 type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'members';
@@ -383,12 +386,14 @@ export const Home: React.FC = () => {
             {viewMode === 'map' && (
                 <div className={styles.mapWrapper}>
                     <div className={styles.mapInner}>
-                        <MapPage 
-                            currentDate={currentDate} 
-                            onPrevDay={handlePrevDay} 
-                            onNextDay={handleNextDay} 
-                            activities={allActivities} 
-                        />
+                        <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading map…</div>}>
+                            <MapPage
+                                currentDate={currentDate}
+                                onPrevDay={handlePrevDay}
+                                onNextDay={handleNextDay}
+                                activities={allActivities}
+                            />
+                        </Suspense>
                     </div>
                 </div>
             )}
@@ -602,7 +607,11 @@ export const Home: React.FC = () => {
                 </div>
             )}
 
-            {viewMode === 'members' && <Members />}
+            {viewMode === 'members' && (
+                <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
+                    <Members />
+                </Suspense>
+            )}
         </div>
     );
 };
