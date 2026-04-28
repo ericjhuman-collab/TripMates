@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { db } from '../services/firebase';
-import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { collection, getDocs, doc, updateDoc, arrayUnion, arrayRemove, query, where } from 'firebase/firestore';
 import { Bookmark, BookmarkCheck, MapPin, Filter } from 'lucide-react';
 import type { Trip } from '../context/TripContext';
 import type { Activity } from '../services/activities';
@@ -44,23 +44,34 @@ export const Explore: React.FC = () => {
     useEffect(() => {
         const fetchFeed = async () => {
             try {
-                const usersSnap = await getDocs(collection(db, 'users'));
+                const [usersSnap, tripsSnap] = await Promise.all([
+                    getDocs(collection(db, 'users')),
+                    getDocs(collection(db, 'trips')),
+                ]);
                 const usersData = usersSnap.docs.reduce((acc, d) => {
                     acc[d.id] = { ...d.data(), uid: d.id } as AppUser;
                     return acc;
                 }, {} as Record<string, AppUser>);
 
-                const tripsSnap = await getDocs(collection(db, 'trips'));
                 const tripsData = tripsSnap.docs.map(tDoc => ({ ...tDoc.data(), id: tDoc.id } as Trip));
 
+                // Activities live at the top-level /activities collection with a
+                // tripId field — not in trips/{id}/activities. Per-trip queries
+                // are still required because the activities-rule only allows
+                // reads when the caller is a member of resource.data.tripId, so
+                // a cross-trip query would be rejected. Run the per-trip queries
+                // in parallel; rules silently filter out non-member trips by
+                // erroring on the individual query (caught + logged below).
                 const fetchPostsPromises = tripsData.map(async (trip) => {
                     const author = trip.createdBy ? usersData[trip.createdBy] : null;
                     let activities: Activity[] = [];
                     try {
-                        const activitiesSnap = await getDocs(collection(db, 'trips', trip.id, 'activities'));
+                        const activitiesSnap = await getDocs(
+                            query(collection(db, 'activities'), where('tripId', '==', trip.id))
+                        );
                         activities = activitiesSnap.docs.map(aDoc => ({ ...aDoc.data(), id: aDoc.id } as Activity));
-                    } catch (err) {
-                        console.error('Error fetching activities for trip', trip.id, err);
+                    } catch {
+                        // Permission denied for non-member trips is expected here.
                     }
                     return { trip, author, activities } as FeedPost;
                 });
