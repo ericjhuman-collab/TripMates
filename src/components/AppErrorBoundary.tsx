@@ -1,4 +1,5 @@
 import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
+import { reportError } from '../services/errorTracker';
 
 function Fallback({ error, resetErrorBoundary }: FallbackProps) {
     const message = error instanceof Error ? error.message : String(error);
@@ -50,8 +51,8 @@ export function AppErrorBoundary({ children }: { children: React.ReactNode }) {
         <ErrorBoundary
             FallbackComponent={Fallback}
             onError={(error, info) => {
-                // Production hook for Sentry / Crashlytics later.
                 console.error('Unhandled app error:', error, info.componentStack);
+                reportError(error, { componentStack: info.componentStack });
             }}
         >
             {children}

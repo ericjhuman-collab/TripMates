@@ -50,6 +50,9 @@ Layout decides header style via `isProfilePage = path.startsWith('/profile') || 
 ### Provider stack
 Four contexts wrap the app, in order: `AuthProvider → TripProvider → EvenProvider → OddsProvider`. Hooks: `useAuth`, `useTrip`, `useEven`, `useOdds`. New users always get `role: 'user'`; admin grants are server-side only (see [docs/admin-grants.md](docs/admin-grants.md)). The Firestore rule on `users/{uid}` rejects role escalation from any authenticated client write, so even a compromised account cannot self-promote.
 
+### Error tracking
+Sentry is wired via [src/services/errorTracker.ts](src/services/errorTracker.ts) and initialised in [src/main.tsx](src/main.tsx). The SDK is **dynamically imported** so it's only downloaded when `VITE_SENTRY_DSN` is set — otherwise initialisation is a no-op and no `@sentry/react` code reaches the bundle. `AppErrorBoundary`'s `onError` calls `reportError()`. To enable: create a Sentry project, copy the DSN, set `VITE_SENTRY_DSN` in `.env.local` (dev) and the deploy environment (prod / staging). See [.env.example](.env.example).
+
 ### Firestore data model & rules
 Two role concepts — don't conflate:
 - `users/{uid}.role: 'admin' | 'user'` — global app role; admin is granted server-side only (see [docs/admin-grants.md](docs/admin-grants.md)).
