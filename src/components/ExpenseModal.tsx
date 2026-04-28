@@ -121,35 +121,51 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
         return Math.round(floatAmount * 100);
     }, [amountStr]);
 
-    // Validation
-    const validationError = useMemo(() => {
-        if (totalAmountCents <= 0) return 'Please enter a valid amount greater than 0.';
+    // Validation. Two categories:
+    //  - blocking: hard errors that must be fixed before save (missing amount,
+    //    empty participants, itemized with no rows).
+    //  - warning:  soft mismatch the user can override (EXACT sum off, % != 100).
+    //    Surfaced inline AND blocks the first save attempt with a confirm modal.
+    const { blockingError, warningMessage } = useMemo<{ blockingError: string | null; warningMessage: string | null }>(() => {
+        if (totalAmountCents <= 0) return { blockingError: 'Please enter a valid amount greater than 0.', warningMessage: null };
 
         if (useItemizedSplit) {
-            if (parsedLineItems.length === 0) return 'Inga poster hittades — slå av itemized eller scanna ett tydligare kvitto.';
-            return null;
+            if (parsedLineItems.length === 0) return { blockingError: 'Inga poster hittades — slå av itemized eller scanna ett tydligare kvitto.', warningMessage: null };
+            return { blockingError: null, warningMessage: null };
         }
 
         if (splitMode === 'EQUAL') {
             const numSelected = Object.values(allocations).filter(v => v === true).length;
-            if (numSelected === 0) return 'At least one person must be included in the split.';
+            if (numSelected === 0) return { blockingError: 'At least one person must be included in the split.', warningMessage: null };
         }
         else if (splitMode === 'EXACT') {
             const sumStr = participants.reduce((acc, p) => acc + (parseFloat(String(allocations[p.uid] ?? '')) || 0), 0);
             const sumCents = Math.round(sumStr * 100);
             if (sumCents !== totalAmountCents) {
-                return `Exact amounts must add up to the total. Current sum: ${Math.round(sumCents/100)} ${selectedCurrency}`;
+                const diffCents = sumCents - totalAmountCents;
+                const sign = diffCents > 0 ? '+' : '';
+                return {
+                    blockingError: null,
+                    warningMessage: `The exact amounts add up to ${(sumCents/100).toFixed(2)} ${selectedCurrency} (${sign}${(diffCents/100).toFixed(2)} vs the total ${(totalAmountCents/100).toFixed(2)} ${selectedCurrency}).`,
+                };
             }
         }
         else if (splitMode === 'PERCENTAGE') {
             const sumPct = participants.reduce((acc, p) => acc + (parseFloat(String(allocations[p.uid] ?? '')) || 0), 0);
             if (Math.abs(sumPct - 100) > 0.01) {
-                return `Percentages must add up to 100%. Current sum: ${sumPct}%`;
+                const diff = sumPct - 100;
+                const sign = diff > 0 ? '+' : '';
+                return {
+                    blockingError: null,
+                    warningMessage: `The percentages add up to ${sumPct.toFixed(2)}% (${sign}${diff.toFixed(2)}% vs 100%).`,
+                };
             }
         }
 
-        return null;
+        return { blockingError: null, warningMessage: null };
     }, [totalAmountCents, splitMode, allocations, participants, selectedCurrency, useItemizedSplit, parsedLineItems]);
+
+    const [showSplitWarning, setShowSplitWarning] = useState(false);
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -235,8 +251,13 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
         }
     };
 
-    const handleSubmit = async () => {
-        if (validationError) return;
+    const handleSubmit = async (overrideWarning = false) => {
+        if (blockingError) return;
+        if (warningMessage && !overrideWarning) {
+            setShowSplitWarning(true);
+            return;
+        }
+        setShowSplitWarning(false);
 
         setIsSaving(true);
         try {
@@ -575,17 +596,59 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
                 </div>
 
                 <div className={styles.modalFooter}>
-                    {validationError && (
-                        <p className={styles.validationError}>{validationError}</p>
+                    {blockingError && (
+                        <p className={styles.validationError}>{blockingError}</p>
                     )}
-                    <button 
-                        className={styles.submitBtn} 
-                        disabled={!!validationError || isSaving}
-                        onClick={handleSubmit}
+                    {!blockingError && warningMessage && (
+                        <p className={styles.validationError} style={{ color: '#a16207' }}>{warningMessage}</p>
+                    )}
+                    <button
+                        className={styles.submitBtn}
+                        disabled={!!blockingError || isSaving}
+                        onClick={() => handleSubmit(false)}
                     >
                         {isSaving ? 'Calculating...' : 'Save Expense'}
                     </button>
                 </div>
+
+                {showSplitWarning && warningMessage && (
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Confirm save with split mismatch"
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}
+                        onClick={() => setShowSplitWarning(false)}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', maxWidth: 420, width: '92%', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}
+                        >
+                            <h3 style={{ margin: '0 0 0.75rem', color: '#92400e' }}>Split doesn't match</h3>
+                            <p style={{ color: '#374151', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 1rem' }}>{warningMessage}</p>
+                            <p style={{ color: '#6b7280', fontSize: '0.85rem', margin: '0 0 1.25rem' }}>
+                                Save anyway? You can adjust the splits later.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => setShowSplitWarning(false)}
+                                    style={{ background: '#e5e7eb', color: '#1f2937' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn btn-primary"
+                                    onClick={() => handleSubmit(true)}
+                                    style={{ background: '#d97706', color: '#fff' }}
+                                >
+                                    Save anyway
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );
