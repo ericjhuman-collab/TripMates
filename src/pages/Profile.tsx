@@ -29,9 +29,9 @@ import adminStyles from './TripAdmin.module.css';
 interface ActivitySlideProps {
     activity: Activity;
     viewTripId: string;
-    onPhotosPill: () => void;
+    onPhotosPill: (activity: Activity) => void;
 }
-const ActivitySlide: React.FC<ActivitySlideProps> = ({ activity, onPhotosPill }) => {
+const ActivitySlide: React.FC<ActivitySlideProps> = React.memo(({ activity, onPhotosPill }) => {
     // Use uploaded cover if present, otherwise pick from the built-in library
     const coverImage = activity.imageUrl
         || getDefaultCover(activity.category, activity.locationName || activity.title);
@@ -50,7 +50,7 @@ const ActivitySlide: React.FC<ActivitySlideProps> = ({ activity, onPhotosPill })
                     <h3 className={styles.activitySlideTitle}>
                         {activity.locationName || activity.title}
                     </h3>
-                    <button className={styles.activityPhotosPill} onClick={onPhotosPill}>
+                    <button className={styles.activityPhotosPill} onClick={() => onPhotosPill(activity)}>
                         <Camera size={12} /> Photos
                     </button>
                 </div>
@@ -68,7 +68,8 @@ const ActivitySlide: React.FC<ActivitySlideProps> = ({ activity, onPhotosPill })
             </div>
         </div>
     );
-};
+});
+ActivitySlide.displayName = 'ActivitySlide';
 
 export const Profile: React.FC = () => {
     const { logoutMock, appUser, updateProfile } = useAuth();
@@ -173,6 +174,17 @@ export const Profile: React.FC = () => {
     const [activityGallery, setActivityGallery] = useState<{ tripId: string; activityId: string; activityName: string } | null>(null);
     const [activityGalleryImages, setActivityGalleryImages] = useState<GalleryImage[]>([]);
     const [isLoadingActivityGallery, setIsLoadingActivityGallery] = useState(false);
+
+    // Stable handler so React.memo on ActivitySlide actually skips re-renders.
+    const viewTripId = viewTripDetails?.id;
+    const handleActivityPhotosPill = useCallback((activity: Activity) => {
+        if (!viewTripId || !activity.id) return;
+        setActivityGallery({
+            tripId: viewTripId,
+            activityId: activity.id,
+            activityName: activity.locationName || activity.title,
+        });
+    }, [viewTripId]);
 
     const [tripGalleryOpen, setTripGalleryOpen] = useState(false);
     const [tripGalleryImages, setTripGalleryImages] = useState<GalleryImage[]>([]);
@@ -1429,11 +1441,7 @@ export const Profile: React.FC = () => {
                                                 key={activity.id}
                                                 activity={activity}
                                                 viewTripId={viewTripDetails.id}
-                                                onPhotosPill={() => activity.id && setActivityGallery({
-                                                    tripId: viewTripDetails.id,
-                                                    activityId: activity.id,
-                                                    activityName: activity.locationName || activity.title,
-                                                })}
+                                                onPhotosPill={handleActivityPhotosPill}
                                             />
                                         ))}
                                     </div>
