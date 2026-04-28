@@ -7,7 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
 import { Phone, MessageCircle, Plus, X, Loader2 } from 'lucide-react';
 import styles from './Members.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 interface Group {
     id: string;

@@ -5,7 +5,7 @@ import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import { UserPlus, UserMinus, Search, Loader2 } from 'lucide-react';
 import styles from './Profile.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 export const Network: React.FC = () => {
     const toast = useToast();

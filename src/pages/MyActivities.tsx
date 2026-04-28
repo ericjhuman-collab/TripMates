@@ -8,7 +8,7 @@ import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './Profile.module.css';
 import tripStyles from './TripAdmin.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     const toast = useToast();

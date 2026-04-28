@@ -9,7 +9,7 @@ import { X, Trophy, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './Games.module.css';
 import { OddsGame } from '../components/OddsGame';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 export const Games: React.FC = () => {
     const toast = useToast();

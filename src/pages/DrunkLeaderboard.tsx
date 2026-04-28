@@ -7,7 +7,7 @@ import { Beer, Trophy, Medal, Trash2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import styles from './DrunkLeaderboard.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 export const DrunkLeaderboard: React.FC = () => {
     const toast = useToast();

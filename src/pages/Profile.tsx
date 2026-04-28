@@ -24,7 +24,7 @@ import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import styles from './Profile.module.css';
 import adminStyles from './TripAdmin.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 // ── ActivitySlide: shows cover image, or a Tripmates library default ─────────
 interface ActivitySlideProps {

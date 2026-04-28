@@ -11,7 +11,7 @@ import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './TripAdmin.module.css';
 import editorStyles from './ActivityEditorPage.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 export const ActivityEditorPage: React.FC = () => {
     const toast = useToast();

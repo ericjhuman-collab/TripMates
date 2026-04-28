@@ -4,7 +4,7 @@ import { X, Trash2, Plus } from 'lucide-react';
 import type { Expense, ReceiptItem } from '../services/even';
 import { useEven } from '../context/useEven';
 import styles from './EditReceiptModal.module.css';
-import { useToast } from './Toast';
+import { useToast } from './useToast';
 
 interface Props {
     expense: Expense;

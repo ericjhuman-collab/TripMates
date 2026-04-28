@@ -6,7 +6,7 @@ import { useEven } from '../context/useEven';
 import type { Expense, ReceiptItem } from '../services/even';
 import { EditReceiptModal } from './EditReceiptModal';
 import styles from './ReceiptClaimModal.module.css';
-import { useToast } from './Toast';
+import { useToast } from './useToast';
 
 interface ReceiptClaimModalProps {
     expense: Expense;

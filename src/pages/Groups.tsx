@@ -7,7 +7,7 @@ import { fetchPopulatedUsers } from '../services/network';
 import type { AppUser } from '../context/AuthContext';
 import styles from './Profile.module.css'; // Reuse some standard list styles
 import { Search } from 'lucide-react';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 export interface Group {
     id: string;

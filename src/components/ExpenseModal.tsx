@@ -16,7 +16,7 @@ import heic2any from 'heic2any';
 import { downscaleImage } from '../utils/imageDownscale';
 import { findPotentialDuplicates } from '../utils/expenseDuplicates';
 import { DuplicateWarningModal } from './DuplicateWarningModal';
-import { useToast } from './Toast';
+import { useToast } from './useToast';
 
 interface ExpenseModalProps {
     onClose: () => void;

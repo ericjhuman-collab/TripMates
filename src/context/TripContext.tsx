@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 import { db } from '../services/firebase';
 import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { useAuth } from './AuthContext';

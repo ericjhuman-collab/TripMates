@@ -14,7 +14,7 @@ import { db, storage } from '../services/firebase';
 import { CustomSelect } from '../components/CustomSelect';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './TripAdmin.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 /** Thin router wrapper — resolves trip from URL params, then delegates to TripAdminInner */
 export const TripAdmin: React.FC = () => {

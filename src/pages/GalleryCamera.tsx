@@ -10,7 +10,7 @@ import { getAllActivities, type Activity } from '../services/activities';
 import { Heart, Trash2, Tag, Users, Edit3, ArrowDownAZ, Filter } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './GalleryCamera.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 type Mode = 'gallery' | 'camera';
 

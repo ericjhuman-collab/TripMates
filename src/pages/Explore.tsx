@@ -8,7 +8,7 @@ import type { Activity } from '../services/activities';
 import { CustomSelect } from '../components/CustomSelect';
 import { Spinner } from '../components/Spinner';
 import styles from './Explore.module.css';
-import { useToast } from '../components/Toast';
+import { useToast } from '../components/useToast';
 
 interface FeedPost {
     trip: Trip;
