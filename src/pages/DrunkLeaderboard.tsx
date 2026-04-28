@@ -117,7 +117,7 @@ export const DrunkLeaderboard: React.FC = () => {
                     <h2 className={styles.pageTitle}>Drunk Leaderboard</h2>
                 </div>
                 {isAdmin && (
-                    <button onClick={handleReset} className={`btn-icon ${styles.resetBtn}`} title="Reset Leaderboard">
+                    <button onClick={handleReset} className={`btn-icon ${styles.resetBtn}`} title="Reset Leaderboard" aria-label="Reset Leaderboard">
                         <Trash2 size={24} />
                     </button>
                 )}

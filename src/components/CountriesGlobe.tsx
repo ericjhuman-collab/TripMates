@@ -137,7 +137,7 @@ export const CountriesGlobe: React.FC<Props> = ({
         <div className={styles.fullscreen}>
             {/* Top bar */}
             <div className={styles.topBar}>
-                <button className={styles.topBtn} onClick={onClose} title="Close">
+                <button className={styles.topBtn} onClick={onClose} title="Close" aria-label="Close">
                     <ArrowLeft size={22} />
                 </button>
                 <div className={styles.tabSwitch} role="tablist" aria-label="Map mode">
@@ -161,7 +161,7 @@ export const CountriesGlobe: React.FC<Props> = ({
                     </button>
                 </div>
                 {canEdit ? (
-                    <button className={styles.topBtn} onClick={() => setShowListPanel(true)} title={`Add or remove ${tabLabel.toLowerCase()}`}>
+                    <button className={styles.topBtn} onClick={() => setShowListPanel(true)} title={`Add or remove ${tabLabel.toLowerCase()}`} aria-label={`Add or remove ${tabLabel.toLowerCase()}`}>
                         <Plus size={22} />
                     </button>
                 ) : <div style={{ width: 40 }} />}

@@ -250,14 +250,14 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                 </div>
 
                 <div className={styles.dayNav}>
-                    <button onClick={onPrevDay} className="btn-icon" title="Previous day">
+                    <button onClick={onPrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
                         <ChevronLeft size={20} />
                     </button>
                     <div className={styles.dayLabel}>
                         <h2 className={styles.dayName}>{format(currentDate, 'EEEE')}</h2>
                         <p className={styles.dayDate}>{format(currentDate, 'MMM d')}</p>
                     </div>
-                    <button onClick={onNextDay} className="btn-icon" title="Next day">
+                    <button onClick={onNextDay} className="btn-icon" title="Next day" aria-label="Next day">
                         <ChevronRight size={20} />
                     </button>
                 </div>

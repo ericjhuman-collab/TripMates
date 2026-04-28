@@ -136,7 +136,7 @@ export const Members: React.FC = () => {
                     <h2 className={styles.title}>Trip Members</h2>
                     {!loading && <span className={styles.count}>({members.length})</span>}
                 </div>
-                <button className={`btn-icon ${styles.addGroupBtn}`} onClick={handleOpenGroupModal} title="Add to Group">
+                <button className={`btn-icon ${styles.addGroupBtn}`} onClick={handleOpenGroupModal} title="Add to Group" aria-label="Add to Group">
                     <Plus size={20} />
                 </button>
             </div>

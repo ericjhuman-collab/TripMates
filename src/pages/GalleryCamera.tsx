@@ -748,6 +748,7 @@ export const GalleryCamera: React.FC = () => {
                                 if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
                                 setPendingPreviewUrl(null);
                             }}
+                            aria-label="Close"
                         >
                             <X size={20} />
                         </button>

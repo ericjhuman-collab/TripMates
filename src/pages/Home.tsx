@@ -149,6 +149,7 @@ export const Home: React.FC = () => {
                         onClick={() => setCurrentDate(viewMode === 'week' ? subWeeks(currentDate, 1) : subMonths(currentDate, 1))}
                         className="btn-icon"
                         title={viewMode === 'week' ? 'Previous week' : 'Previous month'}
+                        aria-label={viewMode === 'week' ? 'Previous week' : 'Previous month'}
                     >
                         <ChevronLeft size={20} />
                     </button>
@@ -161,6 +162,7 @@ export const Home: React.FC = () => {
                         onClick={() => setCurrentDate(viewMode === 'week' ? addWeeks(currentDate, 1) : addMonths(currentDate, 1))}
                         className="btn-icon"
                         title={viewMode === 'week' ? 'Next week' : 'Next month'}
+                        aria-label={viewMode === 'week' ? 'Next week' : 'Next month'}
                     >
                         <ChevronRight size={20} />
                     </button>
@@ -446,14 +448,14 @@ export const Home: React.FC = () => {
                 <div className="animate-fade-in">
                     <div className={styles.scheduleSection}>
                         <div className={styles.dayHeader}>
-                            <button onClick={handlePrevDay} className="btn-icon" title="Previous day">
+                            <button onClick={handlePrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
                                 <ChevronLeft size={20} />
                             </button>
                             <div className={styles.dayHeaderCenter}>
                                 <h2 className={styles.dayTitle}>{format(currentDate, 'EEEE')}</h2>
                                 <p className={styles.daySubtitle}>{format(currentDate, 'MMMM d, yyyy')}</p>
                             </div>
-                            <button onClick={handleNextDay} className="btn-icon" title="Next day">
+                            <button onClick={handleNextDay} className="btn-icon" title="Next day" aria-label="Next day">
                                 <ChevronRight size={20} />
                             </button>
                         </div>
@@ -540,7 +542,7 @@ export const Home: React.FC = () => {
             {viewMode === 'day' && (
                 <div className="animate-fade-in">
                     <div className={styles.dayHeader}>
-                        <button onClick={handlePrevDay} className="btn-icon" title="Previous day">
+                        <button onClick={handlePrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
                             <ChevronLeft size={20} />
                         </button>
                         <div className={styles.dayHeaderCenter}>
@@ -550,7 +552,7 @@ export const Home: React.FC = () => {
                                 <p className={styles.dayTripNumber}>Day {tripDayNumber} of Trip</p>
                             )}
                         </div>
-                        <button onClick={handleNextDay} className="btn-icon" title="Next day">
+                        <button onClick={handleNextDay} className="btn-icon" title="Next day" aria-label="Next day">
                             <ChevronRight size={20} />
                         </button>
                     </div>

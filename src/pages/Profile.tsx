@@ -1052,7 +1052,7 @@ export const Profile: React.FC = () => {
                                         <ArrowLeft size={20} />
                                     </button>
                                     <h3 className={styles.drawerTitle}>Notifications</h3>
-                                    <button className={styles.drawerCloseBtn} onClick={() => { setShowHamburger(false); setShowNotifications(false); }}><X size={20} /></button>
+                                    <button className={styles.drawerCloseBtn} onClick={() => { setShowHamburger(false); setShowNotifications(false); }} aria-label="Close menu"><X size={20} /></button>
                                 </div>
                                 <div className={styles.drawerList}>
                                     {notifications.length === 0 && (

@@ -166,7 +166,7 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
         return (
             <div className={`animate-fade-in ${tripStyles.page}`} style={{ padding: '1rem 0.5rem' }}>
                 <div className={tripStyles.pageHeader}>
-                    <button onClick={onBack} className={tripStyles.backBtn} title="Go back">
+                    <button onClick={onBack} className={tripStyles.backBtn} title="Go back" aria-label="Go back">
                         <ArrowLeft size={20} color="var(--color-primary-dark)" />
                     </button>
                     <h2 className={tripStyles.pageTitle} style={{ opacity: 0 }}>Saved Lists</h2> 
@@ -257,7 +257,7 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
     return (
         <div className={`animate-fade-in ${tripStyles.page}`} style={{ padding: '1rem 0.5rem' }}>
             <div className={tripStyles.pageHeader}>
-                <button onClick={() => setActiveList(null)} className={tripStyles.backBtn} title="Go back">
+                <button onClick={() => setActiveList(null)} className={tripStyles.backBtn} title="Go back" aria-label="Go back">
                     <ArrowLeft size={20} color="var(--color-primary-dark)" />
                 </button>
                 <h2 className={tripStyles.pageTitle} style={{ opacity: 0 }}>Active List</h2> 
