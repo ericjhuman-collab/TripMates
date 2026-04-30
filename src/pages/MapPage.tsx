@@ -173,12 +173,15 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     }, [activeTrip?.id]);
 
     // One-shot fetch of member display metadata (name/avatar/lastKnown).
-    // Refreshes every 60s so a freshly-added member's avatar shows up without
-    // a page reload, but doesn't pretend to be a real-time channel.
+    // Avatars and names rarely change mid-trip, and Firestore reads are
+    // expensive at scale (N members × poll-rate × active map viewers). We
+    // fetch once when the trip changes and rely on RTDB for live position
+    // updates; stale lastKnownLocation is acceptable for the "last seen"
+    // fallback since the cleanup function backfills it at session end.
     useEffect(() => {
         if (!activeTrip || !showMembers) return;
         let cancelled = false;
-        const fetchMeta = async () => {
+        (async () => {
             const next: Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }> = {};
             for (const memberId of activeTrip.members) {
                 if (memberId === appUser?.uid) continue;
@@ -198,10 +201,8 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                 }
             }
             if (!cancelled) setMemberMeta(next);
-        };
-        fetchMeta();
-        const interval = setInterval(fetchMeta, 60000);
-        return () => { cancelled = true; clearInterval(interval); };
+        })();
+        return () => { cancelled = true; };
     }, [activeTrip, showMembers, appUser?.uid]);
 
     // Merge live + fallback into a single render list. Live entries win over
@@ -416,7 +417,11 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                 {/* View Controls Overlay */}
                 <div className={styles.mapControls}>
                     {activeTrip && (
-                        <LiveLocationPicker tripId={activeTrip.id} compact />
+                        <LiveLocationPicker
+                            tripId={activeTrip.id}
+                            compact
+                            masterDisabled={appUser?.shareLocation === false}
+                        />
                     )}
                     <button
                         className={`glass-btn ${styles.mapBtn}`}
