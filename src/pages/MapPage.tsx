@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -9,6 +9,8 @@ import { type Activity } from '../services/activities';
 import { useTrip } from '../context/TripContext';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { subscribeToTripLocations, type LiveLocationEntry } from '../services/liveLocation';
+import { LiveLocationPicker } from '../components/LiveLocationPicker';
 import styles from './MapPage.module.css';
 
 interface MapPageProps {
@@ -25,6 +27,9 @@ interface MemberLocation {
     timestamp: number;
     avatarUrl?: string;
     name: string;
+    /** True if this pin is from RTDB live data; false if it's the stale
+     *  Firestore lastKnownLocation fallback ("last seen at..."). */
+    live: boolean;
 }
 
 const createEmojiIcon = (emoji: string, isSurprise: boolean) => {
@@ -37,15 +42,20 @@ const createEmojiIcon = (emoji: string, isSurprise: boolean) => {
     });
 };
 
-const createAvatarIcon = (url?: string, name?: string) => {
+const createAvatarIcon = (url?: string, name?: string, live: boolean = true) => {
     const initials = (name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
     const bg = 'var(--color-primary)';
-    
+    // Stale (last-seen) pins are dimmed and don't pulse — gives an obvious
+    // visual signal that the pin is a remembered position, not live.
+    const opacity = live ? '1' : '0.55';
+    const grayscale = live ? '0' : '60%';
+    const filter = `opacity(${opacity}) grayscale(${grayscale})`;
+
     let htmlContent = '';
     if (url) {
-        htmlContent = `<div style="background-image: url(${url}); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4);"></div>`;
+        htmlContent = `<div style="background-image: url(${url}); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`;
     } else {
-        htmlContent = `<div style="background-color: ${bg}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4);">${initials}</div>`;
+        htmlContent = `<div style="background-color: ${bg}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};">${initials}</div>`;
     }
 
     return L.divIcon({
@@ -55,6 +65,16 @@ const createAvatarIcon = (url?: string, name?: string) => {
         iconAnchor: [18, 18],
         popupAnchor: [0, -18]
     });
+};
+
+/** Format a "last seen" label. Today → "last seen 14:32", earlier → "last seen Apr 28, 14:32". */
+const formatLastSeen = (ts: number): string => {
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+        ? `last seen ${format(d, 'HH:mm')}`
+        : `last seen ${format(d, 'MMM d, HH:mm')}`;
 };
 
 const MapUpdater = ({ center }: { center: [number, number] }) => {
@@ -95,102 +115,93 @@ const CopyAddressBtn = ({ address }: { address: string }) => {
 };
 
 export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNextDay, activities }) => {
-    const { appUser, updateProfile } = useAuth();
+    const { appUser } = useAuth();
     const { activeTrip } = useTrip();
     const [center, setCenter] = useState<[number, number]>([45.4642, 9.1900]);
     const [homeCoords, setHomeCoords] = useState<[number, number] | null>(null);
     const dayString = format(currentDate, 'yyyy-MM-dd');
 
-    // ── Live Location Tracking & Polling ──
-    const [memberLocations, setMemberLocations] = useState<MemberLocation[]>([]);
+    // ── Member locations: live (RTDB) + fallback (Firestore lastKnownLocation) ──
+    // Live wins when both exist for the same member. Broadcasting is owned by
+    // <LiveLocationDaemon>, not this page.
+    const [liveEntries, setLiveEntries] = useState<Record<string, LiveLocationEntry>>({});
+    const [memberMeta, setMemberMeta] = useState<Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }>>({});
     const [showMembers, setShowMembers] = useState(true);
-    const watchIdRef = React.useRef<number | null>(null);
 
+    // Subscribe to live RTDB locations for the active trip.
     useEffect(() => {
-        if (!appUser?.uid || appUser.shareLocation === false) return;
+        if (!activeTrip?.id) return;
+        return subscribeToTripLocations(activeTrip.id, setLiveEntries);
+    }, [activeTrip?.id]);
 
-        // Broadcast current user's location
-        if (navigator.geolocation) {
-            watchIdRef.current = navigator.geolocation.watchPosition(
-                (pos) => {
-                    updateProfile({
-                        lastKnownLocation: {
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude,
-                            timestamp: Date.now()
-                        }
-                    }).catch(console.error);
-                },
-                (err) => {
-                    // PERMISSION_DENIED (1) is the user's choice, not a bug —
-                    // log quietly. POSITION_UNAVAILABLE (2) and TIMEOUT (3) are
-                    // transient; warn but don't error. Stop watching on denial
-                    // so we don't keep prompting/firing.
-                    if (err.code === err.PERMISSION_DENIED) {
-                        console.info('Location sharing declined; skipping live location.');
-                        if (watchIdRef.current !== null) {
-                            navigator.geolocation.clearWatch(watchIdRef.current);
-                            watchIdRef.current = null;
-                        }
-                        return;
-                    }
-                    if (err.code === err.POSITION_UNAVAILABLE || err.code === err.TIMEOUT) {
-                        console.warn('Geolocation unavailable:', err.message);
-                        return;
-                    }
-                    console.error('Geolocation error:', err);
-                },
-                { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-            );
-        }
-
-        return () => {
-            if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-        };
-    }, [appUser?.uid, appUser?.shareLocation, updateProfile]);
-
+    // One-shot fetch of member display metadata (name/avatar/lastKnown).
+    // Refreshes every 60s so a freshly-added member's avatar shows up without
+    // a page reload, but doesn't pretend to be a real-time channel.
     useEffect(() => {
         if (!activeTrip || !showMembers) return;
-        
-        let isMounted = true;
-        const fetchMemberLocs = async () => {
-            try {
-                const fetched: MemberLocation[] = [];
-                for (const memberId of activeTrip.members) {
-                    if (memberId === appUser?.uid) continue; // Skip self in rendering other members
-                    const docSnap = await getDoc(doc(db, 'users', memberId));
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        if (data.shareLocation !== false && data.lastKnownLocation) {
-                            // Only show if the location is recent (e.g. past 24 hours)
-                            const age = Date.now() - data.lastKnownLocation.timestamp;
-                            if (age < 86400000) { 
-                                fetched.push({
-                                    uid: memberId,
-                                    lat: data.lastKnownLocation.lat,
-                                    lng: data.lastKnownLocation.lng,
-                                    timestamp: data.lastKnownLocation.timestamp,
-                                    name: data.name,
-                                    avatarUrl: data.avatarUrl
-                                });
-                            }
-                        }
+        let cancelled = false;
+        const fetchMeta = async () => {
+            const next: Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }> = {};
+            for (const memberId of activeTrip.members) {
+                if (memberId === appUser?.uid) continue;
+                try {
+                    const snap = await getDoc(doc(db, 'users', memberId));
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        next[memberId] = {
+                            name: data.name,
+                            avatarUrl: data.avatarUrl,
+                            lastKnownLocation: data.lastKnownLocation,
+                            shareLocation: data.shareLocation,
+                        };
                     }
+                } catch (err) {
+                    console.error('Failed to fetch member meta', err);
                 }
-                if (isMounted) setMemberLocations(fetched);
-            } catch (err) {
-                console.error("Error fetching member locations", err);
             }
+            if (!cancelled) setMemberMeta(next);
         };
-
-        fetchMemberLocs();
-        const interval = setInterval(fetchMemberLocs, 15000); // Poll every 15s
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
+        fetchMeta();
+        const interval = setInterval(fetchMeta, 60000);
+        return () => { cancelled = true; clearInterval(interval); };
     }, [activeTrip, showMembers, appUser?.uid]);
+
+    // Merge live + fallback into a single render list. Live entries win over
+    // the Firestore lastKnownLocation fallback. We trust the daemon's auto-
+    // stop and the Cloud Function cleanup to drop expired RTDB entries — no
+    // expiry check at render time, which keeps the render pure.
+    const memberLocations: MemberLocation[] = useMemo(() => {
+        if (!activeTrip || !showMembers) return [];
+        const out: MemberLocation[] = [];
+        for (const memberId of activeTrip.members) {
+            if (memberId === appUser?.uid) continue;
+            const meta = memberMeta[memberId];
+            if (!meta) continue;
+            const live = liveEntries[memberId];
+            if (live) {
+                out.push({
+                    uid: memberId,
+                    lat: live.lat,
+                    lng: live.lng,
+                    timestamp: live.updatedAt,
+                    name: meta.name,
+                    avatarUrl: meta.avatarUrl,
+                    live: true,
+                });
+            } else if (meta.shareLocation !== false && meta.lastKnownLocation) {
+                out.push({
+                    uid: memberId,
+                    lat: meta.lastKnownLocation.lat,
+                    lng: meta.lastKnownLocation.lng,
+                    timestamp: meta.lastKnownLocation.timestamp,
+                    name: meta.name,
+                    avatarUrl: meta.avatarUrl,
+                    live: false,
+                });
+            }
+        }
+        return out;
+    }, [activeTrip, showMembers, appUser?.uid, liveEntries, memberMeta]);
 
 
     useEffect(() => {
@@ -314,12 +325,12 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                     })}
 
                     {showMembers && memberLocations.map(ml => (
-                        <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name)}>
+                        <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name, ml.live)}>
                             <Popup>
                                 <div style={{ textAlign: 'center' }}>
                                     <h4 style={{ margin: 0 }}>{ml.name}</h4>
                                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                        Active recently
+                                        {ml.live ? 'Sharing live' : formatLastSeen(ml.timestamp)}
                                     </p>
                                 </div>
                             </Popup>
@@ -366,7 +377,10 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
                 {/* View Controls Overlay */}
                 <div className={styles.mapControls}>
-                    <button 
+                    {activeTrip && appUser?.shareLocation !== false && (
+                        <LiveLocationPicker tripId={activeTrip.id} compact />
+                    )}
+                    <button
                         className={`glass-btn ${styles.mapBtn}`}
                         onClick={() => setShowMembers(!showMembers)}
                         style={{ opacity: showMembers ? 1 : 0.6 }}

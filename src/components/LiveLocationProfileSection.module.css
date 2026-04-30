@@ -1,0 +1,117 @@
+.empty {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin: 0.5rem 0 0;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.85rem;
+}
+
+.tripRow {
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tripHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.tripName {
+    font-weight: 600;
+    color: var(--color-primary-dark);
+    font-size: 0.95rem;
+}
+
+.tripStatus {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+}
+
+.statusDot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #9ca3af;
+}
+
+.statusDot[data-on="true"] {
+    background: #22c55e;
+}
+
+.statusOn {
+    color: #15803d;
+    font-weight: 600;
+}
+
+.statusOff {
+    color: var(--color-text-muted);
+}
+
+.expiresLabel {
+    color: var(--color-text-muted);
+}
+
+.controlsRow {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.segmented {
+    display: flex;
+    gap: 0.2rem;
+    background: #f3f4f6;
+    padding: 0.2rem;
+    border-radius: 10px;
+    flex: 1;
+    overflow-x: auto;
+}
+
+.segment {
+    flex: 1;
+    min-width: max-content;
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    color: var(--color-primary-dark);
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+    white-space: nowrap;
+}
+
+.segmentActive {
+    background: var(--color-primary);
+    color: white;
+    font-weight: 600;
+}
+
+.stopBtn {
+    background: transparent;
+    border: 1px solid #b91c1c;
+    color: #b91c1c;
+    border-radius: 8px;
+    padding: 0.4rem 0.75rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.stopBtn:hover {
+    background: #fee2e2;
+}

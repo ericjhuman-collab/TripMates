@@ -11,6 +11,7 @@ import { OddsProvider } from './context/OddsContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { EnvBanner } from './components/EnvBanner';
+import { LiveLocationDaemon } from './components/LiveLocationDaemon';
 import './App.css';
 
 // Route-level code splitting — keeps the initial JS bundle small. Home is
@@ -44,6 +45,7 @@ function App() {
           <EnvBanner />
           <AuthProvider>
             <TripProvider>
+              <LiveLocationDaemon />
               <EvenProvider>
                 <OddsProvider>
                 <div className="app-container">
