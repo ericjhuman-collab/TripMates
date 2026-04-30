@@ -10,6 +10,8 @@ npm run build        # tsc -b && vite build (typecheck blocks build)
 npm run lint         # ESLint (flat config, eslint.config.js)
 npm run test:rules   # Firestore rules tests via @firebase/rules-unit-testing
                      # Spins up firestore + auth emulators, runs vitest
+npm run test:rules:database  # RTDB rules tests for /liveLocation
+                     # Spins up the database emulator, runs vitest
 
 # Run a single rules test
 firebase emulators:exec --only firestore,auth --project tripmates-rules-test \
@@ -79,6 +81,19 @@ Every component has `Foo.tsx` + `Foo.module.css` colocated. Global styles live i
 - `trips/{tripId}/...` — 25 MB cap, authenticated read.
 
 Storage reads now require `request.auth != null`. Trade-off: link-preview bots (iMessage, Slack, Twitter, etc.) can't fetch the underlying images, so Open Graph / Twitter card previews on shared TripMates URLs render without the trip image. The text/title still works since `index.html` is publicly served. This was a deliberate choice — keeping trip galleries and avatars private wins over previews.
+
+### Live location (RTDB-backed)
+Real-time member-position sharing on the Map page. Architecture:
+
+- **Per-device mode** (`Off / 3h / 24h / Whole trip / Always on`) is stored in `localStorage` (`liveLocation:{tripId}:mode`). Not synced across devices — picking "always on" on your phone doesn't auto-share from your laptop.
+- **`<LiveLocationDaemon>`** in [src/components/LiveLocationDaemon.tsx](src/components/LiveLocationDaemon.tsx) is mounted once at app root (inside `TripProvider`). It iterates all `userTrips`, broadcasts position to RTDB at `liveLocation/{tripId}/{uid}` for trips with mode ≠ off, schedules auto-stop at expiry, and stops cleanly on master-switch flip / mode change. Throttles to 30s OR 50m moved (`MIN_INTERVAL_MS` / `MIN_DISTANCE_M` in [src/services/liveLocation.ts](src/services/liveLocation.ts)).
+- **Native vs web**: on Capacitor (iOS/Android), uses `@capacitor-community/background-geolocation` with a foreground-service notification that lets the watcher continue while the app is backgrounded. iOS needs `NSLocationAlwaysAndWhenInUseUsageDescription` + `UIBackgroundModes: [location]` in Info.plist; Android needs `ACCESS_BACKGROUND_LOCATION` + `FOREGROUND_SERVICE_LOCATION` in the manifest. On the web (dev preview), falls back to `navigator.geolocation.watchPosition` — no background support there, but the foreground UX matches.
+- **Map rendering**: [src/pages/MapPage.tsx](src/pages/MapPage.tsx) subscribes to `liveLocation/{activeTrip.id}` via `subscribeToTripLocations()` for live pins, and falls back to the Firestore `users/{uid}.lastKnownLocation` field for a dimmed "last seen HH:MM" pin once a session has expired.
+- **`liveLocationCleanup` Cloud Function** ([functions/src/index.ts](functions/src/index.ts)) runs on a 10-minute schedule. For every RTDB entry whose `expiresAt` has passed (with a 60s grace window), it copies the position to Firestore `users/{uid}.lastKnownLocation` *first*, then deletes the RTDB entry. This is what makes "pin doesn't disappear at expiry" work without paying per-tick Firestore writes — Firestore is touched once at session end, not on every position update. The function uses `minInstances: 0` (overrides the codebase-wide `setGlobalOptions({ minInstances: 1 })`) since cold start is invisible for a scheduled job.
+- **RTDB rules** ([database.rules.json](database.rules.json)): default-deny at root; `/liveLocation/{tripId}/{uid}` is writable only by `auth.uid == $uid`, validated for lat/lng range and the four allowed mode strings (`'off'` is intentionally rejected — off is represented by deletion, never a written value); reads are gated on `auth != null` only (NOT trip membership — RTDB rules can't query Firestore. See [docs/superpowers/plans/2026-04-30-rtdb-livelocation-membership.md](docs/superpowers/plans/2026-04-30-rtdb-livelocation-membership.md) for the planned hardening).
+- **Picker UI**: [src/components/LiveLocationPicker.tsx](src/components/LiveLocationPicker.tsx) is rendered on the Map page (compact pill) and embedded in [src/components/LiveLocationProfileSection.tsx](src/components/LiveLocationProfileSection.tsx) for per-trip overview in Profile/Settings. The compact menu closes on outside-pointerdown and Escape. When the master kill switch (`appUser.shareLocation === false`) is off, the pill renders inactive (no green dot) and the menu shows a hint pointing at Profile → Settings.
+
+When adding new write paths into `liveLocation/{...}`: the rules validate `$other: false`, so any extra leaf key is rejected — keep payloads on the documented shape (`lat`, `lng`, `accuracy`, `heading`, `updatedAt`, `expiresAt`, `mode`).
 
 ## Conventions worth knowing
 
