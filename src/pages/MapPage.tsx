@@ -43,18 +43,33 @@ const createEmojiIcon = (emoji: string, isSurprise: boolean) => {
     });
 };
 
+// Strict allow-list for avatar URLs interpolated into the divIcon HTML.
+// Firebase Storage download URLs (the only ones updateProfile produces via the
+// upload flow) match this, but a manual Firestore write that injects HTML
+// special chars or break-out characters falls back to the initials state.
+const isSafeAvatarUrl = (u: string): boolean => /^https?:\/\/[^"'<>\s)(]+$/.test(u);
+
+// Reduce raw name → 2 alphanumeric initials. Anything else (HTML special
+// chars, emoji, etc.) collapses to '?'. Belt-and-suspenders defense for the
+// inline-HTML insertion below.
+const safeInitials = (name?: string): string => {
+    const raw = (name || '?').split(' ').map(w => w[0] ?? '').join('').substring(0, 2).toUpperCase();
+    return raw.replace(/[^A-Z0-9]/g, '?') || '?';
+};
+
 const createAvatarIcon = (url?: string, name?: string, live: boolean = true) => {
-    const initials = (name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+    const initials = safeInitials(name);
     const bg = 'var(--color-primary)';
     // Stale (last-seen) pins are dimmed and don't pulse — gives an obvious
     // visual signal that the pin is a remembered position, not live.
     const opacity = live ? '1' : '0.55';
     const grayscale = live ? '0' : '60%';
     const filter = `opacity(${opacity}) grayscale(${grayscale})`;
+    const safeUrl = url && isSafeAvatarUrl(url) ? url : '';
 
     let htmlContent = '';
-    if (url) {
-        htmlContent = `<div style="background-image: url(${url}); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`;
+    if (safeUrl) {
+        htmlContent = `<div style="background-image: url('${safeUrl}'); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`;
     } else {
         htmlContent = `<div style="background-color: ${bg}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};">${initials}</div>`;
     }
