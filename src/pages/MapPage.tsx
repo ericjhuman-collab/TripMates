@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-l
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { format } from 'date-fns';
-import { ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Check, Locate } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { type Activity } from '../services/activities';
 import { useTrip } from '../context/TripContext';
@@ -127,6 +127,26 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     const [liveEntries, setLiveEntries] = useState<Record<string, LiveLocationEntry>>({});
     const [memberMeta, setMemberMeta] = useState<Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }>>({});
     const [showMembers, setShowMembers] = useState(true);
+    const [locating, setLocating] = useState(false);
+
+    // "Center on my location" — uses navigator.geolocation directly so it
+    // works regardless of whether the user is sharing live location for this
+    // trip. Just a one-shot query to re-centre the map view.
+    const handleLocateMe = () => {
+        if (!navigator.geolocation || locating) return;
+        setLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                setCenter([pos.coords.latitude, pos.coords.longitude]);
+                setLocating(false);
+            },
+            (err) => {
+                console.warn('Locate failed:', err.message);
+                setLocating(false);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+    };
 
     // Subscribe to live RTDB locations for the active trip.
     useEffect(() => {
@@ -386,6 +406,15 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         style={{ opacity: showMembers ? 1 : 0.6 }}
                     >
                         {showMembers ? 'Hide Members' : 'Show Members'}
+                    </button>
+                    <button
+                        className={`glass-btn ${styles.locateBtn}`}
+                        onClick={handleLocateMe}
+                        disabled={locating}
+                        aria-label="Center on my location"
+                        title="Center on my location"
+                    >
+                        <Locate size={18} className={locating ? styles.locateSpinning : ''} />
                     </button>
                 </div>
             </div>

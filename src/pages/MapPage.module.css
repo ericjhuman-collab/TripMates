@@ -112,3 +112,32 @@
 .mapBtn:active {
   transform: scale(0.95);
 }
+
+.locateBtn {
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: var(--color-primary-dark);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: transform 0.15s ease;
+  padding: 0;
+}
+
+.locateBtn:active { transform: scale(0.92); }
+.locateBtn:disabled { opacity: 0.6; cursor: default; }
+
+.locateSpinning {
+  animation: locateSpin 1s linear infinite;
+}
+
+@keyframes locateSpin {
+  to { transform: rotate(360deg); }
+}
