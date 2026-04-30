@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
+import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -26,12 +27,13 @@ export const Home: React.FC = () => {
     const { activeTrip, userTrips, switchTrip } = useTrip();
     const location = useLocation();
     const [viewMode, setViewMode] = useState<ViewMode>('day');
+    const [eventFocusedPollId, setEventFocusedPollId] = useState<string | undefined>();
 
     // Deep-link support: `/?tab=polls` (optionally with `&pollId=...`) opens
-    // the Polls tab. Used by the PollBanner CTA and by notification clicks.
-    // Depends on `location.search` (a primitive string) rather than the
-    // useSearchParams object so React reliably re-runs the effect when the
-    // query string changes within the same route.
+    // the Polls tab on initial navigation from another route. For
+    // banner clicks while already on Home we use a CustomEvent (below)
+    // because router updates inside the same route don't always re-fire
+    // dependents reliably across react-router-dom versions.
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const tab = params.get('tab');
@@ -39,10 +41,22 @@ export const Home: React.FC = () => {
             setViewMode('polls');
         }
     }, [location.search]);
-    const focusedPollId = useMemo(
-        () => new URLSearchParams(location.search).get('pollId') ?? undefined,
-        [location.search],
-    );
+
+    // Banner-click handler when already on Home — see PollBanner.
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<OpenPollsEventDetail>).detail;
+            setViewMode('polls');
+            if (detail?.pollId) setEventFocusedPollId(detail.pollId);
+        };
+        window.addEventListener(OPEN_POLLS_EVENT, handler);
+        return () => window.removeEventListener(OPEN_POLLS_EVENT, handler);
+    }, []);
+
+    const focusedPollId = useMemo(() => {
+        if (eventFocusedPollId) return eventFocusedPollId;
+        return new URLSearchParams(location.search).get('pollId') ?? undefined;
+    }, [eventFocusedPollId, location.search]);
     const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>('day');
     const [showViewMenu, setShowViewMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
