@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useLocation } from 'react-router-dom';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -24,18 +24,25 @@ type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members';
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
     const { activeTrip, userTrips, switchTrip } = useTrip();
-    const [searchParams] = useSearchParams();
+    const location = useLocation();
     const [viewMode, setViewMode] = useState<ViewMode>('day');
 
     // Deep-link support: `/?tab=polls` (optionally with `&pollId=...`) opens
     // the Polls tab. Used by the PollBanner CTA and by notification clicks.
+    // Depends on `location.search` (a primitive string) rather than the
+    // useSearchParams object so React reliably re-runs the effect when the
+    // query string changes within the same route.
     useEffect(() => {
-        const tab = searchParams.get('tab');
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
         if (tab === 'polls') {
             setViewMode('polls');
         }
-    }, [searchParams]);
-    const focusedPollId = searchParams.get('pollId') ?? undefined;
+    }, [location.search]);
+    const focusedPollId = useMemo(
+        () => new URLSearchParams(location.search).get('pollId') ?? undefined,
+        [location.search],
+    );
     const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>('day');
     const [showViewMenu, setShowViewMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
