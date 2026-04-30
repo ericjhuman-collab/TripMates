@@ -461,6 +461,10 @@ export const liveLocationCleanup = onSchedule(
         region: 'europe-west1',
         memory: '256MiB',
         timeoutSeconds: 120,
+        // Override the codebase-wide minInstances:1 default — nobody is
+        // waiting on this scheduled job, so a 2-5s cold start every 10
+        // minutes is invisible and saves ~$2.88/mo for the warm instance.
+        minInstances: 0,
     },
     async () => {
         const rtdb = getDatabase();
