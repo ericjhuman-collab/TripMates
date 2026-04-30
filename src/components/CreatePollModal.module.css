@@ -120,12 +120,24 @@
 
 .checkboxRow {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 0.5rem;
     font-size: 0.85rem;
     color: var(--color-primary-dark);
     cursor: pointer;
     padding: 0.5rem 0;
+}
+
+.checkboxRow input[type="checkbox"] {
+    margin-top: 0.15rem;
+}
+
+.checkboxHint {
+    display: block;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-weight: normal;
+    margin-top: 0.1rem;
 }
 
 .error {

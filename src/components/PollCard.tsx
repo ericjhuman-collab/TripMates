@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Check, X, Lock } from 'lucide-react';
+import { Check, X, Lock, EyeOff } from 'lucide-react';
 import { format } from 'date-fns';
 import {
     closePoll,
@@ -92,11 +92,18 @@ export const PollCard: React.FC<Props> = ({ poll, tripId, currentUid, canManage,
                         <span className={styles.creatorTime}>{format(dt, 'MMM d, HH:mm')}</span>
                     </div>
                 </div>
-                {!open && (
-                    <span className={styles.closedBadge}>
-                        <Lock size={12} /> Closed
-                    </span>
-                )}
+                <div className={styles.headerBadges}>
+                    {poll.isAnonymous && (
+                        <span className={styles.anonBadge} title="Voter names are hidden">
+                            <EyeOff size={12} /> Anonymous
+                        </span>
+                    )}
+                    {!open && (
+                        <span className={styles.closedBadge}>
+                            <Lock size={12} /> Closed
+                        </span>
+                    )}
+                </div>
             </div>
 
             <h3 className={styles.question}>{poll.question}</h3>
@@ -132,14 +139,20 @@ export const PollCard: React.FC<Props> = ({ poll, tripId, currentUid, canManage,
             </div>
 
             <div className={styles.footer}>
-                <button
-                    type="button"
-                    className={styles.toggleVoters}
-                    onClick={() => setShowVoters(s => !s)}
-                >
-                    {totalVoters} {totalVoters === 1 ? 'vote' : 'votes'}
-                    {totalVoters > 0 && ` · ${showVoters ? 'hide who' : 'see who'}`}
-                </button>
+                {poll.isAnonymous ? (
+                    <span className={styles.voteCount}>
+                        {totalVoters} {totalVoters === 1 ? 'vote' : 'votes'}
+                    </span>
+                ) : (
+                    <button
+                        type="button"
+                        className={styles.toggleVoters}
+                        onClick={() => setShowVoters(s => !s)}
+                    >
+                        {totalVoters} {totalVoters === 1 ? 'vote' : 'votes'}
+                        {totalVoters > 0 && ` · ${showVoters ? 'hide who' : 'see who'}`}
+                    </button>
+                )}
                 {canManage && (
                     <div className={styles.adminRow}>
                         {open && (
@@ -154,7 +167,7 @@ export const PollCard: React.FC<Props> = ({ poll, tripId, currentUid, canManage,
                 )}
             </div>
 
-            {showVoters && totalVoters > 0 && (
+            {showVoters && totalVoters > 0 && !poll.isAnonymous && (
                 <div className={styles.votersList}>
                     {poll.options.map(opt => {
                         const voters = votersFor(opt.id);

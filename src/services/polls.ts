@@ -41,6 +41,11 @@ export interface Poll {
     closedAt: number | null;
     /** true = members may pick more than one option. */
     allowMultipleChoice: boolean;
+    /** true = the in-app UI hides voter identities from everyone (creator
+     *  included). Note: voter uids still exist in Firestore so the
+     *  per-uid "only-your-own-vote" rule can be enforced — this is UI
+     *  anonymity, not cryptographic anonymity. */
+    isAnonymous: boolean;
 }
 
 export const MAX_POLL_OPTIONS = 12;
@@ -53,6 +58,7 @@ export async function createPoll(args: {
     question: string;
     options: string[];
     allowMultipleChoice: boolean;
+    isAnonymous: boolean;
     creatorUid: string;
     creatorName: string;
     creatorAvatarUrl?: string;
@@ -83,6 +89,7 @@ export async function createPoll(args: {
         createdAt: serverTimestamp(),
         closedAt: null,
         allowMultipleChoice: args.allowMultipleChoice,
+        isAnonymous: args.isAnonymous,
     });
 
     // Fan-out notifications to other members (uses existing social.ts pattern).
@@ -147,6 +154,7 @@ export function subscribeToTripPolls(
                 createdAt: data.createdAt?.toMillis?.() ?? Date.now(),
                 closedAt: data.closedAt ?? null,
                 allowMultipleChoice: !!data.allowMultipleChoice,
+                isAnonymous: !!data.isAnonymous,
             };
         });
         cb(polls);

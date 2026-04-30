@@ -64,6 +64,14 @@
     color: var(--color-text-muted);
 }
 
+.headerBadges {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .closedBadge {
     display: inline-flex;
     align-items: center;
@@ -74,6 +82,24 @@
     border-radius: 9999px;
     font-size: 0.7rem;
     font-weight: 600;
+}
+
+.anonBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #ede9fe;
+    color: #6d28d9;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.voteCount {
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
 }
 
 .question {

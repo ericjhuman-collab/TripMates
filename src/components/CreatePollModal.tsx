@@ -33,6 +33,7 @@ export const CreatePollModal: React.FC<Props> = ({
     const [question, setQuestion] = useState('');
     const [options, setOptions] = useState<string[]>(['', '']);
     const [allowMultipleChoice, setAllowMultipleChoice] = useState(false);
+    const [isAnonymous, setIsAnonymous] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState('');
 
@@ -42,6 +43,7 @@ export const CreatePollModal: React.FC<Props> = ({
         setQuestion('');
         setOptions(['', '']);
         setAllowMultipleChoice(false);
+        setIsAnonymous(false);
         setError('');
     };
 
@@ -81,6 +83,7 @@ export const CreatePollModal: React.FC<Props> = ({
                 question,
                 options: filled,
                 allowMultipleChoice,
+                isAnonymous,
                 creatorUid,
                 creatorName,
                 creatorAvatarUrl,
@@ -164,6 +167,20 @@ export const CreatePollModal: React.FC<Props> = ({
                         onChange={e => setAllowMultipleChoice(e.target.checked)}
                     />
                     <span>Allow multiple choices per voter</span>
+                </label>
+
+                <label className={styles.checkboxRow}>
+                    <input
+                        type="checkbox"
+                        checked={isAnonymous}
+                        onChange={e => setIsAnonymous(e.target.checked)}
+                    />
+                    <span>
+                        Anonymous votes
+                        <span className={styles.checkboxHint}>
+                            Voter names are hidden from everyone, including you.
+                        </span>
+                    </span>
                 </label>
 
                 {error && <p className={styles.error}>{error}</p>}
