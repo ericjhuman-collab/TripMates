@@ -397,7 +397,7 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
                 {/* View Controls Overlay */}
                 <div className={styles.mapControls}>
-                    {activeTrip && appUser?.shareLocation !== false && (
+                    {activeTrip && (
                         <LiveLocationPicker tripId={activeTrip.id} compact />
                     )}
                     <button
