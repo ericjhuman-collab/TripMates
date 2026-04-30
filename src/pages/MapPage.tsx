@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-l
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { format } from 'date-fns';
-import { ChevronLeft, ChevronRight, Copy, Check, Locate } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Check, Locate, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { type Activity } from '../services/activities';
 import { useTrip } from '../context/TripContext';
@@ -416,6 +416,16 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                     >
                         <Locate size={18} className={locating ? styles.locateSpinning : ''} />
                     </button>
+                    {homeCoords && (
+                        <button
+                            className={`glass-btn ${styles.locateBtn}`}
+                            onClick={() => setCenter(homeCoords)}
+                            aria-label="Center on accommodation"
+                            title={activeTrip?.accommodation ? `Center on ${activeTrip.accommodation}` : 'Center on accommodation'}
+                        >
+                            <Home size={18} />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
