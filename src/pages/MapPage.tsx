@@ -11,6 +11,7 @@ import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { subscribeToTripLocations, type LiveLocationEntry } from '../services/liveLocation';
 import { LiveLocationPicker } from '../components/LiveLocationPicker';
+import { useToast } from '../components/useToast';
 import styles from './MapPage.module.css';
 
 interface MapPageProps {
@@ -79,9 +80,13 @@ const formatLastSeen = (ts: number): string => {
 
 const MapUpdater = ({ center }: { center: [number, number] }) => {
     const map = useMap();
+    const [lat, lng] = center;
     useEffect(() => {
-        map.setView(center, map.getZoom());
-    }, [center, map]);
+        // Depend on the lat/lng values rather than the array reference so
+        // setCenter([lat, lng]) reliably re-centres even when called with the
+        // same array ref as before.
+        map.setView([lat, lng], map.getZoom(), { animate: true });
+    }, [map, lat, lng]);
     return null;
 };
 
@@ -117,6 +122,7 @@ const CopyAddressBtn = ({ address }: { address: string }) => {
 export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNextDay, activities }) => {
     const { appUser } = useAuth();
     const { activeTrip } = useTrip();
+    const toast = useToast();
     const [center, setCenter] = useState<[number, number]>([45.4642, 9.1900]);
     const [homeCoords, setHomeCoords] = useState<[number, number] | null>(null);
     const dayString = format(currentDate, 'yyyy-MM-dd');
@@ -133,7 +139,11 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     // works regardless of whether the user is sharing live location for this
     // trip. Just a one-shot query to re-centre the map view.
     const handleLocateMe = () => {
-        if (!navigator.geolocation || locating) return;
+        if (locating) return;
+        if (!navigator.geolocation) {
+            toast.error('Geolocation is not supported in this browser.');
+            return;
+        }
         setLocating(true);
         navigator.geolocation.getCurrentPosition(
             (pos) => {
@@ -141,8 +151,16 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                 setLocating(false);
             },
             (err) => {
-                console.warn('Locate failed:', err.message);
                 setLocating(false);
+                if (err.code === err.PERMISSION_DENIED) {
+                    toast.error('Location permission denied. Enable it in your browser/system settings.');
+                } else if (err.code === err.POSITION_UNAVAILABLE) {
+                    toast.error('Location unavailable right now. Try again outdoors or with Wi-Fi on.');
+                } else if (err.code === err.TIMEOUT) {
+                    toast.error('Location request timed out. Try again.');
+                } else {
+                    toast.error(`Location error: ${err.message}`);
+                }
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
         );
