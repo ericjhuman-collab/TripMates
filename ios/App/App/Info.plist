@@ -49,6 +49,12 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>TripMates använder din plats för att visa var du är på reskartan och hjälpa dig hitta aktiviteter i närheten.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>TripMates kan dela din plats med andra medlemmar i resan så ni kan se varandra på kartan, även när appen körs i bakgrunden. Du väljer själv hur länge du vill dela (3h, 24h, hela resan eller alltid på) och kan stänga av delning när som helst.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>TripMates behöver kameran för att du ska kunna ta foton till resans galleri och skanna kvitton för utgifter.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
