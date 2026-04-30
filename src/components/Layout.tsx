@@ -48,8 +48,6 @@ export const Layout: React.FC = () => {
 
     const isProfilePage = location.pathname.startsWith('/profile') || location.pathname.startsWith('/admin');
 
-    const isTopLevelPage = ['/', '/games', '/leaderboard', '/even'].includes(location.pathname);
-
     const getThemeClass = () => 'theme-default-trip';
     const themeClass = getThemeClass();
 
@@ -195,11 +193,6 @@ export const Layout: React.FC = () => {
                     </div>
                 ) : (
                     <div className={styles.headerLeft}>
-                        {!isTopLevelPage && (
-                            <button onClick={() => navigate(-1)} className={styles.headerBackBtn} title="Go back">
-                                <ArrowLeft size={24} />
-                            </button>
-                        )}
                         <h1 className={styles.appTitle}>TripMates</h1>
                     </div>
                 )}

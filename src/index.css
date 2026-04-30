@@ -209,6 +209,7 @@ body {
   background-color: var(--color-bg-primary);
   overflow-x: hidden;
   box-shadow: var(--shadow-xl);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* Slide-up animation for bottom-sheet modals */

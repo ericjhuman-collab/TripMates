@@ -251,7 +251,7 @@
 /* ── Controls row ───────────────────────── */
 .controlsRow {
   display: grid;
-  grid-template-columns: 56px 1fr 56px;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
   width: 100%;
 }
