@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "692715228685",
+    "project_id": "alen-8797d",
+    "storage_bucket": "alen-8797d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:692715228685:android:947397edc107246131cf44",
+        "android_client_info": {
+          "package_name": "com.tripmates.beta"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAYTQpiZA7noltaLjisjPNf_NBEXq6Dm6c"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

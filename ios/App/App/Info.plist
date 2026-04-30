@@ -47,5 +47,13 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TripMates använder din plats för att visa var du är på reskartan och hjälpa dig hitta aktiviteter i närheten.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>TripMates behöver kameran för att du ska kunna ta foton till resans galleri och skanna kvitton för utgifter.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TripMates behöver åtkomst till dina foton för att du ska kunna ladda upp bilder till resans galleri.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>TripMates kan spara nedladdade foton från resan i din kamerarulle.</string>
 </dict>
 </plist>
