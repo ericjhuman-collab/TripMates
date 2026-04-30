@@ -91,9 +91,9 @@
   right: 15px;
   z-index: 1000; /* Leaflet maps sit at z-index 400 */
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
-  align-items: flex-end;
+  align-items: center;
 }
 
 .mapBtn {
