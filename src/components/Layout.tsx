@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Grid, ArrowLeft, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
+import { Home, Grid, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { db } from '../services/firebase';
@@ -186,9 +186,6 @@ export const Layout: React.FC = () => {
             <header className={styles.header}>
                 {isProfilePage ? (
                     <div className={styles.profileHeaderRow}>
-                        <button onClick={() => navigate(-1)} className={styles.backBtn} title="Go back">
-                            <ArrowLeft size={28} />
-                        </button>
                         <div id="profile-header-slot" className={styles.profileHeaderSlot} />
                     </div>
                 ) : (

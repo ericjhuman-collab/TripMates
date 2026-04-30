@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Users, Building2 } from 'lucide-react';
+import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Building2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip, type Trip } from '../context/TripContext';
 import { auth, db, storage } from '../services/firebase';
@@ -1011,9 +1011,6 @@ export const Profile: React.FC = () => {
                                     <div className={styles.drawerDivider} />
                                     <button className={styles.drawerItem} onClick={() => { setMainTab('admin'); setShowHamburger(false); }}>
                                         <MapIcon size={20} /> My Trips
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('groups'); setShowHamburger(false); }}>
-                                        <Users size={20} /> Groups
                                     </button>
                                     <button className={styles.drawerItem} onClick={() => { setMainTab('myActivities'); setShowHamburger(false); }}>
                                         <CheckSquare size={20} /> My Locations
