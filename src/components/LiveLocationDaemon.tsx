@@ -200,15 +200,22 @@ const teardown = async (
     watcherIdRef: React.MutableRefObject<string | null>,
     webWatchIdRef: React.MutableRefObject<number | null>,
 ) => {
-    if (Capacitor.isNativePlatform() && watcherIdRef.current) {
+    // Null the refs *synchronously* before awaiting removeWatcher. Otherwise,
+    // a follow-up effect run that calls ensureWatcherStarted while teardown
+    // is mid-flight would see the old ref and skip creating a fresh watcher,
+    // leaving the daemon with no active source of position updates.
+    const nativeId = watcherIdRef.current;
+    const webId = webWatchIdRef.current;
+    watcherIdRef.current = null;
+    webWatchIdRef.current = null;
+
+    if (Capacitor.isNativePlatform() && nativeId) {
         try {
-            await BackgroundGeolocation.removeWatcher({ id: watcherIdRef.current });
+            await BackgroundGeolocation.removeWatcher({ id: nativeId });
         } catch { /* ignore */ }
-        watcherIdRef.current = null;
     }
-    if (webWatchIdRef.current !== null) {
-        navigator.geolocation.clearWatch(webWatchIdRef.current);
-        webWatchIdRef.current = null;
+    if (webId !== null) {
+        navigator.geolocation.clearWatch(webId);
     }
     if (uid) {
         for (const [tripId] of active) {
