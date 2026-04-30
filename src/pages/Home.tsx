@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -15,14 +16,26 @@ import { useToast } from '../components/useToast';
 // schedule view (the default) doesn't pay that cost.
 const MapPage = lazy(() => import('./MapPage').then(m => ({ default: m.MapPage })));
 const Members = lazy(() => import('./Members').then(m => ({ default: m.Members })));
+const Polls = lazy(() => import('./Polls').then(m => ({ default: m.Polls })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
-type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'members';
+type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members';
 
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
     const { activeTrip, userTrips, switchTrip } = useTrip();
+    const [searchParams] = useSearchParams();
     const [viewMode, setViewMode] = useState<ViewMode>('day');
+
+    // Deep-link support: `/?tab=polls` (optionally with `&pollId=...`) opens
+    // the Polls tab. Used by the PollBanner CTA and by notification clicks.
+    useEffect(() => {
+        const tab = searchParams.get('tab');
+        if (tab === 'polls') {
+            setViewMode('polls');
+        }
+    }, [searchParams]);
+    const focusedPollId = searchParams.get('pollId') ?? undefined;
     const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>('day');
     const [showViewMenu, setShowViewMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -372,8 +385,8 @@ export const Home: React.FC = () => {
                 </div>
 
                 {/* Other standard tabs */}
-                {(['map', 'leaderboard', 'members'] as ViewMode[]).map(mode => {
-                    const labels: Record<string, string> = { map: 'Map', leaderboard: 'Leaderboard', members: 'Members' };
+                {(['map', 'leaderboard', 'polls', 'members'] as ViewMode[]).map(mode => {
+                    const labels: Record<string, string> = { map: 'Map', leaderboard: 'Leaderboard', polls: 'Polls', members: 'Members' };
                     return (
                         <button
                             key={mode}
@@ -608,6 +621,12 @@ export const Home: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            )}
+
+            {viewMode === 'polls' && (
+                <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
+                    <Polls focusPollId={focusedPollId} />
+                </Suspense>
             )}
 
             {viewMode === 'members' && (

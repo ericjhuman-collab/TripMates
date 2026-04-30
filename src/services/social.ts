@@ -19,7 +19,8 @@ export type NotificationType =
     | 'trip:new_expense'
     | 'trip:settled_up'
     | 'trip:photo_tag'
-    | 'trip:invite';
+    | 'trip:invite'
+    | 'trip:new_poll';
 
 export interface SocialNotification {
     id: string;

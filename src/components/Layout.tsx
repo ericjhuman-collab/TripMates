@@ -9,6 +9,7 @@ import { collection, query, where, limit, getDocs, documentId } from 'firebase/f
 import { searchUsersByUsernamePrefix } from '../services/username';
 import { normalizeSearchInput } from '../utils/searchFields';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
+import { PollBanner } from './PollBanner';
 import styles from './Layout.module.css';
 
 const CATEGORY_LABELS: Record<TripCategory, string> = {
@@ -346,6 +347,7 @@ export const Layout: React.FC = () => {
             )}
 
             <EmailVerificationBanner />
+            <PollBanner />
 
             <main className={styles.main}>
                 <Outlet />
