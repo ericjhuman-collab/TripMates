@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Camera as CameraIcon, Image as ImageIcon, Download, Plus, RefreshCw, ChevronDown, X } from 'lucide-react';
+import { Camera as CameraIcon, Image as ImageIcon, Download, Plus, RefreshCw, ChevronDown, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, type Trip } from '../context/TripContext';
 import { db } from '../services/firebase';
@@ -22,7 +21,6 @@ interface TripMember {
 
 export const GalleryCamera: React.FC = () => {
     const toast = useToast();
-    const navigate = useNavigate();
     const { appUser } = useAuth();
     const { activeTrip } = useTrip();
 
@@ -533,15 +531,7 @@ export const GalleryCamera: React.FC = () => {
 
                 {/* Primary Controls Row */}
                 <div className={styles.controlsRow}>
-                    {/* Back Button */}
-                    <button
-                        onClick={() => navigate('/')}
-                        className={`${styles.circleBtn} ${isCamera ? styles.circleBtnCamera : styles.circleBtnGallery}`}
-                        title="Go back"
-                    >
-                        <ArrowLeft size={24} />
-                    </button>
-
+                    <div aria-hidden />
                     {/* Shutter / Upload Button */}
                     <div className={styles.shutterCenter}>
                         {isCamera ? (

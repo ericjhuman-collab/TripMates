@@ -1,6 +1,24 @@
 {
   "rules": {
-    ".read": "auth != null",
-    ".write": "auth != null"
+    ".read": false,
+    ".write": false,
+
+    "liveLocation": {
+      ".read": "auth != null",
+      "$tripId": {
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid",
+          ".validate": "!newData.exists() || newData.hasChildren(['lat', 'lng', 'updatedAt', 'mode'])",
+          "lat": { ".validate": "newData.isNumber() && newData.val() >= -90 && newData.val() <= 90" },
+          "lng": { ".validate": "newData.isNumber() && newData.val() >= -180 && newData.val() <= 180" },
+          "accuracy": { ".validate": "newData.isNumber() || newData.val() == null" },
+          "heading": { ".validate": "newData.isNumber() || newData.val() == null" },
+          "updatedAt": { ".validate": "newData.isNumber()" },
+          "expiresAt": { ".validate": "newData.isNumber() || newData.val() == null" },
+          "mode": { ".validate": "newData.isString() && (newData.val() == '3h' || newData.val() == '24h' || newData.val() == 'trip' || newData.val() == 'always')" },
+          "$other": { ".validate": false }
+        }
+      }
+    }
   }
 }

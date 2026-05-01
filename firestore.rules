@@ -147,6 +147,30 @@ service cloud.firestore {
         allow delete: if isMe(uid);
       }
 
+      // ── Subcollection: trip polls ──────────────────────────────────────
+      // Any trip member can read; any trip member can create their own
+      // poll; any member can vote (changing only their own entry in the
+      // votes map); creator or trip admin can close (toggle closedAt) or
+      // delete.
+      match /polls/{pollId} {
+        allow read: if isTripMember(tripId);
+        allow create: if isTripMember(tripId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.closedAt == null;
+        // Voting: change ONLY the votes map, and only your own key in it.
+        allow update: if isTripMember(tripId)
+          && onlyChanging(['votes'])
+          && request.resource.data.votes.diff(resource.data.votes)
+              .affectedKeys().hasOnly([request.auth.uid]);
+        // Close: creator or trip admin sets closedAt; nothing else changes.
+        allow update: if isTripMember(tripId)
+          && (resource.data.createdBy == request.auth.uid || isTripAdmin(tripId))
+          && onlyChanging(['closedAt']);
+        // Creator or trip admin may delete.
+        allow delete: if isTripMember(tripId)
+          && (resource.data.createdBy == request.auth.uid || isTripAdmin(tripId));
+      }
+
       // ── Subcollection: trip gallery ────────────────────────────────────
       match /gallery/{imageId} {
         allow read: if isTripMember(tripId);

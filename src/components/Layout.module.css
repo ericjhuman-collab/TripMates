@@ -6,7 +6,7 @@
 }
 
 .appContainerWithNav {
-  padding-bottom: 80px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
 .appContainerNoNav {
@@ -15,11 +15,10 @@
 
 /* ── Header ─────────────────────────────── */
 .header {
-  padding: 1rem 1.5rem;
+  padding: calc(env(safe-area-inset-top) + 0.25rem) 1.5rem 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 4.5rem;
   position: relative;
   z-index: 50;
 }
@@ -37,7 +36,7 @@
 .profileHeaderRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
 }
 

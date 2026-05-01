@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Users, Building2 } from 'lucide-react';
+import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Building2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip, type Trip } from '../context/TripContext';
 import { auth, db, storage } from '../services/firebase';
@@ -22,6 +22,7 @@ import { SUPPORTED_CURRENCIES } from '../utils/currencies';
 import { getDefaultCover } from '../utils/defaultCovers';
 import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { LiveLocationProfileSection } from '../components/LiveLocationProfileSection';
 import styles from './Profile.module.css';
 import adminStyles from './TripAdmin.module.css';
 import { useToast } from '../components/useToast';
@@ -891,8 +892,11 @@ export const Profile: React.FC = () => {
                                         checked={editForm.shareLocation}
                                         onChange={e => setEditForm(prev => ({ ...prev, shareLocation: e.target.checked }))}
                                     />
-                                    <span>Share live location on trips</span>
+                                    <span>Allow live location sharing</span>
                                 </label>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                                    Master switch — when off, no broadcasting happens on any trip.
+                                </p>
                             </div>
                             <div>
                                 <label className={styles.settingsLabel}>Email Address</label>
@@ -910,6 +914,19 @@ export const Profile: React.FC = () => {
                                 </p>
                             </div>
                             <button className={`btn btn-primary ${styles.saveBtn}`} onClick={handleSaveProfile}>Save Changes</button>
+                        </div>
+                        <hr className={styles.divider} />
+                        <div>
+                            <h4 className={styles.sectionSubtitle}>Live location</h4>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0 0 0.75rem' }}>
+                                Pick a duration per trip. Sharing automatically stops when the timer ends; tap Stop to end early.
+                            </p>
+                            {editForm.shareLocation
+                                ? <LiveLocationProfileSection />
+                                : <p style={{ fontSize: '0.85rem', color: '#b91c1c', margin: 0 }}>
+                                      Live location is disabled by the master switch above. Turn it back on to share.
+                                  </p>
+                            }
                         </div>
                         <hr className={styles.divider} />
                         <div>
@@ -1011,9 +1028,6 @@ export const Profile: React.FC = () => {
                                     <div className={styles.drawerDivider} />
                                     <button className={styles.drawerItem} onClick={() => { setMainTab('admin'); setShowHamburger(false); }}>
                                         <MapIcon size={20} /> My Trips
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('groups'); setShowHamburger(false); }}>
-                                        <Users size={20} /> Groups
                                     </button>
                                     <button className={styles.drawerItem} onClick={() => { setMainTab('myActivities'); setShowHamburger(false); }}>
                                         <CheckSquare size={20} /> My Locations

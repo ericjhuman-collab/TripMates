@@ -1,14 +1,17 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { format } from 'date-fns';
-import { ChevronLeft, ChevronRight, Copy, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Check, Locate, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { type Activity } from '../services/activities';
 import { useTrip } from '../context/TripContext';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { subscribeToTripLocations, type LiveLocationEntry } from '../services/liveLocation';
+import { LiveLocationPicker } from '../components/LiveLocationPicker';
+import { useToast } from '../components/useToast';
 import styles from './MapPage.module.css';
 
 interface MapPageProps {
@@ -25,6 +28,9 @@ interface MemberLocation {
     timestamp: number;
     avatarUrl?: string;
     name: string;
+    /** True if this pin is from RTDB live data; false if it's the stale
+     *  Firestore lastKnownLocation fallback ("last seen at..."). */
+    live: boolean;
 }
 
 const createEmojiIcon = (emoji: string, isSurprise: boolean) => {
@@ -37,15 +43,35 @@ const createEmojiIcon = (emoji: string, isSurprise: boolean) => {
     });
 };
 
-const createAvatarIcon = (url?: string, name?: string) => {
-    const initials = (name || '?').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+// Strict allow-list for avatar URLs interpolated into the divIcon HTML.
+// Firebase Storage download URLs (the only ones updateProfile produces via the
+// upload flow) match this, but a manual Firestore write that injects HTML
+// special chars or break-out characters falls back to the initials state.
+const isSafeAvatarUrl = (u: string): boolean => /^https?:\/\/[^"'<>\s)(]+$/.test(u);
+
+// Reduce raw name → 2 alphanumeric initials. Anything else (HTML special
+// chars, emoji, etc.) collapses to '?'. Belt-and-suspenders defense for the
+// inline-HTML insertion below.
+const safeInitials = (name?: string): string => {
+    const raw = (name || '?').split(' ').map(w => w[0] ?? '').join('').substring(0, 2).toUpperCase();
+    return raw.replace(/[^A-Z0-9]/g, '?') || '?';
+};
+
+const createAvatarIcon = (url?: string, name?: string, live: boolean = true) => {
+    const initials = safeInitials(name);
     const bg = 'var(--color-primary)';
-    
+    // Stale (last-seen) pins are dimmed and don't pulse — gives an obvious
+    // visual signal that the pin is a remembered position, not live.
+    const opacity = live ? '1' : '0.55';
+    const grayscale = live ? '0' : '60%';
+    const filter = `opacity(${opacity}) grayscale(${grayscale})`;
+    const safeUrl = url && isSafeAvatarUrl(url) ? url : '';
+
     let htmlContent = '';
-    if (url) {
-        htmlContent = `<div style="background-image: url(${url}); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4);"></div>`;
+    if (safeUrl) {
+        htmlContent = `<div style="background-image: url('${safeUrl}'); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`;
     } else {
-        htmlContent = `<div style="background-color: ${bg}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4);">${initials}</div>`;
+        htmlContent = `<div style="background-color: ${bg}; color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};">${initials}</div>`;
     }
 
     return L.divIcon({
@@ -57,11 +83,48 @@ const createAvatarIcon = (url?: string, name?: string) => {
     });
 };
 
+// Google-Maps-style "you are here" blue dot. Pulsing outer ring draws the
+// eye without being distracting — matches the affordance every map app
+// trains users to look for.
+const createSelfIcon = () => {
+    const html = `
+        <div style="position: relative; width: 22px; height: 22px;">
+            <div style="position: absolute; inset: 0; border-radius: 50%; background: rgba(66, 133, 244, 0.25); animation: tripmates-self-pulse 2s ease-out infinite;"></div>
+            <div style="position: absolute; inset: 4px; border-radius: 50%; background: #4285F4; border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.3);"></div>
+        </div>
+        <style>@keyframes tripmates-self-pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }</style>
+    `;
+    return L.divIcon({
+        className: 'custom-self-icon',
+        html,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+        popupAnchor: [0, -11],
+    });
+};
+
+/** Format a "last seen" label. Today → "last seen 14:32", earlier → "last seen Apr 28, 14:32". */
+const formatLastSeen = (ts: number): string => {
+    const d = new Date(ts);
+    const now = new Date();
+    const sameDay = d.toDateString() === now.toDateString();
+    return sameDay
+        ? `last seen ${format(d, 'HH:mm')}`
+        : `last seen ${format(d, 'MMM d, HH:mm')}`;
+};
+
 const MapUpdater = ({ center }: { center: [number, number] }) => {
     const map = useMap();
+    const [lat, lng] = center;
     useEffect(() => {
-        map.setView(center, map.getZoom());
-    }, [center, map]);
+        // Depend on the lat/lng values rather than the array reference so
+        // setCenter([lat, lng]) reliably re-centres even when called with the
+        // same array ref as before.
+        map.setView([lat, lng], map.getZoom(), { animate: true });
+    }, [map, lat, lng]);
     return null;
 };
 
@@ -95,102 +158,143 @@ const CopyAddressBtn = ({ address }: { address: string }) => {
 };
 
 export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNextDay, activities }) => {
-    const { appUser, updateProfile } = useAuth();
+    const { appUser } = useAuth();
     const { activeTrip } = useTrip();
+    const toast = useToast();
     const [center, setCenter] = useState<[number, number]>([45.4642, 9.1900]);
     const [homeCoords, setHomeCoords] = useState<[number, number] | null>(null);
     const dayString = format(currentDate, 'yyyy-MM-dd');
 
-    // ── Live Location Tracking & Polling ──
-    const [memberLocations, setMemberLocations] = useState<MemberLocation[]>([]);
+    // ── Member locations: live (RTDB) + fallback (Firestore lastKnownLocation) ──
+    // Live wins when both exist for the same member. Broadcasting is owned by
+    // <LiveLocationDaemon>, not this page.
+    const [liveEntries, setLiveEntries] = useState<Record<string, LiveLocationEntry>>({});
+    const [memberMeta, setMemberMeta] = useState<Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }>>({});
     const [showMembers, setShowMembers] = useState(true);
-    const watchIdRef = React.useRef<number | null>(null);
+    const [locating, setLocating] = useState(false);
+    /** The viewer's own position on the map. Populated when they tap 📍 or
+     *  when the daemon is broadcasting their location to RTDB for this
+     *  trip — preferring the live RTDB value over a stale 📍 click since
+     *  it auto-refreshes via the subscription. */
+    const [selfPosition, setSelfPosition] = useState<[number, number] | null>(null);
 
-    useEffect(() => {
-        if (!appUser?.uid || appUser.shareLocation === false) return;
-
-        // Broadcast current user's location
-        if (navigator.geolocation) {
-            watchIdRef.current = navigator.geolocation.watchPosition(
-                (pos) => {
-                    updateProfile({
-                        lastKnownLocation: {
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude,
-                            timestamp: Date.now()
-                        }
-                    }).catch(console.error);
-                },
-                (err) => {
-                    // PERMISSION_DENIED (1) is the user's choice, not a bug —
-                    // log quietly. POSITION_UNAVAILABLE (2) and TIMEOUT (3) are
-                    // transient; warn but don't error. Stop watching on denial
-                    // so we don't keep prompting/firing.
-                    if (err.code === err.PERMISSION_DENIED) {
-                        console.info('Location sharing declined; skipping live location.');
-                        if (watchIdRef.current !== null) {
-                            navigator.geolocation.clearWatch(watchIdRef.current);
-                            watchIdRef.current = null;
-                        }
-                        return;
-                    }
-                    if (err.code === err.POSITION_UNAVAILABLE || err.code === err.TIMEOUT) {
-                        console.warn('Geolocation unavailable:', err.message);
-                        return;
-                    }
-                    console.error('Geolocation error:', err);
-                },
-                { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
-            );
+    // "Center on my location" — uses navigator.geolocation directly so it
+    // works regardless of whether the user is sharing live location for this
+    // trip. Just a one-shot query to re-centre the map view.
+    const handleLocateMe = () => {
+        if (locating) return;
+        if (!navigator.geolocation) {
+            toast.error('Geolocation is not supported in this browser.');
+            return;
         }
+        setLocating(true);
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                setCenter(next);
+                setSelfPosition(next);
+                setLocating(false);
+            },
+            (err) => {
+                setLocating(false);
+                if (err.code === err.PERMISSION_DENIED) {
+                    toast.error('Location permission denied. Enable it in your browser/system settings.');
+                } else if (err.code === err.POSITION_UNAVAILABLE) {
+                    toast.error('Location unavailable right now. Try again outdoors or with Wi-Fi on.');
+                } else if (err.code === err.TIMEOUT) {
+                    toast.error('Location request timed out. Try again.');
+                } else {
+                    toast.error(`Location error: ${err.message}`);
+                }
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+        );
+    };
 
-        return () => {
-            if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-        };
-    }, [appUser?.uid, appUser?.shareLocation, updateProfile]);
+    // Subscribe to live RTDB locations for the active trip.
+    useEffect(() => {
+        if (!activeTrip?.id) return;
+        return subscribeToTripLocations(activeTrip.id, setLiveEntries);
+    }, [activeTrip?.id]);
 
+    // Self-position: prefer the live RTDB entry (auto-refreshes via the
+    // subscription) when the daemon is broadcasting; otherwise leave the
+    // last 📍-click position in place.
+    useEffect(() => {
+        if (!appUser?.uid) return;
+        const mine = liveEntries[appUser.uid];
+        if (mine) setSelfPosition([mine.lat, mine.lng]);
+    }, [liveEntries, appUser?.uid]);
+
+    // One-shot fetch of member display metadata (name/avatar/lastKnown).
+    // Avatars and names rarely change mid-trip, and Firestore reads are
+    // expensive at scale (N members × poll-rate × active map viewers). We
+    // fetch once when the trip changes and rely on RTDB for live position
+    // updates; stale lastKnownLocation is acceptable for the "last seen"
+    // fallback since the cleanup function backfills it at session end.
     useEffect(() => {
         if (!activeTrip || !showMembers) return;
-        
-        let isMounted = true;
-        const fetchMemberLocs = async () => {
-            try {
-                const fetched: MemberLocation[] = [];
-                for (const memberId of activeTrip.members) {
-                    if (memberId === appUser?.uid) continue; // Skip self in rendering other members
-                    const docSnap = await getDoc(doc(db, 'users', memberId));
-                    if (docSnap.exists()) {
-                        const data = docSnap.data();
-                        if (data.shareLocation !== false && data.lastKnownLocation) {
-                            // Only show if the location is recent (e.g. past 24 hours)
-                            const age = Date.now() - data.lastKnownLocation.timestamp;
-                            if (age < 86400000) { 
-                                fetched.push({
-                                    uid: memberId,
-                                    lat: data.lastKnownLocation.lat,
-                                    lng: data.lastKnownLocation.lng,
-                                    timestamp: data.lastKnownLocation.timestamp,
-                                    name: data.name,
-                                    avatarUrl: data.avatarUrl
-                                });
-                            }
-                        }
+        let cancelled = false;
+        (async () => {
+            const next: Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }> = {};
+            for (const memberId of activeTrip.members) {
+                if (memberId === appUser?.uid) continue;
+                try {
+                    const snap = await getDoc(doc(db, 'users', memberId));
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        next[memberId] = {
+                            name: data.name,
+                            avatarUrl: data.avatarUrl,
+                            lastKnownLocation: data.lastKnownLocation,
+                            shareLocation: data.shareLocation,
+                        };
                     }
+                } catch (err) {
+                    console.error('Failed to fetch member meta', err);
                 }
-                if (isMounted) setMemberLocations(fetched);
-            } catch (err) {
-                console.error("Error fetching member locations", err);
             }
-        };
-
-        fetchMemberLocs();
-        const interval = setInterval(fetchMemberLocs, 15000); // Poll every 15s
-
-        return () => {
-            isMounted = false;
-            clearInterval(interval);
-        };
+            if (!cancelled) setMemberMeta(next);
+        })();
+        return () => { cancelled = true; };
     }, [activeTrip, showMembers, appUser?.uid]);
+
+    // Merge live + fallback into a single render list. Live entries win over
+    // the Firestore lastKnownLocation fallback. We trust the daemon's auto-
+    // stop and the Cloud Function cleanup to drop expired RTDB entries — no
+    // expiry check at render time, which keeps the render pure.
+    const memberLocations: MemberLocation[] = useMemo(() => {
+        if (!activeTrip || !showMembers) return [];
+        const out: MemberLocation[] = [];
+        for (const memberId of activeTrip.members) {
+            if (memberId === appUser?.uid) continue;
+            const meta = memberMeta[memberId];
+            if (!meta) continue;
+            const live = liveEntries[memberId];
+            if (live) {
+                out.push({
+                    uid: memberId,
+                    lat: live.lat,
+                    lng: live.lng,
+                    timestamp: live.updatedAt,
+                    name: meta.name,
+                    avatarUrl: meta.avatarUrl,
+                    live: true,
+                });
+            } else if (meta.shareLocation !== false && meta.lastKnownLocation) {
+                out.push({
+                    uid: memberId,
+                    lat: meta.lastKnownLocation.lat,
+                    lng: meta.lastKnownLocation.lng,
+                    timestamp: meta.lastKnownLocation.timestamp,
+                    name: meta.name,
+                    avatarUrl: meta.avatarUrl,
+                    live: false,
+                });
+            }
+        }
+        return out;
+    }, [activeTrip, showMembers, appUser?.uid, liveEntries, memberMeta]);
 
 
     useEffect(() => {
@@ -314,18 +418,28 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                     })}
 
                     {showMembers && memberLocations.map(ml => (
-                        <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name)}>
+                        <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name, ml.live)}>
                             <Popup>
                                 <div style={{ textAlign: 'center' }}>
                                     <h4 style={{ margin: 0 }}>{ml.name}</h4>
                                     <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                        Active recently
+                                        {ml.live ? 'Sharing live' : formatLastSeen(ml.timestamp)}
                                     </p>
                                 </div>
                             </Popup>
                         </Marker>
                     ))}
 
+
+                    {selfPosition && (
+                        <Marker position={selfPosition} icon={createSelfIcon()}>
+                            <Popup>
+                                <div style={{ textAlign: 'center' }}>
+                                    <strong>You are here</strong>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    )}
 
                     {homeCoords && (
                         <Marker position={homeCoords} icon={createEmojiIcon('🏠', false)}>
@@ -366,13 +480,39 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
                 {/* View Controls Overlay */}
                 <div className={styles.mapControls}>
-                    <button 
+                    {activeTrip && (
+                        <LiveLocationPicker
+                            tripId={activeTrip.id}
+                            compact
+                            masterDisabled={appUser?.shareLocation === false}
+                        />
+                    )}
+                    <button
                         className={`glass-btn ${styles.mapBtn}`}
                         onClick={() => setShowMembers(!showMembers)}
                         style={{ opacity: showMembers ? 1 : 0.6 }}
                     >
                         {showMembers ? 'Hide Members' : 'Show Members'}
                     </button>
+                    <button
+                        className={`glass-btn ${styles.locateBtn}`}
+                        onClick={handleLocateMe}
+                        disabled={locating}
+                        aria-label="Center on my location"
+                        title="Center on my location"
+                    >
+                        <Locate size={18} className={locating ? styles.locateSpinning : ''} />
+                    </button>
+                    {homeCoords && (
+                        <button
+                            className={`glass-btn ${styles.locateBtn}`}
+                            onClick={() => setCenter(homeCoords)}
+                            aria-label="Center on accommodation"
+                            title={activeTrip?.accommodation ? `Center on ${activeTrip.accommodation}` : 'Center on accommodation'}
+                        >
+                            <Home size={18} />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

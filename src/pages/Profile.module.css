@@ -1230,22 +1230,26 @@
 
 .topBarBtn {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-surface, rgba(255,255,255,0.7));
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: none;
   cursor: pointer;
-  color: var(--color-text-main);
-  box-shadow: var(--shadow-sm);
-  transition: background 0.2s;
+  background: var(--color-primary-dark, #1e293b);
+  color: #fff;
+  font-family: var(--font-family);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
 }
 
 .topBarBtn:hover {
-  background: rgba(255,255,255,0.95);
+  opacity: 0.85;
+}
+
+.topBarBtn:active {
+  transform: scale(0.97);
 }
 
 .notifBadge {

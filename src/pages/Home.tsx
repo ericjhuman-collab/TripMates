@@ -1,4 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import { useLocation } from 'react-router-dom';
+import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
 import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -15,14 +17,46 @@ import { useToast } from '../components/useToast';
 // schedule view (the default) doesn't pay that cost.
 const MapPage = lazy(() => import('./MapPage').then(m => ({ default: m.MapPage })));
 const Members = lazy(() => import('./Members').then(m => ({ default: m.Members })));
+const Polls = lazy(() => import('./Polls').then(m => ({ default: m.Polls })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
-type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'members';
+type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members';
 
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
     const { activeTrip, userTrips, switchTrip } = useTrip();
+    const location = useLocation();
     const [viewMode, setViewMode] = useState<ViewMode>('day');
+    const [eventFocusedPollId, setEventFocusedPollId] = useState<string | undefined>();
+
+    // Deep-link support: `/?tab=polls` (optionally with `&pollId=...`) opens
+    // the Polls tab on initial navigation from another route. For
+    // banner clicks while already on Home we use a CustomEvent (below)
+    // because router updates inside the same route don't always re-fire
+    // dependents reliably across react-router-dom versions.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab === 'polls') {
+            setViewMode('polls');
+        }
+    }, [location.search]);
+
+    // Banner-click handler when already on Home — see PollBanner.
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<OpenPollsEventDetail>).detail;
+            setViewMode('polls');
+            if (detail?.pollId) setEventFocusedPollId(detail.pollId);
+        };
+        window.addEventListener(OPEN_POLLS_EVENT, handler);
+        return () => window.removeEventListener(OPEN_POLLS_EVENT, handler);
+    }, []);
+
+    const focusedPollId = useMemo(() => {
+        if (eventFocusedPollId) return eventFocusedPollId;
+        return new URLSearchParams(location.search).get('pollId') ?? undefined;
+    }, [eventFocusedPollId, location.search]);
     const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>('day');
     const [showViewMenu, setShowViewMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -372,8 +406,8 @@ export const Home: React.FC = () => {
                 </div>
 
                 {/* Other standard tabs */}
-                {(['map', 'leaderboard', 'members'] as ViewMode[]).map(mode => {
-                    const labels: Record<string, string> = { map: 'Map', leaderboard: 'Leaderboard', members: 'Members' };
+                {(['map', 'leaderboard', 'polls', 'members'] as ViewMode[]).map(mode => {
+                    const labels: Record<string, string> = { map: 'Map', leaderboard: 'Leaderboard', polls: 'Polls', members: 'Members' };
                     return (
                         <button
                             key={mode}
@@ -608,6 +642,12 @@ export const Home: React.FC = () => {
                         ))}
                     </div>
                 </div>
+            )}
+
+            {viewMode === 'polls' && (
+                <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
+                    <Polls focusPollId={focusedPollId} />
+                </Suspense>
             )}
 
             {viewMode === 'members' && (

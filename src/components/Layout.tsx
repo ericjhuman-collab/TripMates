@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Grid, ArrowLeft, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
+import { Home, Grid, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { db } from '../services/firebase';
@@ -9,6 +9,7 @@ import { collection, query, where, limit, getDocs, documentId } from 'firebase/f
 import { searchUsersByUsernamePrefix } from '../services/username';
 import { normalizeSearchInput } from '../utils/searchFields';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
+import { PollBanner } from './PollBanner';
 import styles from './Layout.module.css';
 
 const CATEGORY_LABELS: Record<TripCategory, string> = {
@@ -47,8 +48,6 @@ export const Layout: React.FC = () => {
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const isProfilePage = location.pathname.startsWith('/profile') || location.pathname.startsWith('/admin');
-
-    const isTopLevelPage = ['/', '/games', '/leaderboard', '/even'].includes(location.pathname);
 
     const getThemeClass = () => 'theme-default-trip';
     const themeClass = getThemeClass();
@@ -188,18 +187,10 @@ export const Layout: React.FC = () => {
             <header className={styles.header}>
                 {isProfilePage ? (
                     <div className={styles.profileHeaderRow}>
-                        <button onClick={() => navigate(-1)} className={styles.backBtn} title="Go back">
-                            <ArrowLeft size={28} />
-                        </button>
                         <div id="profile-header-slot" className={styles.profileHeaderSlot} />
                     </div>
                 ) : (
                     <div className={styles.headerLeft}>
-                        {!isTopLevelPage && (
-                            <button onClick={() => navigate(-1)} className={styles.headerBackBtn} title="Go back">
-                                <ArrowLeft size={24} />
-                            </button>
-                        )}
                         <h1 className={styles.appTitle}>TripMates</h1>
                     </div>
                 )}
@@ -356,6 +347,7 @@ export const Layout: React.FC = () => {
             )}
 
             <EmailVerificationBanner />
+            <PollBanner />
 
             <main className={styles.main}>
                 <Outlet />

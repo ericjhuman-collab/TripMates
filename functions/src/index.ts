@@ -1,8 +1,10 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { GoogleGenAI, Type } from '@google/genai';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getDatabase } from 'firebase-admin/database';
 
 setGlobalOptions({ region: 'europe-west1', maxInstances: 10, minInstances: 1 });
 
@@ -428,3 +430,89 @@ export const exportUserData = onCall({ minInstances: 0 }, async (req) => {
 
     return exportPayload;
 });
+
+// ─────────────────────────────────────────────────────────────────────────
+// liveLocationCleanup — runs every 10 minutes; for each /liveLocation entry
+// whose expiresAt has passed (with a small grace window so the user's pin
+// stays for a beat after their timer ends), copies the position to
+// users/{uid}.lastKnownLocation and removes the RTDB entry.
+//
+// The Map page renders a faded "last seen at HH:MM" pin from
+// lastKnownLocation when no live RTDB entry exists, which is how the spec's
+// "pin doesn't disappear on expiry" behaviour is achieved. Live writes are
+// kept off Firestore (cost), and Firestore is only touched here at the
+// session end.
+// ─────────────────────────────────────────────────────────────────────────
+
+interface LiveEntry {
+    lat?: number;
+    lng?: number;
+    accuracy?: number | null;
+    heading?: number | null;
+    updatedAt?: number;
+    expiresAt?: number | null;
+    mode?: string;
+}
+
+export const liveLocationCleanup = onSchedule(
+    {
+        schedule: 'every 10 minutes',
+        timeZone: 'Etc/UTC',
+        region: 'europe-west1',
+        memory: '256MiB',
+        timeoutSeconds: 120,
+        // Override the codebase-wide minInstances:1 default — nobody is
+        // waiting on this scheduled job, so a 2-5s cold start every 10
+        // minutes is invisible and saves ~$2.88/mo for the warm instance.
+        minInstances: 0,
+    },
+    async () => {
+        const rtdb = getDatabase();
+        const root = rtdb.ref('liveLocation');
+        const snap = await root.once('value');
+        const tree = snap.val() as Record<string, Record<string, LiveEntry>> | null;
+        if (!tree) {
+            console.log('liveLocationCleanup: nothing to scan');
+            return;
+        }
+
+        const now = Date.now();
+        // Small grace window after expiry so a user's pin doesn't blink off
+        // the moment their timer ends — gives clients time to subscribe to
+        // the lastKnownLocation fallback.
+        const grace = 60 * 1000;
+
+        let removed = 0;
+        for (const [tripId, members] of Object.entries(tree)) {
+            for (const [uid, entry] of Object.entries(members)) {
+                const exp = entry?.expiresAt;
+                if (typeof exp !== 'number' || exp + grace > now) continue;
+
+                // Backfill Firestore lastKnownLocation so the Map page can
+                // render a "last seen" pin without us keeping the RTDB entry.
+                if (typeof entry.lat === 'number' && typeof entry.lng === 'number') {
+                    try {
+                        await db.doc(`users/${uid}`).set({
+                            lastKnownLocation: {
+                                lat: entry.lat,
+                                lng: entry.lng,
+                                timestamp: entry.updatedAt ?? exp,
+                            },
+                        }, { merge: true });
+                    } catch (e) {
+                        console.warn('liveLocationCleanup: backfill failed for', uid, e);
+                    }
+                }
+
+                try {
+                    await rtdb.ref(`liveLocation/${tripId}/${uid}`).remove();
+                    removed += 1;
+                } catch (e) {
+                    console.warn('liveLocationCleanup: remove failed for', tripId, uid, e);
+                }
+            }
+        }
+
+        console.log(`liveLocationCleanup: removed ${removed} expired entries`);
+    }
+);
