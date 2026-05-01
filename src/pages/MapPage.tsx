@@ -83,6 +83,29 @@ const createAvatarIcon = (url?: string, name?: string, live: boolean = true) => 
     });
 };
 
+// Google-Maps-style "you are here" blue dot. Pulsing outer ring draws the
+// eye without being distracting — matches the affordance every map app
+// trains users to look for.
+const createSelfIcon = () => {
+    const html = `
+        <div style="position: relative; width: 22px; height: 22px;">
+            <div style="position: absolute; inset: 0; border-radius: 50%; background: rgba(66, 133, 244, 0.25); animation: tripmates-self-pulse 2s ease-out infinite;"></div>
+            <div style="position: absolute; inset: 4px; border-radius: 50%; background: #4285F4; border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.3);"></div>
+        </div>
+        <style>@keyframes tripmates-self-pulse {
+            0% { transform: scale(0.5); opacity: 1; }
+            100% { transform: scale(2.2); opacity: 0; }
+        }</style>
+    `;
+    return L.divIcon({
+        className: 'custom-self-icon',
+        html,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+        popupAnchor: [0, -11],
+    });
+};
+
 /** Format a "last seen" label. Today → "last seen 14:32", earlier → "last seen Apr 28, 14:32". */
 const formatLastSeen = (ts: number): string => {
     const d = new Date(ts);
@@ -149,6 +172,11 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     const [memberMeta, setMemberMeta] = useState<Record<string, { name: string; avatarUrl?: string; lastKnownLocation?: { lat: number; lng: number; timestamp: number }; shareLocation?: boolean }>>({});
     const [showMembers, setShowMembers] = useState(true);
     const [locating, setLocating] = useState(false);
+    /** The viewer's own position on the map. Populated when they tap 📍 or
+     *  when the daemon is broadcasting their location to RTDB for this
+     *  trip — preferring the live RTDB value over a stale 📍 click since
+     *  it auto-refreshes via the subscription. */
+    const [selfPosition, setSelfPosition] = useState<[number, number] | null>(null);
 
     // "Center on my location" — uses navigator.geolocation directly so it
     // works regardless of whether the user is sharing live location for this
@@ -162,7 +190,9 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
         setLocating(true);
         navigator.geolocation.getCurrentPosition(
             (pos) => {
-                setCenter([pos.coords.latitude, pos.coords.longitude]);
+                const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
+                setCenter(next);
+                setSelfPosition(next);
                 setLocating(false);
             },
             (err) => {
@@ -186,6 +216,15 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
         if (!activeTrip?.id) return;
         return subscribeToTripLocations(activeTrip.id, setLiveEntries);
     }, [activeTrip?.id]);
+
+    // Self-position: prefer the live RTDB entry (auto-refreshes via the
+    // subscription) when the daemon is broadcasting; otherwise leave the
+    // last 📍-click position in place.
+    useEffect(() => {
+        if (!appUser?.uid) return;
+        const mine = liveEntries[appUser.uid];
+        if (mine) setSelfPosition([mine.lat, mine.lng]);
+    }, [liveEntries, appUser?.uid]);
 
     // One-shot fetch of member display metadata (name/avatar/lastKnown).
     // Avatars and names rarely change mid-trip, and Firestore reads are
@@ -391,6 +430,16 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         </Marker>
                     ))}
 
+
+                    {selfPosition && (
+                        <Marker position={selfPosition} icon={createSelfIcon()}>
+                            <Popup>
+                                <div style={{ textAlign: 'center' }}>
+                                    <strong>You are here</strong>
+                                </div>
+                            </Popup>
+                        </Marker>
+                    )}
 
                     {homeCoords && (
                         <Marker position={homeCoords} icon={createEmojiIcon('🏠', false)}>
