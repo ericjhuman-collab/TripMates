@@ -17,6 +17,17 @@ export const MODE_LABELS: Record<LiveLocationMode, string> = {
     always: 'Always on',
 };
 
+// Shorter labels for the compact map-overlay pill — keeps the pill the same
+// approximate width across all modes so it doesn't grow to two lines or
+// overlap Leaflet's +/- zoom control on long modes.
+export const COMPACT_MODE_LABELS: Record<LiveLocationMode, string> = {
+    off: 'Off',
+    '3h': '3h',
+    '24h': '24h',
+    trip: 'Trip',
+    always: 'Always',
+};
+
 // ── RTDB shape ─────────────────────────────────────────────────────────────
 // /liveLocation/{tripId}/{uid} = { lat, lng, accuracy, heading, updatedAt, expiresAt, mode }
 //

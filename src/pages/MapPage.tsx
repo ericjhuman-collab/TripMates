@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
@@ -9,7 +9,13 @@ import { type Activity } from '../services/activities';
 import { useTrip } from '../context/TripContext';
 import { db } from '../services/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { subscribeToTripLocations, type LiveLocationEntry } from '../services/liveLocation';
+import {
+    subscribeToTripLocations,
+    getMode,
+    subscribeToModeChanges,
+    type LiveLocationEntry,
+    type LiveLocationMode,
+} from '../services/liveLocation';
 import { LiveLocationPicker } from '../components/LiveLocationPicker';
 import { useToast } from '../components/useToast';
 import styles from './MapPage.module.css';
@@ -106,6 +112,25 @@ const createSelfIcon = () => {
     });
 };
 
+// Red, non-pulsing variant for when the viewer has turned live sharing OFF
+// (or the master kill switch is disabled). The pin stays at the last known
+// position so the user can see "I was here when I stopped sharing"; red
+// signals "no longer live" without being mistaken for the blue live dot.
+const createSelfStaleIcon = () => {
+    const html = `
+        <div style="position: relative; width: 22px; height: 22px;">
+            <div style="position: absolute; inset: 4px; border-radius: 50%; background: #ef4444; border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.3);"></div>
+        </div>
+    `;
+    return L.divIcon({
+        className: 'custom-self-stale-icon',
+        html,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+        popupAnchor: [0, -11],
+    });
+};
+
 /** Format a "last seen" label. Today → "last seen 14:32", earlier → "last seen Apr 28, 14:32". */
 const formatLastSeen = (ts: number): string => {
     const d = new Date(ts);
@@ -116,15 +141,16 @@ const formatLastSeen = (ts: number): string => {
         : `last seen ${format(d, 'MMM d, HH:mm')}`;
 };
 
-const MapUpdater = ({ center }: { center: [number, number] }) => {
+const MapUpdater = ({ center, tick }: { center: [number, number]; tick: number }) => {
     const map = useMap();
     const [lat, lng] = center;
     useEffect(() => {
-        // Depend on the lat/lng values rather than the array reference so
-        // setCenter([lat, lng]) reliably re-centres even when called with the
-        // same array ref as before.
+        // `tick` lets the parent force a re-centre even when the lat/lng
+        // didn't change — e.g. user pans the map (Leaflet-internal, no React
+        // state change) and then taps the Home button which sets the same
+        // homeCoords again.
         map.setView([lat, lng], map.getZoom(), { animate: true });
-    }, [map, lat, lng]);
+    }, [map, lat, lng, tick]);
     return null;
 };
 
@@ -162,6 +188,11 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     const { activeTrip } = useTrip();
     const toast = useToast();
     const [center, setCenter] = useState<[number, number]>([45.4642, 9.1900]);
+    const [recenterTick, setRecenterTick] = useState(0);
+    const recenter = (next: [number, number]) => {
+        setCenter(next);
+        setRecenterTick(t => t + 1);
+    };
     const [homeCoords, setHomeCoords] = useState<[number, number] | null>(null);
     const dayString = format(currentDate, 'yyyy-MM-dd');
 
@@ -177,6 +208,17 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
      *  trip — preferring the live RTDB value over a stale 📍 click since
      *  it auto-refreshes via the subscription. */
     const [selfPosition, setSelfPosition] = useState<[number, number] | null>(null);
+    const [selfLastSeenAt, setSelfLastSeenAt] = useState<number | null>(null);
+
+    // Live mode for the active trip. Drives the self-pin colour: blue +
+    // pulsing while sharing, red + "Last seen HH:MM" when the user has
+    // turned sharing off (or the master kill switch in Profile is off).
+    const liveMode = useSyncExternalStore<LiveLocationMode>(
+        subscribeToModeChanges,
+        () => activeTrip ? getMode(activeTrip.id) : 'off',
+    );
+    const masterDisabled = appUser?.shareLocation === false;
+    const selfSharing = liveMode !== 'off' && !masterDisabled;
 
     // "Center on my location" — uses navigator.geolocation directly so it
     // works regardless of whether the user is sharing live location for this
@@ -191,8 +233,9 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
         navigator.geolocation.getCurrentPosition(
             (pos) => {
                 const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
-                setCenter(next);
+                recenter(next);
                 setSelfPosition(next);
+                setSelfLastSeenAt(Date.now());
                 setLocating(false);
             },
             (err) => {
@@ -223,7 +266,10 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     useEffect(() => {
         if (!appUser?.uid) return;
         const mine = liveEntries[appUser.uid];
-        if (mine) setSelfPosition([mine.lat, mine.lng]);
+        if (mine) {
+            setSelfPosition([mine.lat, mine.lng]);
+            setSelfLastSeenAt(mine.updatedAt);
+        }
     }, [liveEntries, appUser?.uid]);
 
     // One-shot fetch of member display metadata (name/avatar/lastKnown).
@@ -368,8 +414,8 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
             </div>
 
             <div className={styles.mapWrapper}>
-                <MapContainer center={center} zoom={13} className={styles.map}>
-                    <MapUpdater center={center} />
+                <MapContainer center={center} zoom={13} zoomControl={false} className={styles.map}>
+                    <MapUpdater center={center} tick={recenterTick} />
                     <TileLayer
                         attribution='&copy; <a href="https://carto.com/attributions">CARTO</a>'
                         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
@@ -419,6 +465,11 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
                     {showMembers && memberLocations.map(ml => (
                         <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name, ml.live)}>
+                            <Tooltip permanent direction="top" offset={[0, -18]} className="custom-tooltip">
+                                <span className={styles.memberLabel} data-live={ml.live}>
+                                    {(ml.name || '').split(' ')[0] || '?'}
+                                </span>
+                            </Tooltip>
                             <Popup>
                                 <div style={{ textAlign: 'center' }}>
                                     <h4 style={{ margin: 0 }}>{ml.name}</h4>
@@ -432,10 +483,21 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
 
                     {selfPosition && (
-                        <Marker position={selfPosition} icon={createSelfIcon()}>
+                        <Marker position={selfPosition} icon={selfSharing ? createSelfIcon() : createSelfStaleIcon()}>
                             <Popup>
                                 <div style={{ textAlign: 'center' }}>
-                                    <strong>You are here</strong>
+                                    {selfSharing ? (
+                                        <strong>You are here</strong>
+                                    ) : (
+                                        <>
+                                            <strong>Last position</strong>
+                                            {selfLastSeenAt && (
+                                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                    {formatLastSeen(selfLastSeenAt)}
+                                                </p>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             </Popup>
                         </Marker>
@@ -506,7 +568,7 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                     {homeCoords && (
                         <button
                             className={`glass-btn ${styles.locateBtn}`}
-                            onClick={() => setCenter(homeCoords)}
+                            onClick={() => recenter(homeCoords)}
                             aria-label="Center on accommodation"
                             title={activeTrip?.accommodation ? `Center on ${activeTrip.accommodation}` : 'Center on accommodation'}
                         >

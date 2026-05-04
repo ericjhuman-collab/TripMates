@@ -68,6 +68,18 @@
   font-size: 0.85rem;
 }
 
+.memberLabel {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-primary-dark);
+}
+
+.memberLabel[data-live="false"] {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-style: italic;
+}
+
 .popupCenter {
   text-align: center;
 }
@@ -107,6 +119,8 @@
   border-radius: 9999px;
   box-shadow: 0 4px 10px rgba(0,0,0,0.15);
   transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .mapBtn:active {

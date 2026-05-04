@@ -18,9 +18,10 @@ import { useToast } from '../components/useToast';
 const MapPage = lazy(() => import('./MapPage').then(m => ({ default: m.MapPage })));
 const Members = lazy(() => import('./Members').then(m => ({ default: m.Members })));
 const Polls = lazy(() => import('./Polls').then(m => ({ default: m.Polls })));
+const TripChat = lazy(() => import('../components/TripChat').then(m => ({ default: m.TripChat })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
-type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members';
+type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members' | 'chat';
 
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
@@ -406,8 +407,8 @@ export const Home: React.FC = () => {
                 </div>
 
                 {/* Other standard tabs */}
-                {(['map', 'leaderboard', 'polls', 'members'] as ViewMode[]).map(mode => {
-                    const labels: Record<string, string> = { map: 'Map', leaderboard: 'Leaderboard', polls: 'Polls', members: 'Members' };
+                {(['map', 'polls', 'chat', 'members'] as ViewMode[]).map(mode => {
+                    const labels: Record<string, string> = { map: 'Map', polls: 'Polls', chat: 'Chat', members: 'Members' };
                     return (
                         <button
                             key={mode}
@@ -653,6 +654,12 @@ export const Home: React.FC = () => {
             {viewMode === 'members' && (
                 <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
                     <Members />
+                </Suspense>
+            )}
+
+            {viewMode === 'chat' && activeTrip && (
+                <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
+                    <TripChat tripId={activeTrip.id} />
                 </Suspense>
             )}
         </div>

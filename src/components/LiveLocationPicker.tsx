@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import {
     LIVE_LOCATION_MODES,
     MODE_LABELS,
+    COMPACT_MODE_LABELS,
     getMode,
     setMode,
     subscribeToModeChanges,
@@ -68,7 +69,7 @@ export const LiveLocationPicker: React.FC<Props> = ({ tripId, compact = false, m
                     title={masterDisabled ? 'Live location is disabled in Profile settings' : undefined}
                 >
                     <span className={styles.dot} data-on={isOn} />
-                    <span className={styles.compactLabel}>{MODE_LABELS[mode]}</span>
+                    <span className={styles.compactLabel}>{COMPACT_MODE_LABELS[mode]}</span>
                 </button>
                 {open && (
                     <div className={styles.menu} role="menu">

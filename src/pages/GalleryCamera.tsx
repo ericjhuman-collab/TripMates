@@ -37,8 +37,9 @@ export const GalleryCamera: React.FC = () => {
     const [cameraError, setCameraError] = useState<string | null>(null);
 
     // ── Tagging modal state ────────────────
-    const [pendingFile, setPendingFile] = useState<File | Blob | null>(null);
-    const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
+    const [pendingFiles, setPendingFiles] = useState<(File | Blob)[]>([]);
+    const [pendingPreviewUrls, setPendingPreviewUrls] = useState<string[]>([]);
+    const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
     const [showTagModal, setShowTagModal] = useState(false);
     const [tripActivities, setTripActivities] = useState<Activity[]>([]);
     const [tripMembers, setTripMembers] = useState<TripMember[]>([]);
@@ -218,13 +219,21 @@ export const GalleryCamera: React.FC = () => {
     };
 
     // ── Open tagging modal ─────────────────
-    const openTagModal = (file: File | Blob) => {
-        setPendingFile(file);
-        setPendingPreviewUrl(URL.createObjectURL(file));
+    const openTagModal = (files: (File | Blob)[]) => {
+        if (files.length === 0) return;
+        setPendingFiles(files);
+        setPendingPreviewUrls(files.map(f => URL.createObjectURL(f)));
         setTagActivityId('');
         setTagActivityName('');
         setTaggedMemberUids([]);
         setShowTagModal(true);
+    };
+
+    const closeTagModal = () => {
+        setShowTagModal(false);
+        pendingPreviewUrls.forEach(url => URL.revokeObjectURL(url));
+        setPendingFiles([]);
+        setPendingPreviewUrls([]);
     };
 
     const handleCapture = () => {
@@ -237,39 +246,51 @@ export const GalleryCamera: React.FC = () => {
         if (ctx) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             canvas.toBlob((blob) => {
-                if (blob) openTagModal(blob);
+                if (blob) openTagModal([blob]);
             }, 'image/jpeg', 0.9);
         }
     };
 
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (!file) return;
-        openTagModal(file);
+        const files = event.target.files ? Array.from(event.target.files) : [];
+        if (files.length === 0) return;
+        openTagModal(files);
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
     // ── Confirm upload with tags ───────────
     const confirmUpload = async (skip = false) => {
-        if (!pendingFile || !selectedTripId || !appUser) return;
+        if (pendingFiles.length === 0 || !selectedTripId || !appUser) return;
+        const filesToUpload = pendingFiles;
+        const previewsToRevoke = pendingPreviewUrls;
         setIsUploading(true);
         setShowTagModal(false);
-        try {
-            const tags: UploadTags = skip ? {} : {
-                activityId: tagActivityId || undefined,
-                activityName: tagActivityName || undefined,
-                taggedMembers: taggedMemberUids.length ? taggedMemberUids : undefined,
-            };
-            await uploadImageToGallery(selectedTripId, pendingFile, appUser.uid, appUser.name, tags);
-        } catch (error) {
-            console.error('Upload error:', error);
-            toast.error('Failed to upload the image.');
-        } finally {
-            setIsUploading(false);
-            if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
-            setPendingFile(null);
-            setPendingPreviewUrl(null);
+        setUploadProgress({ current: 0, total: filesToUpload.length });
+        const tags: UploadTags = skip ? {} : {
+            activityId: tagActivityId || undefined,
+            activityName: tagActivityName || undefined,
+            taggedMembers: taggedMemberUids.length ? taggedMemberUids : undefined,
+        };
+        let failures = 0;
+        for (let i = 0; i < filesToUpload.length; i++) {
+            try {
+                await uploadImageToGallery(selectedTripId, filesToUpload[i], appUser.uid, appUser.name, tags);
+            } catch (error) {
+                console.error('Upload error:', error);
+                failures++;
+            }
+            setUploadProgress({ current: i + 1, total: filesToUpload.length });
         }
+        if (failures > 0) {
+            toast.error(failures === filesToUpload.length
+                ? 'Failed to upload images.'
+                : `${failures} of ${filesToUpload.length} uploads failed.`);
+        }
+        setIsUploading(false);
+        setUploadProgress(null);
+        previewsToRevoke.forEach(url => URL.revokeObjectURL(url));
+        setPendingFiles([]);
+        setPendingPreviewUrls([]);
     };
 
     const handleToggleLike = async (imageId: string, currentLikes: string[] = []) => {
@@ -553,7 +574,7 @@ export const GalleryCamera: React.FC = () => {
                                 >
                                     {isUploading ? <RefreshCw size={28} className="animate-spin" /> : <Plus size={32} />}
                                 </button>
-                                <input type="file" accept="image/*" ref={fileInputRef} onChange={handleFileUpload} className={styles.hiddenInput} />
+                                <input type="file" accept="image/*" multiple ref={fileInputRef} onChange={handleFileUpload} className={styles.hiddenInput} />
                             </>
                         )}
                     </div>
@@ -679,14 +700,23 @@ export const GalleryCamera: React.FC = () => {
             )}
 
             {/* ── Tagging Modal ─────────────────────── */}
-            {showTagModal && pendingPreviewUrl && createPortal(
+            {showTagModal && pendingPreviewUrls.length > 0 && createPortal(
                 <div className={styles.tagModalBackdrop}>
                     <div className={styles.tagModal}>
                         {/* Preview */}
-                        <img src={pendingPreviewUrl} alt="Preview" className={styles.tagModalPreview} />
+                        <img src={pendingPreviewUrls[0]} alt="Preview" className={styles.tagModalPreview} />
+                        {pendingFiles.length > 1 && (
+                            <div className={styles.tagModalCount}>
+                                +{pendingFiles.length - 1} more
+                            </div>
+                        )}
 
                         <div className={styles.tagModalBody}>
-                            <h3 className={styles.tagModalTitle}>Tag this photo</h3>
+                            <h3 className={styles.tagModalTitle}>
+                                {pendingFiles.length === 1
+                                    ? 'Tag this photo'
+                                    : `Tag ${pendingFiles.length} photos`}
+                            </h3>
 
                             {/* Activity picker */}
                             {tripActivities.length > 0 && (
@@ -756,16 +786,24 @@ export const GalleryCamera: React.FC = () => {
                         {/* Close */}
                         <button
                             className={styles.tagModalClose}
-                            onClick={() => {
-                                setShowTagModal(false);
-                                setPendingFile(null);
-                                if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
-                                setPendingPreviewUrl(null);
-                            }}
+                            onClick={closeTagModal}
                             aria-label="Close"
                         >
                             <X size={20} />
                         </button>
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* ── Upload progress overlay (multi-file) ─────────────────────── */}
+            {uploadProgress && uploadProgress.total > 1 && createPortal(
+                <div className={styles.uploadProgressOverlay}>
+                    <div className={styles.uploadProgressCard}>
+                        <RefreshCw size={28} className="animate-spin" />
+                        <div className={styles.uploadProgressText}>
+                            Uploading {uploadProgress.current} of {uploadProgress.total}…
+                        </div>
                     </div>
                 </div>,
                 document.body
