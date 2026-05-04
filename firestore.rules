@@ -90,11 +90,25 @@ service cloud.firestore {
       //   - allowed for any other authed user IFF the parent doc has
       //     sharePhoneNumber == true (opt-in by the owner).
       // Write access: owner only.
-      match /private/{contactId} {
+      match /private/contact {
         allow read: if isMe(uid)
           || (isAuthed()
               && get(/databases/$(database)/documents/users/$(uid)).data.sharePhoneNumber == true);
         allow create, update, delete: if isMe(uid);
+      }
+
+      // ── Subcollection: private notification preferences ────────────────
+      // Per-category push toggles. Owner-only — never readable by others
+      // (would leak behavioural signal).
+      match /private/notifications {
+        allow read, create, update, delete: if isMe(uid);
+      }
+
+      // ── Subcollection: FCM device tokens ───────────────────────────────
+      // One doc per device token (id == token). Owner-only on the client;
+      // Cloud Functions read via Admin SDK to fan out pushes.
+      match /fcmTokens/{tokenId} {
+        allow read, create, update, delete: if isMe(uid);
       }
     }
 
@@ -197,6 +211,28 @@ service cloud.firestore {
         // Uploader or trip admin may delete.
         allow delete: if isTripMember(tripId)
           && (resource.data.uploadedBy == request.auth.uid || isTripAdmin(tripId));
+      }
+
+      // ── Subcollection: trip chat messages ──────────────────────────────
+      match /messages/{messageId} {
+        allow read: if isTripMember(tripId);
+        allow create: if isTripMember(tripId)
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0
+          && request.resource.data.text.size() <= 2000
+          && request.resource.data.senderName is string
+          && request.resource.data.createdAt == request.time;
+        // Like / unlike: only `likes` may change, only self toggled.
+        // Use .get('likes', []) so we tolerate older messages saved before
+        // the field existed.
+        allow update: if isTripMember(tripId)
+          && onlyChanging(['likes'])
+          && (
+            addedSelfTo(resource.data.get('likes', []), request.resource.data.likes)
+            || removedSelfFrom(resource.data.get('likes', []), request.resource.data.likes)
+          );
+        allow delete: if false;
       }
     }
 

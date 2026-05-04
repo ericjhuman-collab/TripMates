@@ -23,6 +23,7 @@ import { getDefaultCover } from '../utils/defaultCovers';
 import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import { LiveLocationProfileSection } from '../components/LiveLocationProfileSection';
+import NotificationSettings from '../components/NotificationSettings';
 import styles from './Profile.module.css';
 import adminStyles from './TripAdmin.module.css';
 import { useToast } from '../components/useToast';
@@ -621,19 +622,24 @@ export const Profile: React.FC = () => {
                     </div>
 
                     {/* Trips grid */}
+                    {(() => {
+                        const bucketlistTrips = tripsToAnalyze.filter(t => !t.startDate);
+                        const plannedTrips = tripsToAnalyze.filter(t => t.startDate);
+                        return (
+                    <>
                     <div className={styles.subNavPill}>
                         <button onClick={() => setGridTab('posts')} className={`${styles.subNavBtn} ${gridTab === 'posts' ? styles.subNavBtnActive : ''}`}>
-                            Trips ({tripsToAnalyze.length})
+                            Trips ({plannedTrips.length})
                         </button>
                         <button onClick={() => setGridTab('bucketlist')} className={`${styles.subNavBtn} ${gridTab === 'bucketlist' ? styles.subNavBtnActive : ''}`}>
-                            Bucketlist ({displayUser?.bucketlist?.length || 0})
+                            Bucketlist ({bucketlistTrips.length})
                         </button>
                     </div>
 
                     {gridTab === 'posts' && (
                         <div className={styles.tripsGridSection}>
                             <div className={styles.grid}>
-                                {tripsToAnalyze.map(trip => (
+                                {plannedTrips.map(trip => (
                                     <div
                                         key={trip.id}
                                         onClick={() => setViewTripDetails(trip)}
@@ -646,7 +652,7 @@ export const Profile: React.FC = () => {
                                         </span>
                                     </div>
                                 ))}
-                                {tripsToAnalyze.length === 0 && (
+                                {plannedTrips.length === 0 && (
                                     <p className={styles.tripEmptyText} style={{ gridColumn: '1 / -1' }}>No trips yet.</p>
                                 )}
                             </div>
@@ -655,44 +661,37 @@ export const Profile: React.FC = () => {
 
                     {gridTab === 'bucketlist' && (
                         <div className={styles.grid}>
-                            {displayUser?.bucketlist?.map(destination => (
-                                <div key={destination} className={styles.bucketlistItem}>
-                                    <span className={styles.bucketlistItemText}>{destination}</span>
-                                    {isOwner && (
-                                        <button
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                if (!appUser) return;
-                                                const currentList = appUser.bucketlist || [];
-                                                await updateProfile({ bucketlist: currentList.filter(d => d !== destination) });
-                                            }}
-                                            className={styles.bucketlistRemoveBtn}
-                                            title="Remove from bucketlist"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
+                            {bucketlistTrips.map(trip => (
+                                <div
+                                    key={trip.id}
+                                    onClick={() => setViewTripDetails(trip)}
+                                    className={styles.gridItem}
+                                    style={trip.imageUrl ? { backgroundImage: `url(${trip.imageUrl})` } : {}}
+                                >
+                                    {trip.imageUrl && <div className={styles.gridItemScrim} />}
+                                    <span className={`${styles.gridItemLabel} ${trip.imageUrl ? styles.gridItemLabelOnImage : styles.gridItemLabelNoImage}`}>
+                                        {trip.name}
+                                    </span>
                                 </div>
                             ))}
                             {isOwner && (
                                 <div
-                                    onClick={async () => {
-                                        const item = prompt('Add to bucketlist:');
-                                        if (item && appUser) {
-                                            const currentList = appUser.bucketlist || [];
-                                            if (!currentList.includes(item.trim())) {
-                                                await updateProfile({ bucketlist: [...currentList, item.trim()] });
-                                            }
-                                        }
-                                    }}
+                                    onClick={() => setShowCreateTrip(true)}
                                     className={styles.addGridItem}
+                                    title="Create a bucketlist trip (leave dates empty)"
                                 >
                                     <Plus size={24} />
                                     <span className={styles.addGridLabel}>Add</span>
                                 </div>
                             )}
+                            {!isOwner && bucketlistTrips.length === 0 && (
+                                <p className={styles.tripEmptyText} style={{ gridColumn: '1 / -1' }}>No bucketlist trips yet.</p>
+                            )}
                         </div>
                     )}
+                    </>
+                        );
+                    })()}
                 </div>
             )}
 
@@ -927,6 +926,14 @@ export const Profile: React.FC = () => {
                                       Live location is disabled by the master switch above. Turn it back on to share.
                                   </p>
                             }
+                        </div>
+                        <hr className={styles.divider} />
+                        <div>
+                            <h4 className={styles.sectionSubtitle}>Notifications</h4>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0 0 0.75rem' }}>
+                                Pick which push notifications you want to receive on this device.
+                            </p>
+                            <NotificationSettings />
                         </div>
                         <hr className={styles.divider} />
                         <div>

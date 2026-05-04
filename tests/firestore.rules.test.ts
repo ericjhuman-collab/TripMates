@@ -684,3 +684,68 @@ describe('users/{uid}/private/{contactId}', () => {
     );
   });
 });
+
+describe('users/{uid}/private/notifications', () => {
+  beforeEach(async () => {
+    await seedTrip();
+  });
+
+  it('owner can read and write own notification prefs', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(ALICE), 'users', ALICE, 'private', 'notifications'),
+        { chat: false })
+    );
+    await assertSucceeds(
+      getDoc(doc(asUser(ALICE), 'users', ALICE, 'private', 'notifications'))
+    );
+  });
+
+  it('other authed user CANNOT read notification prefs even with sharePhoneNumber=true', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users', ALICE), {
+        uid: ALICE, role: 'user', name: 'Alice',
+        sharePhoneNumber: true,
+        followers: [], following: [],
+      });
+      await setDoc(doc(db, 'users', ALICE, 'private', 'notifications'),
+        { chat: false });
+    });
+    await assertFails(
+      getDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'notifications'))
+    );
+  });
+
+  it('non-owner cannot write notification prefs', async () => {
+    await assertFails(
+      setDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'notifications'),
+        { chat: false })
+    );
+  });
+});
+
+describe('users/{uid}/fcmTokens/{tokenId}', () => {
+  beforeEach(async () => {
+    await seedTrip();
+  });
+
+  it('owner can write and read own fcm tokens', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(ALICE), 'users', ALICE, 'fcmTokens', 'tok-abc'),
+        { platform: 'ios' })
+    );
+    await assertSucceeds(
+      getDoc(doc(asUser(ALICE), 'users', ALICE, 'fcmTokens', 'tok-abc'))
+    );
+  });
+
+  it('non-owner cannot read or write another user fcm tokens', async () => {
+    await assertFails(
+      setDoc(doc(asUser(BOB), 'users', ALICE, 'fcmTokens', 'tok-abc'),
+        { platform: 'ios' })
+    );
+    await assertFails(
+      getDoc(doc(asUser(BOB), 'users', ALICE, 'fcmTokens', 'tok-abc'))
+    );
+  });
+});

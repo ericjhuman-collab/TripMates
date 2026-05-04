@@ -11,6 +11,16 @@ setGlobalOptions({ region: 'europe-west1', maxInstances: 10, minInstances: 1 });
 if (getApps().length === 0) initializeApp();
 const db = getFirestore();
 
+export {
+    onTripMessageCreated,
+    onTripMembersChanged,
+    onTripPollCreated,
+    onOddsCreated,
+    onOddsResolved,
+    onFollowNotificationCreated,
+    activityReminderTick,
+} from './notifications';
+
 // Hard cap per user per UTC day. Protects against retry-loop bugs in the client
 // that could otherwise burn through the Vertex AI budget. 50 is comfortably above
 // any realistic single-day usage on a trip.
