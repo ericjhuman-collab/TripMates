@@ -114,8 +114,11 @@ service cloud.firestore {
 
     // ─── trips/{tripId} ───────────────────────────────────────────────────
     match /trips/{tripId} {
+      // Non-existent docs are readable so the client can probe an ID
+      // for collision before writing (see createTrip's short-code loop).
+      // No data leaks — the doc has no fields when resource == null.
       allow read: if isAuthed()
-        && request.auth.uid in resource.data.members;
+        && (resource == null || request.auth.uid in resource.data.members);
 
       allow create: if isAuthed()
         && request.resource.data.createdBy == request.auth.uid

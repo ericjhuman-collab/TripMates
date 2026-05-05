@@ -160,6 +160,13 @@ describe('trips/{tripId}', () => {
     await assertFails(getDoc(doc(asUser(CAROL), 'trips', TRIP_ID)));
   });
 
+  it('any authed user can read a non-existent trip (collision-check probe)', async () => {
+    // createTrip generates a random short-code and probes /trips/{code} to
+    // detect ID collisions before writing. The probe must succeed (returning
+    // exists: false) for any authed user, otherwise trip creation breaks.
+    await assertSucceeds(getDoc(doc(asUser(CAROL), 'trips', 'NOPE99')));
+  });
+
   it('admin can update trip', async () => {
     await assertSucceeds(
       updateDoc(doc(asUser(ALICE), 'trips', TRIP_ID), { name: 'New Name' })
