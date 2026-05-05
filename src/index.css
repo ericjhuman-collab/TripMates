@@ -66,6 +66,9 @@ body {
   color: var(--color-text-main);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  /* Disable iOS rubber-band overscroll so the fixed header doesn't
+     visually drift when the user pulls past the top of the page. */
+  overscroll-behavior-y: none;
 }
 
 /* Utilities */

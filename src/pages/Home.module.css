@@ -4,6 +4,14 @@
   padding-bottom: 2rem;
 }
 
+/* Chat tab fills available vertical space — kill the wrapper's bottom
+   padding so the chat container can extend right up to the dock-reserved
+   area. Combined with body overflow-lock in Home.tsx, the page below the
+   chat is visually flush. */
+.pageWrapperChat {
+  padding-bottom: 0;
+}
+
 /* ── Nav Pill ───────────────────────────────── */
 .navPill {
   display: flex;
@@ -315,18 +323,34 @@
 
 .navTab {
   flex: 1;
-  padding: 0.6rem 1rem;
-  border-radius: 999px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 0.4rem 0.15rem;
+  border-radius: 14px;
   border: none;
   background: transparent;
   color: var(--color-text-muted);
-  font-weight: 700;
-  font-size: 0.85rem;
   transition: all 0.2s;
   cursor: pointer;
   font-family: var(--font-family);
-  text-align: center;
+}
+
+.navTab:active {
+  transform: scale(0.96);
+}
+
+.navTabLabel {
+  font-size: 0.65rem;
+  font-weight: 600;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  letter-spacing: 0.01em;
 }
 
 .navTabActive {

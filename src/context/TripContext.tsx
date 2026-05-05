@@ -42,11 +42,19 @@ export interface Trip {
     invitedGroups?: string[]; // Groups specifically invited to this trip
     bingoReward?: string; // Configurable text for bingo reward banner
     allowMemberActivities?: boolean; // If true, regular members can add activities
+    // User-chosen phase. 'upcoming' resolves to current/future based on dates.
+    // Legacy trips without this field fall back to date-based categorization.
+    phase?: 'bucketlist' | 'upcoming' | 'past';
 }
 
 export type TripCategory = 'current' | 'future' | 'past' | 'bucketlist';
+export type TripPhase = 'bucketlist' | 'upcoming' | 'past';
 
 export const categorizeTrip = (trip: Trip): TripCategory => {
+    // Explicit phase wins over date-derived categorization.
+    if (trip.phase === 'bucketlist') return 'bucketlist';
+    if (trip.phase === 'past') return 'past';
+
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const start = trip.startDate ? new Date(trip.startDate) : null;

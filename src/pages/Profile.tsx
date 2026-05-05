@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearchParams, useLocation } from 'react-rout
 import { createPortal } from 'react-dom';
 import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Building2 } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
-import { useTrip, type Trip } from '../context/TripContext';
+import { useTrip, type Trip, type TripPhase, categorizeTrip } from '../context/TripContext';
 import { auth, db, storage } from '../services/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc } from 'firebase/firestore';
@@ -76,7 +76,7 @@ ActivitySlide.displayName = 'ActivitySlide';
 
 export const Profile: React.FC = () => {
     const toast = useToast();
-    const { logoutMock, appUser, updateProfile } = useAuth();
+    const { logoutMock, appUser, updateProfile, refreshAppUser } = useAuth();
     const { activeTrip, createTrip, joinTrip, userTrips: contextUserTrips, updateTrip } = useTrip();
 
     const navigate = useNavigate();
@@ -138,6 +138,7 @@ export const Profile: React.FC = () => {
 
     const [createTripForm, setCreateTripForm] = useState({
         name: '', destination: '', type: 'Default Trip',
+        phase: 'upcoming' as TripPhase,
         startDate: '', endDate: '', accommodation: '',
         accommodationAddress: '', accommodationLocation: null as { lat: number; lng: number } | null,
         activeGames: ['bingo', 'cheers'] as string[],
@@ -356,17 +357,7 @@ export const Profile: React.FC = () => {
 
     const now = new Date();
     const tripsToAnalyze = isOwner ? contextUserTrips : targetTrips;
-    const adminFilteredTrips = contextUserTrips.filter(t => {
-        const start = t.startDate ? new Date(t.startDate) : null;
-        const end = t.endDate ? new Date(t.endDate) : null;
-        switch (adminSubTab) {
-            case 'current': return start && end && start <= now && end >= now;
-            case 'future': return start && start > now;
-            case 'past': return end && end < now;
-            case 'bucketlist': return !start;
-            default: return false;
-        }
-    });
+    const adminFilteredTrips = contextUserTrips.filter(t => categorizeTrip(t) === adminSubTab);
 
     // ── Travel stats (derived client-side) ───
     const tripsCompleted = tripsToAnalyze.filter(t => t.endDate && new Date(t.endDate) < now).length;
@@ -485,6 +476,7 @@ export const Profile: React.FC = () => {
                 await followUser(appUser.uid, targetUser.uid, appUser.name, appUser.avatarUrl);
                 setIsFollowing(true);
             }
+            await refreshAppUser();
         } catch (e) {
             console.error('Follow action failed', e);
         }
@@ -496,6 +488,7 @@ export const Profile: React.FC = () => {
         await followUser(appUser.uid, fromUid, appUser.name, appUser.avatarUrl);
         await markNotificationRead(appUser.uid, notifId);
         setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
+        await refreshAppUser();
     };
 
     // ── Globe toggle country ───────────────
@@ -623,8 +616,8 @@ export const Profile: React.FC = () => {
 
                     {/* Trips grid */}
                     {(() => {
-                        const bucketlistTrips = tripsToAnalyze.filter(t => !t.startDate);
-                        const plannedTrips = tripsToAnalyze.filter(t => t.startDate);
+                        const bucketlistTrips = tripsToAnalyze.filter(t => categorizeTrip(t) === 'bucketlist');
+                        const plannedTrips = tripsToAnalyze.filter(t => categorizeTrip(t) !== 'bucketlist');
                         return (
                     <>
                     <div className={styles.subNavPill}>
@@ -676,9 +669,12 @@ export const Profile: React.FC = () => {
                             ))}
                             {isOwner && (
                                 <div
-                                    onClick={() => setShowCreateTrip(true)}
+                                    onClick={() => {
+                                        setCreateTripForm(prev => ({ ...prev, phase: 'bucketlist' }));
+                                        setShowCreateTrip(true);
+                                    }}
                                     className={styles.addGridItem}
-                                    title="Create a bucketlist trip (leave dates empty)"
+                                    title="Create a bucketlist trip"
                                 >
                                     <Plus size={24} />
                                     <span className={styles.addGridLabel}>Add</span>
@@ -699,7 +695,17 @@ export const Profile: React.FC = () => {
             {mainTab === 'admin' && (
                 <div className="animate-fade-in">
                         <div className={styles.adminHeader}>
-                            <h2 className={styles.adminTitle}>My Trips</h2>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                <button
+                                    onClick={() => setMainTab('profile')}
+                                    className={adminStyles.backBtn}
+                                    title="Go back"
+                                    aria-label="Go back"
+                                >
+                                    <ArrowLeft size={20} color="var(--color-primary-dark)" />
+                                </button>
+                                <h2 className={styles.adminTitle}>My Trips</h2>
+                            </div>
                             <div style={{ display: 'flex', gap: '0.5rem' }}>
                                 <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowJoinTrip(true)}>
                                     Join
@@ -752,7 +758,7 @@ export const Profile: React.FC = () => {
             {/* ── Network tab (from hamburger) ── */}
             {mainTab === 'network' && (
                 <div style={{ height: '100%', overflow: 'hidden' }}>
-                    <Network />
+                    <Network onBack={() => setMainTab('profile')} />
                 </div>
             )}
             {/* ── My Locations tab (from hamburger) ── */}
@@ -1123,19 +1129,47 @@ export const Profile: React.FC = () => {
                 document.body
             )}
 
-            {/* Create Trip Modal */}
+            {/* Create Trip — full-screen page */}
             {showCreateTrip && createPortal(
-                <div className={styles.createModal} onClick={() => setShowCreateTrip(false)}>
-                    <div className={styles.createModalBody} onClick={e => e.stopPropagation()}>
-                        {/* Title row — scrolls with content */}
+                <div className={styles.createModal}>
+                    <div className={styles.createModalBody}>
+                        {/* Page header — back arrow + centered title */}
                         <div className={styles.createModalTitleRow}>
-                            <h2 className={styles.tripModalTitle}>Create New Trip</h2>
-                            <button onClick={() => setShowCreateTrip(false)} className={styles.tripModalCloseBtn} title="Close">
-                                <X size={24} />
+                            <button
+                                onClick={() => setShowCreateTrip(false)}
+                                className={adminStyles.backBtn}
+                                title="Go back"
+                                aria-label="Go back"
+                            >
+                                <ArrowLeft size={20} color="var(--color-primary-dark)" />
                             </button>
+                            <h2 className={styles.tripModalTitle} style={{ flex: 1, textAlign: 'center' }}>Create New Trip</h2>
+                            {/* Spacer keeps the title visually centered against the back button */}
+                            <div style={{ width: 40, flexShrink: 0 }} />
                         </div>
 
                         <div className={styles.fieldsStack}>
+                            {/* Trip Phase — controls where the trip lands (Bucketlist / Upcoming / Past) */}
+                            <div>
+                                <label className={styles.settingsLabel}>Trip Phase</label>
+                                <div className={styles.subNavPill} style={{ marginTop: 0 }}>
+                                    {(['bucketlist', 'upcoming', 'past'] as TripPhase[]).map(p => (
+                                        <button
+                                            key={p}
+                                            type="button"
+                                            onClick={() => setCreateTripForm(prev => ({ ...prev, phase: p }))}
+                                            className={`${styles.subNavBtn} ${createTripForm.phase === p ? styles.subNavBtnActive : ''}`}
+                                        >
+                                            {p === 'bucketlist' ? 'Bucketlist' : p === 'upcoming' ? 'Upcoming' : 'Past'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0.4rem 0 0' }}>
+                                    {createTripForm.phase === 'bucketlist' && 'Dream trip — dates optional.'}
+                                    {createTripForm.phase === 'upcoming' && 'Planned or in-progress — pick start and end date.'}
+                                    {createTripForm.phase === 'past' && 'Diary entry — pick the dates the trip happened.'}
+                                </p>
+                            </div>
                             {/* Cover Photo */}
                             <div>
                                 <label className={styles.settingsLabel}>Cover Photo</label>
@@ -1307,12 +1341,28 @@ export const Profile: React.FC = () => {
                                 className={`btn btn-primary ${styles.goTripBtn}`}
                                 disabled={creatingTrip || !createTripForm.name.trim()}
                                 onClick={async () => {
+                                    // Phase-aware validation
+                                    if (createTripForm.phase !== 'bucketlist') {
+                                        if (!createTripForm.startDate || !createTripForm.endDate) {
+                                            toast.error('Pick start and end date, or switch the phase to Bucketlist.');
+                                            return;
+                                        }
+                                        if (createTripForm.phase === 'past') {
+                                            const todayStart = new Date();
+                                            todayStart.setHours(0, 0, 0, 0);
+                                            if (new Date(createTripForm.endDate) >= todayStart) {
+                                                toast.error('A past trip needs an end date in the past.');
+                                                return;
+                                            }
+                                        }
+                                    }
                                     setCreatingTrip(true);
                                     try {
                                         const newTripId = await createTrip({
                                             name: createTripForm.name.trim(),
                                             destination: createTripForm.destination.trim(),
                                             type: createTripForm.type,
+                                            phase: createTripForm.phase,
                                             startDate: createTripForm.startDate || '',
                                             endDate: createTripForm.endDate || '',
                                             accommodation: createTripForm.accommodation.trim() || '',
@@ -1334,7 +1384,7 @@ export const Profile: React.FC = () => {
                                             createTripCoverRef.current = null;
                                         }
                                         setShowCreateTrip(false);
-                                        setCreateTripForm({ name: '', destination: '', type: 'Default Trip', startDate: '', endDate: '', accommodation: '', accommodationAddress: '', accommodationLocation: null, activeGames: ['bingo', 'cheers'], defaultGame: 'bingo', baseCurrency: 'SEK' });
+                                        setCreateTripForm({ name: '', destination: '', type: 'Default Trip', phase: 'upcoming', startDate: '', endDate: '', accommodation: '', accommodationAddress: '', accommodationLocation: null, activeGames: ['bingo', 'cheers'], defaultGame: 'bingo', baseCurrency: 'SEK' });
                                         setCreateTripCoverPreview('');
                                         navigate('/');
                                     } catch (err: unknown) {

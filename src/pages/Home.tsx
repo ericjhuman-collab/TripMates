@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import { useLocation } from 'react-router-dom';
 import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, MessageCircle, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { getActivitiesByDay, getAllActivities, type Activity } from '../services/activities';
@@ -170,6 +170,15 @@ export const Home: React.FC = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showViewMenu]);
 
+    // Lock body scroll while the Chat tab is open — only the chat-message
+    // list itself should scroll, never the page behind it.
+    useEffect(() => {
+        if (viewMode !== 'chat') return;
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => { document.body.style.overflow = prevOverflow; };
+    }, [viewMode]);
+
     const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
     const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
 
@@ -253,7 +262,7 @@ export const Home: React.FC = () => {
     };
 
     const calendarViewLabels: Record<CalendarViewMode, string> = {
-        schedule: 'Schedule', day: 'Day', '3day': '3 Day', week: 'Week', month: 'Month'
+        schedule: 'Schedule', day: 'Activities', '3day': '3 Day', week: 'Week', month: 'Month'
     };
     const calendarViewIcons: Record<CalendarViewMode, React.ReactNode> = {
         schedule: <List size={18} />,
@@ -318,7 +327,7 @@ export const Home: React.FC = () => {
         .sort((a, b) => b.votes - a.votes);
 
     return (
-        <div className={`animate-fade-in ${styles.pageWrapper}`}>
+        <div className={`animate-fade-in ${styles.pageWrapper} ${viewMode === 'chat' ? styles.pageWrapperChat : ''}`}>
             {/* Hamburger menu overlay + slide-out panel — rendered via portal to escape z-index/overflow */}
             {showViewMenu && createPortal(
                 <div className={styles.menuOverlay} onClick={() => setShowViewMenu(false)}>
@@ -387,35 +396,43 @@ export const Home: React.FC = () => {
             )}
 
             <div className={styles.navPill}>
-                {/* Hamburger + Calendar View Label */}
-                <div className={styles.navCalendarGroup}>
-                    <button
-                        onClick={() => setShowViewMenu(true)}
-                        className={styles.hamburgerBtn}
-                        title="Switch calendar view"
-                    >
-                        <Menu size={18} />
-                    </button>
-                    <span
-                        className={`${styles.calendarViewLabel} ${isCalendarView ? styles.calendarViewLabelActive : ''}`}
-                        onClick={() => {
-                            setViewMode(calendarViewMode);
-                        }}
-                    >
-                        {activeCalendarLabel}
-                    </span>
-                </div>
+                {/* Hamburger — opens the calendar view picker */}
+                <button
+                    onClick={() => setShowViewMenu(true)}
+                    className={styles.hamburgerBtn}
+                    title="Switch calendar view"
+                >
+                    <Menu size={18} />
+                </button>
 
-                {/* Other standard tabs */}
-                {(['map', 'polls', 'chat', 'members'] as ViewMode[]).map(mode => {
-                    const labels: Record<string, string> = { map: 'Map', polls: 'Polls', chat: 'Chat', members: 'Members' };
+                {/* Activities tab — label reflects the chosen calendar mode (Day/Week/...) */}
+                <button
+                    onClick={() => setViewMode(calendarViewMode)}
+                    className={`${styles.navTab} ${isCalendarView ? styles.navTabActive : ''}`}
+                    title={activeCalendarLabel}
+                >
+                    {calendarViewIcons[calendarViewMode]}
+                    <span className={styles.navTabLabel}>{activeCalendarLabel}</span>
+                </button>
+
+                {/* Other tabs — icon + label stacked, equal-flex */}
+                {(['map', 'polls', 'chat', 'members'] as const).map(mode => {
+                    const config = {
+                        map: { label: 'Map', icon: <MapPin size={18} /> },
+                        polls: { label: 'Polls', icon: <BarChart3 size={18} /> },
+                        chat: { label: 'Chat', icon: <MessageCircle size={18} /> },
+                        members: { label: 'Members', icon: <Users size={18} /> },
+                    } as const;
+                    const c = config[mode];
                     return (
                         <button
                             key={mode}
                             onClick={() => setViewMode(mode)}
                             className={`${styles.navTab} ${viewMode === mode ? styles.navTabActive : ''}`}
+                            title={c.label}
                         >
-                            {labels[mode]}
+                            {c.icon}
+                            <span className={styles.navTabLabel}>{c.label}</span>
                         </button>
                     );
                 })}

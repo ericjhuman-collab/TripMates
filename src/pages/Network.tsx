@@ -3,13 +3,14 @@ import { useAuth, type AppUser } from '../context/AuthContext';
 import { fetchPopulatedUsers, followUser, unfollowUser } from '../services/network';
 import { collection, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '../services/firebase';
-import { UserPlus, UserMinus, Search, Loader2 } from 'lucide-react';
+import { ArrowLeft, UserPlus, UserMinus, Search, Loader2 } from 'lucide-react';
 import styles from './Profile.module.css';
+import tripStyles from './TripAdmin.module.css';
 import { useToast } from '../components/useToast';
 
-export const Network: React.FC = () => {
+export const Network: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     const toast = useToast();
-    const { appUser } = useAuth();
+    const { appUser, refreshAppUser } = useAuth();
     const [activeTab, setActiveTab] = useState<'following' | 'followers'>('following');
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearching, setIsSearching] = useState(false);
@@ -100,6 +101,10 @@ export const Network: React.FC = () => {
             } else {
                 await followUser(appUser.uid, targetUid);
             }
+            // AuthContext loads `appUser` once via getDoc on sign-in, so the
+            // local cache stays stale after a follow/unfollow write. Without
+            // this re-read, navigating away and back shows Following (0).
+            await refreshAppUser();
         } catch (e) {
             console.error("Follow error", e);
             // Revert on fail
@@ -151,8 +156,13 @@ export const Network: React.FC = () => {
 
     return (
         <div className={styles.scrollContainer} style={{ padding: '0 1.25rem 2rem' }}>
-            <div className={styles.settingsHeader} style={{ marginBottom: '1.5rem', marginLeft: '-1.25rem' }}>
-                <h2 className={styles.settingsTitle} style={{ paddingLeft: '1rem' }}>My Network</h2>
+            <div className={tripStyles.pageHeader} style={{ marginBottom: '1.5rem' }}>
+                {onBack && (
+                    <button onClick={onBack} className={tripStyles.backBtn} title="Go back" aria-label="Go back">
+                        <ArrowLeft size={20} color="var(--color-primary-dark)" />
+                    </button>
+                )}
+                <h2 className={tripStyles.pageTitle}>My Network</h2>
             </div>
 
             <div style={{ position: 'relative', marginBottom: '1.5rem' }}>

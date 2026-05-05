@@ -271,16 +271,32 @@ export const GalleryCamera: React.FC = () => {
             activityName: tagActivityName || undefined,
             taggedMembers: taggedMemberUids.length ? taggedMemberUids : undefined,
         };
+        // Promise-pool: keep up to CONCURRENCY uploads in flight at once.
+        // Sequential awaits used to make a 10-photo batch take 10× one upload's
+        // network time; with a small pool we saturate the link instead.
+        const CONCURRENCY = 4;
+        let completed = 0;
         let failures = 0;
-        for (let i = 0; i < filesToUpload.length; i++) {
+        const queue = [...filesToUpload];
+        const runOne = async (file: File | Blob) => {
             try {
-                await uploadImageToGallery(selectedTripId, filesToUpload[i], appUser.uid, appUser.name, tags);
+                await uploadImageToGallery(selectedTripId, file, appUser.uid, appUser.name, tags);
             } catch (error) {
                 console.error('Upload error:', error);
                 failures++;
+            } finally {
+                completed++;
+                setUploadProgress({ current: completed, total: filesToUpload.length });
             }
-            setUploadProgress({ current: i + 1, total: filesToUpload.length });
-        }
+        };
+        const workers = Array.from({ length: Math.min(CONCURRENCY, queue.length) }, async () => {
+            while (queue.length > 0) {
+                const next = queue.shift();
+                if (!next) break;
+                await runOne(next);
+            }
+        });
+        await Promise.all(workers);
         if (failures > 0) {
             toast.error(failures === filesToUpload.length
                 ? 'Failed to upload images.'

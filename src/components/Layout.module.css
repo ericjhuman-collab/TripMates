@@ -6,6 +6,8 @@
 }
 
 .appContainerWithNav {
+  /* Clear the fixed header (status-bar inset + ~3.25rem of header chrome). */
+  padding-top: calc(env(safe-area-inset-top) + 3.25rem);
   padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
@@ -14,13 +16,21 @@
 }
 
 /* ── Header ─────────────────────────────── */
+/* position: fixed (not sticky) — sticky was unreliable on iOS WKWebView
+   inside an `overflow-x: hidden` parent, causing the header to drift
+   with rubber-band scroll. Fixed pins it to the viewport unconditionally. */
 .header {
   padding: calc(env(safe-area-inset-top) + 0.25rem) 1.5rem 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  position: sticky;
+  position: fixed;
   top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
   z-index: 50;
   background: var(--color-bg-overlay);
   backdrop-filter: blur(12px);
@@ -330,7 +340,8 @@
 
 .searchPanel {
   position: absolute;
-  top: 4.5rem;     /* just below header */
+  /* Sit below the fixed header (status-bar inset + ~3.25rem of header chrome). */
+  top: calc(env(safe-area-inset-top) + 3.5rem);
   left: 1rem;
   right: 1rem;
   background: #fff;

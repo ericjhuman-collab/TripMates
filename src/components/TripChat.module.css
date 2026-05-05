@@ -1,8 +1,19 @@
 .chat {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 220px);
-  min-height: 400px;
+  /* Fit between the fixed header (top safe-area + ~3.25rem chrome),
+     the trip nav-pill above (~5.5rem incl. margins), and the floating
+     bottom nav (~5rem + bottom safe-area). dvh tracks iOS keyboard
+     state better than vh. The page wrapper drops its bottom padding
+     while on the chat tab (see Home.module.css .pageWrapperChat) so
+     the chat extends right up to the dock-reserved area. */
+  height: calc(
+    100dvh
+    - env(safe-area-inset-top)
+    - env(safe-area-inset-bottom)
+    - 14rem
+  );
+  min-height: 300px;
   background: var(--color-bg-card);
   border-radius: var(--radius-lg);
   overflow: hidden;
@@ -107,7 +118,9 @@
   display: flex;
   align-items: flex-end;
   gap: 0.5rem;
-  padding: 0.6rem 0.75rem calc(0.6rem + env(safe-area-inset-bottom));
+  /* Bottom safe-area is already reserved by .appContainerWithNav for the
+     floating bottom dock — don't add it again here or we get double padding. */
+  padding: 0.6rem 0.75rem;
   background: var(--color-bg-card);
   border-top: 1px solid var(--color-border);
 }
