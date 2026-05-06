@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera as CameraIcon, Image as ImageIcon, Download, Plus, RefreshCw, X } from 'lucide-react';
+import { Capacitor, CapacitorHttp } from '@capacitor/core';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, type Trip } from '../context/TripContext';
 import { db } from '../services/firebase';
@@ -339,32 +340,53 @@ export const GalleryCamera: React.FC = () => {
     };
 
     const handleDownload = async (url: string, filename: string) => {
-        // iOS WKWebView ignores the `<a download>` attribute, so on a phone
-        // tapping the desktop-style download link did nothing. The reliable
-        // path is the Web Share API with a File payload — that surfaces
-        // iOS's native share sheet, which has a "Save Image" action that
-        // writes to the Photos library. Desktop browsers fall back to the
-        // classic blob-link download.
+        const safeName = filename || 'tripmates-image.jpg';
+
         try {
-            const response = await fetch(url);
-            const blob = await response.blob();
-            const safeName = filename || 'tripmates-image.jpg';
+            // Fetching the Firebase Storage URL via plain `fetch()` from
+            // capacitor://localhost trips CORS preflight on the bucket
+            // (the URL displays fine via <img> because img tags don't
+            // enforce CORS, but JS fetch does). On native, route through
+            // CapacitorHttp which makes the request natively and ferries
+            // bytes back through the bridge — no CORS hop.
+            let blob: Blob;
+            if (Capacitor.isNativePlatform()) {
+                const response = await CapacitorHttp.get({
+                    url,
+                    responseType: 'blob',
+                });
+                // CapacitorHttp returns blob bodies base64-encoded in `data`
+                // because the WKWebView ↔ native bridge can't carry binary.
+                const base64 = response.data as string;
+                const binary = atob(base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const contentType = (response.headers?.['Content-Type']
+                    || response.headers?.['content-type']
+                    || 'image/jpeg') as string;
+                blob = new Blob([bytes], { type: contentType });
+            } else {
+                const response = await fetch(url);
+                blob = await response.blob();
+            }
+
             const file = new File([blob], safeName, { type: blob.type || 'image/jpeg' });
 
+            // Web Share API: on iOS this surfaces the native share sheet
+            // with a "Save Image" action that writes to the Photos library.
             const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
             if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
                 try {
                     await nav.share({ files: [file] });
                     return;
                 } catch (shareErr) {
-                    // User cancelled the share sheet — that's not an error
-                    // worth surfacing or falling back from.
+                    // User cancelled the share sheet — silent return.
                     if (shareErr instanceof Error && shareErr.name === 'AbortError') return;
-                    // Anything else: drop through to the blob-link fallback.
                     console.warn('Share failed, falling back to download link', shareErr);
                 }
             }
 
+            // Desktop fallback: classic blob-link download.
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
