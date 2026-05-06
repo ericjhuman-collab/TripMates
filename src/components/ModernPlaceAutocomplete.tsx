@@ -1,4 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 
 interface PlacePrediction {
     placeId: string;
@@ -17,6 +19,10 @@ interface PlaceAutocompleteProps {
     onInputChange?: (value: string) => void;
     placeholder?: string;
     className?: string;
+    /** What the input shows after the user picks a prediction.
+     *  'name' = the place's display name (default — good for company-name fields).
+     *  'address' = the formatted address (good for an explicit address field). */
+    displayValueAfterSelect?: 'name' | 'address';
 }
 
 // ── Singleton: load the Maps JS with the callback protocol ───────────────────
@@ -54,6 +60,7 @@ export const ModernPlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     onInputChange,
     placeholder = 'E.g. Cantine Milano',
     className,
+    displayValueAfterSelect = 'name',
 }) => {
     const [inputValue, setInputValue] = useState(defaultValue);
     const [predictions, setPredictions] = useState<PlacePrediction[]>([]);
@@ -64,6 +71,14 @@ export const ModernPlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const sessionTokenRef = useRef<google.maps.places.AutocompleteSessionToken | null>(null);
+
+    // Pull the parent's value into the local input when it changes externally
+    // (e.g. a sister autocomplete field picks a place and our parent calls
+    // setAddress() on us). Without this, defaultValue is only honored once
+    // at mount and the visible input goes stale.
+    useEffect(() => {
+        setInputValue(defaultValue);
+    }, [defaultValue]);
 
     useEffect(() => {
         const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
@@ -91,7 +106,9 @@ export const ModernPlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     }, []);
 
     const fetchSuggestions = useCallback(async (input: string) => {
-        if (!mapsReady || input.trim().length < 2) {
+        // 3-char min: trades a slightly later first suggestion for fewer billed
+        // autocomplete sessions on incidental 2-char typos.
+        if (!mapsReady || input.trim().length < 3) {
             setPredictions([]);
             setShowDropdown(false);
             return;
@@ -135,10 +152,43 @@ export const ModernPlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
     };
 
     const handleSelectPrediction = async (prediction: PlacePrediction) => {
-        setInputValue(prediction.mainText);
+        // Initial visual feedback while we fetch/lookup the full record.
+        // Uses the address part of the prediction when the caller wants the
+        // input to display the address; otherwise the place's display name.
+        const initialDisplay = displayValueAfterSelect === 'address'
+            ? (prediction.secondaryText || prediction.description || prediction.mainText)
+            : prediction.mainText;
+        setInputValue(initialDisplay);
         setShowDropdown(false);
         setPredictions([]);
-        if (onInputChange) onInputChange(prediction.mainText);
+        // NOTE: we deliberately DON'T call onInputChange here — most callers
+        // use it to clear coords/address state on user typing, which would
+        // wipe out what we're about to set in onPlaceSelected.
+
+        const finalize = (name: string, formatted_address: string, location: { lat: number; lng: number } | null) => {
+            const finalDisplay = displayValueAfterSelect === 'address' ? formatted_address : name;
+            setInputValue(finalDisplay);
+            onPlaceSelected({ name, formatted_address, location });
+        };
+
+        // Read-through cache: when the same placeId has been resolved before
+        // (by anyone in the app), skip the paid fetchFields() roundtrip.
+        try {
+            const cacheRef = doc(db, 'places', prediction.placeId);
+            const cached = await getDoc(cacheRef);
+            if (cached.exists()) {
+                const data = cached.data() as {
+                    displayName: string;
+                    formattedAddress: string;
+                    location: { lat: number; lng: number } | null;
+                };
+                finalize(data.displayName, data.formattedAddress, data.location);
+                return;
+            }
+        } catch (err) {
+            // Cache lookup is non-fatal — fall through to Google.
+            console.warn('[Places cache] read failed; falling through to Google', err);
+        }
 
         try {
             const g = window.google;
@@ -149,13 +199,22 @@ export const ModernPlaceAutocomplete: React.FC<PlaceAutocompleteProps> = ({
             const location = place.location
                 ? { lat: place.location.lat(), lng: place.location.lng() }
                 : null;
-            onPlaceSelected({
-                name: place.displayName ?? prediction.mainText,
-                formatted_address: place.formattedAddress ?? prediction.description,
-                location,
-            });
+            const resolvedName = place.displayName ?? prediction.mainText;
+            const resolvedAddress = place.formattedAddress ?? prediction.description;
+            finalize(resolvedName, resolvedAddress, location);
+            // Write-through to Firestore so the next selection is free.
+            try {
+                await setDoc(doc(db, 'places', prediction.placeId), {
+                    displayName: resolvedName,
+                    formattedAddress: resolvedAddress,
+                    location,
+                    cachedAt: Date.now(),
+                });
+            } catch (err) {
+                console.warn('[Places cache] write failed', err);
+            }
         } catch {
-            onPlaceSelected({ name: prediction.mainText, formatted_address: prediction.description, location: null });
+            finalize(prediction.mainText, prediction.description, null);
         }
     };
 
