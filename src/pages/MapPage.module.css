@@ -2,10 +2,12 @@
 
 .page {
   position: relative;
-  /* Fill the parent — Home's .pageWrapperMap kills its own padding, and
-     .app-container retains only the bottom-nav padding. So 100% here means
-     "from under the now-transparent app header to the top of the bottom nav". */
-  height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 80px);
+  /* Fill the entire viewport. body.map-fullscreen drops both top and
+     bottom padding from .app-container, and Home's .pageWrapperMap kills
+     its own. The Layout header is transparent above; the bottom nav is
+     position:fixed with its own translucent pill. The map renders behind
+     both — Google-Maps style true fullscreen. */
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
