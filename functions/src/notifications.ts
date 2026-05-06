@@ -38,7 +38,36 @@ export const onTripMessageCreated = onDocumentCreated(
     },
 );
 
-// ── Trip invites: someone added to trips/{tripId}.members ────────────────
+// ── Trip invite created: tripInvites/{inviteId} ──────────────────────────
+// Push the invitee the moment an admin sends an invite. Doc id is
+// "{tripId}_{invitedUid}" (see services/tripInvites.ts).
+export const onTripInviteCreated = onDocumentCreated(
+    {
+        document: 'tripInvites/{inviteId}',
+        region: 'europe-west1',
+        minInstances: 0,
+    },
+    async (event) => {
+        const invite = event.data?.data();
+        if (!invite) return;
+        const invitedUid = String(invite.invitedUid ?? '');
+        if (!invitedUid) return;
+        const invitedByName = String(invite.invitedByName ?? 'Someone');
+        const tripName = String(invite.tripName ?? 'a trip');
+        const tripId = String(invite.tripId ?? '');
+
+        await sendToUser(invitedUid, 'tripInvite', {
+            title: 'Trip invite',
+            body: `${invitedByName} invited you to ${tripName}.`,
+            data: { kind: 'tripInvite', tripId, inviteId: event.params.inviteId },
+        });
+    },
+);
+
+// ── Trip member joined: notify the OTHER members (not the joiner) ────────
+// Fires when someone is added to trips/{tripId}.members — typically after
+// they accept a tripInvites/{...} invite. The joiner already knows they
+// joined; the rest of the trip wants to see "X joined the trip."
 export const onTripMembersChanged = onDocumentUpdated(
     {
         document: 'trips/{tripId}',
@@ -55,15 +84,23 @@ export const onTripMembersChanged = onDocumentUpdated(
         if (added.length === 0) return;
 
         const tripId = event.params.tripId;
-        const tripName = String(after.name ?? 'a trip');
+        const tripName = String(after.name ?? 'the trip');
 
-        await Promise.all(added.map(uid =>
-            sendToUser(uid, 'tripInvite', {
-                title: 'Welcome to the trip',
-                body: `You joined ${tripName}.`,
+        const db = getFirestore();
+        await Promise.all(added.map(async (joinerUid) => {
+            const joinerSnap = await db.doc(`users/${joinerUid}`).get();
+            const joinerName = String(joinerSnap.data()?.name ?? 'Someone');
+
+            // Recipients = current members minus the joiner themselves.
+            const recipients = afterMembers.filter(uid => uid !== joinerUid);
+            if (recipients.length === 0) return;
+
+            await sendToUsers(recipients, 'tripInvite', {
+                title: tripName,
+                body: `${joinerName} joined the trip.`,
                 data: { tripId, kind: 'tripInvite' },
-            }),
-        ));
+            });
+        }));
     },
 );
 

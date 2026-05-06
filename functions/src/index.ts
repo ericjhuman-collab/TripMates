@@ -13,6 +13,7 @@ const db = getFirestore();
 
 export {
     onTripMessageCreated,
+    onTripInviteCreated,
     onTripMembersChanged,
     onTripPollCreated,
     onOddsCreated,

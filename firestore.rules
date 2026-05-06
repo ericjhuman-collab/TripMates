@@ -391,6 +391,57 @@ service cloud.firestore {
         && resource.data.uid == request.auth.uid;
     }
 
+    // ─── places/{placeId} ────────────────────────────────────────────────
+    // Public read-through cache for Google Places Details. When any user
+    // picks a place via Place Autocomplete, the resolved name + address +
+    // lat/lng is written here keyed by the Google placeId. Subsequent
+    // selections of the same place skip the (paid) fetchFields() call and
+    // read from Firestore instead. Write-once: no updates, no deletes.
+    match /places/{placeId} {
+      allow read: if isAuthed();
+      allow create: if isAuthed()
+        && request.resource.data.keys().hasOnly(['displayName', 'formattedAddress', 'location', 'cachedAt'])
+        && request.resource.data.displayName is string
+        && request.resource.data.formattedAddress is string
+        && request.resource.data.cachedAt is number
+        && (request.resource.data.location == null
+            || (request.resource.data.location.lat is number
+                && request.resource.data.location.lng is number));
+      allow update, delete: if false;
+    }
+
+    // ─── tripInvites/{inviteId} where inviteId = "{tripId}_{invitedUid}" ──
+    // Targeted invitations sent by a trip admin to a specific user. The
+    // invitee accepts by self-adding to trips/{tripId}.members (rule 2 above)
+    // and then deleting the invite. The deterministic doc id prevents
+    // duplicate invites for the same (trip, user) pair.
+    match /tripInvites/{inviteId} {
+      // Admin invites someone: doc id must match payload, payload must
+      // pin invitedBy to caller, and caller must be a trip admin.
+      allow create: if isAuthed()
+        && inviteId == request.resource.data.tripId + '_' + request.resource.data.invitedUid
+        && request.resource.data.invitedBy == request.auth.uid
+        && isTripAdmin(request.resource.data.tripId)
+        && request.resource.data.invitedUid is string
+        && request.resource.data.tripName is string;
+
+      // Invitee, inviter, or any current trip admin may read.
+      allow read: if isAuthed()
+        && (resource.data.invitedUid == request.auth.uid
+            || resource.data.invitedBy == request.auth.uid
+            || isTripAdmin(resource.data.tripId));
+
+      // No updates — accept/decline is delete + (optional) members write.
+      allow update: if false;
+
+      // Invitee accepts/declines, inviter revokes, or any current trip admin
+      // cleans up.
+      allow delete: if isAuthed()
+        && (resource.data.invitedUid == request.auth.uid
+            || resource.data.invitedBy == request.auth.uid
+            || isTripAdmin(resource.data.tripId));
+    }
+
     // ─── groups/{groupId} ─────────────────────────────────────────────────
     match /groups/{groupId} {
       allow read: if isAuthed() && request.auth.uid in resource.data.members;
