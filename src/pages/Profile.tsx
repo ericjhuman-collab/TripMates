@@ -672,39 +672,34 @@ export const Profile: React.FC = () => {
 
             {/* ── My Trips tab (from hamburger) ── */}
             {mainTab === 'admin' && (
-                <div className="animate-fade-in">
-                        <div className={styles.adminHeader}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                                <button
-                                    onClick={() => setMainTab('profile')}
-                                    className={adminStyles.backBtn}
-                                    title="Go back"
-                                    aria-label="Go back"
-                                >
-                                    <ArrowLeft size={20} color="var(--color-primary-dark)" />
-                                </button>
+                <div className={`animate-fade-in ${styles.adminPage}`}>
+                        {/* Fixed header — title row + Current/Future/Past/Bucketlist
+                            pill stay pinned below Layout's header while the trip
+                            list scrolls. */}
+                        <div className={styles.adminFixedTopBar}>
+                            <div className={styles.adminHeader}>
                                 <h2 className={styles.adminTitle}>My Trips</h2>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowJoinTrip(true)}>
+                                        Join
+                                    </button>
+                                    <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowCreateTrip(true)}>
+                                        <Plus size={16} /> Create
+                                    </button>
+                                </div>
                             </div>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowJoinTrip(true)}>
-                                    Join
-                                </button>
-                                <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowCreateTrip(true)}>
-                                    <Plus size={16} /> Create
-                                </button>
-                            </div>
-                        </div>
 
-                        <div className={styles.subNavPill}>
-                            {(['current', 'future', 'past', 'bucketlist'] as const).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setAdminSubTab(tab)}
-                                    className={`${styles.subNavBtn} ${adminSubTab === tab ? styles.subNavBtnActive : ''}`}
-                                >
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                                </button>
-                            ))}
+                            <div className={styles.subNavPill}>
+                                {(['current', 'future', 'past', 'bucketlist'] as const).map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setAdminSubTab(tab)}
+                                        className={`${styles.subNavBtn} ${adminSubTab === tab ? styles.subNavBtnActive : ''}`}
+                                    >
+                                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <div className={styles.tripList}>
