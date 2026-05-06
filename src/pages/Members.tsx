@@ -5,9 +5,10 @@ import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import { useNavigate } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { Phone, MessageCircle, Plus, X, Loader2 } from 'lucide-react';
+import { Phone, MessageCircle, Plus, X, Loader2, UserPlus } from 'lucide-react';
 import styles from './Members.module.css';
 import { useToast } from '../components/useToast';
+import { InviteModal } from '../components/InviteModal';
 
 interface Group {
     id: string;
@@ -33,6 +34,8 @@ export const Members: React.FC = () => {
     const [newGroupName, setNewGroupName] = useState('');
     const [selectedGroupId, setSelectedGroupId] = useState('');
     const [isSavingGroup, setIsSavingGroup] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);
+    const isTripAdmin = !!(activeTrip && appUser && activeTrip.adminIds?.includes(appUser.uid));
 
     useEffect(() => {
         const fetchMembers = async () => {
@@ -138,9 +141,26 @@ export const Members: React.FC = () => {
                     <h2 className={styles.title}>Trip Members</h2>
                     {!loading && <span className={styles.count}>({members.length})</span>}
                 </div>
-                <button className={`btn-icon ${styles.addGroupBtn}`} onClick={handleOpenGroupModal} title="Add to Group" aria-label="Add to Group">
-                    <Plus size={20} />
-                </button>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    {isTripAdmin && (
+                        <button
+                            className={`btn-icon ${styles.addGroupBtn}`}
+                            onClick={() => setShowInviteModal(true)}
+                            title="Invite people to trip"
+                            aria-label="Invite people to trip"
+                        >
+                            <UserPlus size={20} />
+                        </button>
+                    )}
+                    <button
+                        className={`btn-icon ${styles.addGroupBtn}`}
+                        onClick={handleOpenGroupModal}
+                        title="Assign to sub-group"
+                        aria-label="Assign to sub-group"
+                    >
+                        <Plus size={20} />
+                    </button>
+                </div>
             </div>
 
             {loading ? (
@@ -315,6 +335,16 @@ export const Members: React.FC = () => {
                     </div>
                 </div>,
                 document.body
+            )}
+            {activeTrip && (
+                <InviteModal
+                    open={showInviteModal}
+                    onClose={() => setShowInviteModal(false)}
+                    tripId={activeTrip.id}
+                    tripName={activeTrip.name}
+                    tripDestination={activeTrip.destination}
+                    members={activeTrip.members || []}
+                />
             )}
         </div>
     );

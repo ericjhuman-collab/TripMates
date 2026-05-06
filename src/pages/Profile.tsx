@@ -22,6 +22,7 @@ import { SUPPORTED_CURRENCIES } from '../utils/currencies';
 import { getDefaultCover } from '../utils/defaultCovers';
 import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { ImageCropperModal } from '../components/ImageCropperModal';
 import { LiveLocationProfileSection } from '../components/LiveLocationProfileSection';
 import NotificationSettings from '../components/NotificationSettings';
 import styles from './Profile.module.css';
@@ -111,6 +112,15 @@ export const Profile: React.FC = () => {
     const [deleteError, setDeleteError] = useState('');
     const [exportInProgress, setExportInProgress] = useState(false);
     const [exportError, setExportError] = useState('');
+
+    type CropPending = {
+        file: File;
+        aspect?: number;
+        cropShape?: 'rect' | 'round';
+        title: string;
+        onApply: (cropped: File) => void;
+    };
+    const [cropPending, setCropPending] = useState<CropPending | null>(null);
 
     useEffect(() => {
         const state = location.state as { openMenu?: boolean } | null;
@@ -805,7 +815,18 @@ export const Profile: React.FC = () => {
                                 type="file"
                                 accept="image/*"
                                 style={{ display: 'none' }}
-                                onChange={e => { if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0]); }}
+                                onChange={e => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    setCropPending({
+                                        file: f,
+                                        aspect: 1,
+                                        cropShape: 'round',
+                                        title: 'Crop avatar',
+                                        onApply: (cropped) => handleAvatarUpload(cropped),
+                                    });
+                                    e.target.value = '';
+                                }}
                             />
                             {editForm.avatarUrl && (
                                 <button
@@ -1030,42 +1051,68 @@ export const Profile: React.FC = () => {
                             <>
                                 <div className={styles.drawerHeader}>
                                     <h3 className={styles.drawerTitle}>Menu</h3>
-                                    <button className={styles.drawerCloseBtn} onClick={() => setShowHamburger(false)}><X size={20} /></button>
                                 </div>
                                 <div className={styles.drawerList}>
                                     <button className={styles.drawerItem} onClick={() => setShowNotifications(true)}>
-                                        <Bell size={20} />
-                                        Notifications
+                                        <span className={styles.drawerItemIcon}><Bell size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>Notifications</span>
                                         {unreadCount > 0 && <span className={styles.drawerItemBadge}>{unreadCount}</span>}
                                     </button>
-                                    <div className={styles.drawerDivider} />
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('admin'); setShowHamburger(false); }}>
-                                        <MapIcon size={20} /> My Trips
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('myActivities'); setShowHamburger(false); }}>
-                                        <CheckSquare size={20} /> My Locations
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('network'); setShowHamburger(false); }}>
-                                        <UserPlus size={20} /> Network
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('settings'); setShowHamburger(false); }}>
-                                        <Settings size={20} /> Settings
-                                    </button>
-                                    
-                                    <div className={styles.drawerDivider} />
-                                    {appUser?.managedBusinessIds?.length ? (
-                                        <button className={styles.drawerItem} onClick={() => { setMainTab('businessDashboard'); setShowHamburger(false); }}>
-                                            <Building2 size={20} /> Business Partner HQ
-                                        </button>
-                                    ) : (
-                                        <button className={styles.drawerItem} onClick={() => { setMainTab('businessDashboard'); setShowHamburger(false); }}>
-                                            <Building2 size={20} /> Register as Business Partner
-                                        </button>
-                                    )}
+                                </div>
 
-                                    <div className={styles.drawerDivider} />
+                                <div className={styles.drawerDivider} />
+                                <div className={styles.drawerHeader} style={{ padding: '0.5rem 0.75rem' }}>
+                                    <h3 className={styles.drawerTitle}>Account</h3>
+                                </div>
+                                <div className={styles.drawerList}>
+                                    <button
+                                        className={`${styles.drawerItem} ${mainTab === 'admin' ? styles.drawerItemActive : ''}`}
+                                        onClick={() => { setMainTab('admin'); setShowHamburger(false); }}
+                                    >
+                                        <span className={styles.drawerItemIcon}><MapIcon size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>My Trips</span>
+                                    </button>
+                                    <button
+                                        className={`${styles.drawerItem} ${mainTab === 'myActivities' ? styles.drawerItemActive : ''}`}
+                                        onClick={() => { setMainTab('myActivities'); setShowHamburger(false); }}
+                                    >
+                                        <span className={styles.drawerItemIcon}><CheckSquare size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>My Locations</span>
+                                    </button>
+                                    <button
+                                        className={`${styles.drawerItem} ${mainTab === 'network' ? styles.drawerItemActive : ''}`}
+                                        onClick={() => { setMainTab('network'); setShowHamburger(false); }}
+                                    >
+                                        <span className={styles.drawerItemIcon}><UserPlus size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>Network</span>
+                                    </button>
+                                    <button
+                                        className={`${styles.drawerItem} ${mainTab === 'settings' ? styles.drawerItemActive : ''}`}
+                                        onClick={() => { setMainTab('settings'); setShowHamburger(false); }}
+                                    >
+                                        <span className={styles.drawerItemIcon}><Settings size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>Settings</span>
+                                    </button>
+                                </div>
+
+                                <div className={styles.drawerDivider} />
+                                <div className={styles.drawerList}>
+                                    <button
+                                        className={`${styles.drawerItem} ${mainTab === 'businessDashboard' ? styles.drawerItemActive : ''}`}
+                                        onClick={() => { setMainTab('businessDashboard'); setShowHamburger(false); }}
+                                    >
+                                        <span className={styles.drawerItemIcon}><Building2 size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>
+                                            {appUser?.managedBusinessIds?.length ? 'Business Partner HQ' : 'Register as Business Partner'}
+                                        </span>
+                                    </button>
+                                </div>
+
+                                <div className={styles.drawerDivider} />
+                                <div className={styles.drawerList}>
                                     <button className={`${styles.drawerItem} ${styles.drawerItemDanger}`} onClick={handleLogout}>
-                                        <LogOut size={20} /> Log Out
+                                        <span className={styles.drawerItemIcon}><LogOut size={18} /></span>
+                                        <span className={styles.drawerItemLabel}>Log Out</span>
                                     </button>
                                 </div>
                             </>
@@ -1191,8 +1238,17 @@ export const Profile: React.FC = () => {
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
-                                                createTripCoverRef.current = file;
-                                                setCreateTripCoverPreview(URL.createObjectURL(file));
+                                                setCropPending({
+                                                    file,
+                                                    aspect: 16 / 9,
+                                                    cropShape: 'rect',
+                                                    title: 'Crop trip cover',
+                                                    onApply: (cropped) => {
+                                                        createTripCoverRef.current = cropped;
+                                                        setCreateTripCoverPreview(URL.createObjectURL(cropped));
+                                                    },
+                                                });
+                                                e.target.value = '';
                                             }}
                                         />
                                     </label>
@@ -1209,11 +1265,16 @@ export const Profile: React.FC = () => {
                             </div>
                             <div>
                                 <label className={styles.settingsLabel}>Destination</label>
-                                <input
-                                    className="input-field"
+                                <ModernPlaceAutocomplete
+                                    defaultValue={createTripForm.destination}
                                     placeholder="E.g. Milano, Italy"
-                                    value={createTripForm.destination}
-                                    onChange={e => setCreateTripForm(prev => ({ ...prev, destination: e.target.value }))}
+                                    className="input-field"
+                                    onPlaceSelected={(place) => {
+                                        setCreateTripForm(prev => ({ ...prev, destination: place.name }));
+                                    }}
+                                    onInputChange={(val) => {
+                                        setCreateTripForm(prev => ({ ...prev, destination: val }));
+                                    }}
                                 />
                             </div>
                             <div>
@@ -1604,6 +1665,17 @@ export const Profile: React.FC = () => {
                 </div>,
                 document.body
             )}
+            <ImageCropperModal
+                file={cropPending?.file ?? null}
+                aspect={cropPending?.aspect}
+                cropShape={cropPending?.cropShape}
+                title={cropPending?.title ?? 'Crop image'}
+                onCropped={(cropped) => {
+                    cropPending?.onApply(cropped);
+                    setCropPending(null);
+                }}
+                onCancel={() => setCropPending(null)}
+            />
         </div>
     );
 };

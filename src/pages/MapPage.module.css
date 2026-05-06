@@ -1,60 +1,86 @@
 /* MapPage.module.css */
 
 .page {
-  height: calc(100vh - 150px);
+  position: relative;
+  /* Fill the parent — Home's .pageWrapperMap kills its own padding, and
+     .app-container retains only the bottom-nav padding. So 100% here means
+     "from under the now-transparent app header to the top of the bottom nav". */
+  height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 80px);
   display: flex;
   flex-direction: column;
 }
 
+/* Floating glass-pill header that overlays the map. Sits below the
+   app header (transparent in map-fullscreen mode) and below the nav-pill. */
 .header {
-  margin-bottom: 1rem;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.15rem;
+  padding: 0.2rem 0.3rem;
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  max-width: calc(100% - 24px);
 }
 
-.title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--color-primary-dark);
+/* Compact chevron buttons inside the day-nav pill — overrides the global
+   .btn-icon (44px) which is too big for an inline pill. */
+.header :global(.btn-icon) {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  box-shadow: none;
 }
 
+.header :global(.btn-icon):hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.title,
 .subtitle {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin: 0;
+  display: none;
 }
 
 /* ── Day navigator ──────────────────────── */
 .dayNav {
   display: flex;
   align-items: center;
+  gap: 0.25rem;
 }
 
 .dayLabel {
   text-align: center;
-  min-width: 90px;
+  min-width: 70px;
+  padding: 0 0.15rem;
 }
 
 .dayName {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   margin: 0;
+  color: var(--color-primary-dark);
+  line-height: 1.05;
 }
 
 .dayDate {
-  font-size: 0.75rem;
+  font-size: 0.62rem;
   color: var(--color-text-muted);
   margin: 0;
+  line-height: 1.05;
 }
 
 /* ── Map container ──────────────────────── */
 .mapWrapper {
   flex: 1;
-  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
 }
 
 .map {
@@ -92,61 +118,67 @@
 .mapWrapper {
   position: relative;
   flex: 1;
-  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
 }
 
+/* Right-side vertical control stack — all icon buttons share one size
+   and one style for visual consistency (Google-Maps style). */
 .mapControls {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  right: 12px;
   z-index: 1000; /* Leaflet maps sit at z-index 400 */
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 0.5rem;
   align-items: center;
 }
 
-.mapBtn {
-  background: rgba(255, 255, 255, 0.75);
+.iconBtn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.4);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   color: var(--color-primary-dark);
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  transition: all 0.2s ease;
-  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transition: all 0.15s ease;
   flex-shrink: 0;
+  cursor: pointer;
 }
 
-.mapBtn:active {
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
+.iconBtn:active {
   transform: scale(0.95);
 }
 
-.locateBtn {
-  background: rgba(255, 255, 255, 0.85);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.4);
-  color: var(--color-primary-dark);
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-  cursor: pointer;
-  transition: transform 0.15s ease;
-  padding: 0;
+.iconBtn[disabled] {
+  opacity: 0.55;
+  cursor: default;
 }
 
-.locateBtn:active { transform: scale(0.92); }
-.locateBtn:disabled { opacity: 0.6; cursor: default; }
+.iconBtnOff {
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* Bottom-left corner — live location sharing pill. */
+.liveLocationCorner {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  left: 12px;
+  z-index: 1000;
+}
 
 .locateSpinning {
   animation: locateSpin 1s linear infinite;

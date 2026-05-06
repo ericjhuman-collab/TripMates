@@ -13,6 +13,10 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../services/firebase';
 import { CustomSelect } from '../components/CustomSelect';
 import { getDefaultCover } from '../utils/defaultCovers';
+import { InviteModal } from '../components/InviteModal';
+import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { ImageCropperModal } from '../components/ImageCropperModal';
+import { UserPlus } from 'lucide-react';
 import styles from './TripAdmin.module.css';
 import { useToast } from '../components/useToast';
 
@@ -58,6 +62,8 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
         name: trip.name || '',
         destination: trip.destination || '',
         accommodation: trip.accommodation || '',
+        accommodationAddress: trip.accommodationAddress || '',
+        accommodationLocation: trip.accommodationLocation || null as { lat: number; lng: number } | null,
         startDate: trip.startDate || '',
         endDate: trip.endDate || '',
         type: trip.type || 'Default Trip',
@@ -79,6 +85,8 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     const [coverPreview, setCoverPreview] = useState(trip.imageUrl || '');
     const [imageUploading, setImageUploading] = useState(false);
     const coverFileRef = useRef<File | null>(null);
+    const [inviteModalOpen, setInviteModalOpen] = useState(false);
+    const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
     
     const handledAddDestination = () => {
         const newDest: TripDestination = {
@@ -244,9 +252,8 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
-                                            coverFileRef.current = file;
-                                            setCoverFile(file);
-                                            setCoverPreview(URL.createObjectURL(file));
+                                            setPendingCropFile(file);
+                                            e.target.value = '';
                                         }}
                                     />
                                 </label>
@@ -314,11 +321,41 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         </div>
                         <div>
                             <label className={styles.fieldLabel}>Destination</label>
-                            <input placeholder="E.g. Milano, Italy" className="input-field" title="Destination" value={tripForm.destination} onChange={e => setTripForm({ ...tripForm, destination: e.target.value })} />
+                            <ModernPlaceAutocomplete
+                                defaultValue={tripForm.destination}
+                                placeholder="E.g. Milano, Italy"
+                                className="input-field"
+                                onPlaceSelected={(place) => {
+                                    setTripForm(prev => ({ ...prev, destination: place.name }));
+                                }}
+                                onInputChange={(val) => {
+                                    setTripForm(prev => ({ ...prev, destination: val }));
+                                }}
+                            />
                         </div>
                         <div>
                             <label className={styles.fieldLabel}>Accommodation</label>
-                            <input placeholder="Hotel / Airbnb name or address" className="input-field" title="Accommodation" value={tripForm.accommodation} onChange={e => setTripForm({ ...tripForm, accommodation: e.target.value })} />
+                            <ModernPlaceAutocomplete
+                                defaultValue={tripForm.accommodation}
+                                placeholder="Hotel / Airbnb name or address"
+                                className="input-field"
+                                onPlaceSelected={(place) => {
+                                    setTripForm(prev => ({
+                                        ...prev,
+                                        accommodation: place.name,
+                                        accommodationAddress: place.formatted_address,
+                                        accommodationLocation: place.location,
+                                    }));
+                                }}
+                                onInputChange={(val) => {
+                                    setTripForm(prev => ({
+                                        ...prev,
+                                        accommodation: val,
+                                        accommodationAddress: '',
+                                        accommodationLocation: null,
+                                    }));
+                                }}
+                            />
                         </div>
                         <label className={styles.fieldLabel} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', margin: '0.5rem 0' }}>
                             <input
@@ -343,16 +380,20 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                 </div>
                                 <div className={styles.destinationInputGroup}>
                                     <label className={styles.fieldLabel}>Destination</label>
-                                    <input 
-                                        placeholder="E.g. Rome, Italy" 
-                                        className="input-field" 
-                                        title={`Destination ${idx + 2}`}
-                                        value={dest.destination} 
-                                        onChange={e => {
+                                    <ModernPlaceAutocomplete
+                                        defaultValue={dest.destination}
+                                        placeholder="E.g. Rome, Italy"
+                                        className="input-field"
+                                        onPlaceSelected={(place) => {
                                             const newArray = [...tripForm.destinations];
-                                            newArray[idx].destination = e.target.value;
+                                            newArray[idx].destination = place.name;
                                             setTripForm({ ...tripForm, destinations: newArray });
-                                        }} 
+                                        }}
+                                        onInputChange={(val) => {
+                                            const newArray = [...tripForm.destinations];
+                                            newArray[idx].destination = val;
+                                            setTripForm({ ...tripForm, destinations: newArray });
+                                        }}
                                     />
                                 </div>
                                 <div className={`${styles.dateRow} ${styles.destinationInputGroup}`}>
@@ -387,16 +428,20 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                 </div>
                                 <div>
                                     <label className={styles.fieldLabel}>Accommodation</label>
-                                    <input 
-                                        placeholder="Hotel / Airbnb" 
-                                        className="input-field" 
-                                        title={`Accommodation ${idx + 2}`} 
-                                        value={dest.accommodation} 
-                                        onChange={e => {
+                                    <ModernPlaceAutocomplete
+                                        defaultValue={dest.accommodation || ''}
+                                        placeholder="Hotel / Airbnb"
+                                        className="input-field"
+                                        onPlaceSelected={(place) => {
                                             const newArray = [...tripForm.destinations];
-                                            newArray[idx].accommodation = e.target.value;
+                                            newArray[idx].accommodation = place.name;
                                             setTripForm({ ...tripForm, destinations: newArray });
-                                        }} 
+                                        }}
+                                        onInputChange={(val) => {
+                                            const newArray = [...tripForm.destinations];
+                                            newArray[idx].accommodation = val;
+                                            setTripForm({ ...tripForm, destinations: newArray });
+                                        }}
                                     />
                                 </div>
                             </div>
@@ -484,10 +529,24 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         <div className={`glass-panel ${styles.panel}`}>
                     <h3 className={styles.sectionTitleDark}><Users size={18} /> Members ({localMembers.length})</h3>
                     <div className={styles.codeRow}>
-                        <div className={styles.codeLabel}>Code: <span className={styles.codeValue}>{trip.id}</span></div>
-                        <button onClick={handleShare} className={`btn ${styles.inviteBtn}`} disabled={localInviteClosed}>
-                            <Share2 size={14} /> Invite
+                        <button
+                            onClick={() => setInviteModalOpen(true)}
+                            className={`btn btn-primary ${styles.inviteBtn}`}
+                            disabled={localInviteClosed}
+                        >
+                            <UserPlus size={14} /> Invite people
                         </button>
+                        <button
+                            onClick={handleShare}
+                            className={`btn ${styles.inviteBtn}`}
+                            disabled={localInviteClosed}
+                            style={{ background: 'transparent', border: '1px solid var(--color-border, #ddd)', color: 'var(--color-text-muted)' }}
+                        >
+                            <Share2 size={14} /> Share code
+                        </button>
+                    </div>
+                    <div className={styles.codeLabel}>
+                        Code:<span className={styles.codeValue}>{trip.id}</span>
                     </div>
                     {currentUser?.uid === trip.createdBy && (
                         <label className={styles.closeInviteToggle}>
@@ -810,6 +869,26 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                 </div>,
                 document.body
             )}
+            <InviteModal
+                open={inviteModalOpen}
+                onClose={() => setInviteModalOpen(false)}
+                tripId={trip.id}
+                tripName={trip.name}
+                tripDestination={trip.destination}
+                members={localMembers}
+            />
+            <ImageCropperModal
+                file={pendingCropFile}
+                aspect={16 / 9}
+                title="Crop trip cover"
+                onCropped={(cropped) => {
+                    coverFileRef.current = cropped;
+                    setCoverFile(cropped);
+                    setCoverPreview(URL.createObjectURL(cropped));
+                    setPendingCropFile(null);
+                }}
+                onCancel={() => setPendingCropFile(null)}
+            />
         </div>
     );
 };

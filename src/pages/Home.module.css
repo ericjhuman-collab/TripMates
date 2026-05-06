@@ -12,6 +12,26 @@
   padding-bottom: 0;
 }
 
+/* Map tab goes fullscreen Google-Maps style. The wrapper's vertical
+   padding is killed so the map can fill from under the (now-transparent)
+   app header all the way down to the bottom nav. The nav-pill becomes a
+   floating overlay positioned just below the app header instead of sitting
+   in flow above the map. */
+.pageWrapperMap {
+  padding: 0;
+}
+
+.pageWrapperMap .navPill {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  margin: 0;
+  width: calc(100% - 3rem);
+  max-width: 416px;
+}
+
 /* ── Nav Pill ───────────────────────────────── */
 .navPill {
   display: flex;
@@ -359,12 +379,14 @@
 }
 
 /* ── Map Wrapper ───────────────────────────── */
+/* Map is rendered full-bleed (Google-Maps-style overlay) — break out of
+   the page's horizontal padding and don't reapply it on .mapInner. */
 .mapWrapper {
   margin: 0 -1.5rem;
 }
 
 .mapInner {
-  padding: 0 1.5rem;
+  padding: 0;
 }
 
 /* ── Day View ──────────────────────────────── */
@@ -830,12 +852,24 @@
 }
 
 .modalCloseBtn {
-  background: none;
+  background: rgba(0, 0, 0, 0.06);
   border: none;
   font-size: 1.5rem;
   cursor: pointer;
-  color: var(--color-text-muted);
+  color: var(--color-primary-dark);
   line-height: 1;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.modalCloseBtn:hover {
+  background: rgba(0, 0, 0, 0.12);
 }
 
 .votingNotOpen {

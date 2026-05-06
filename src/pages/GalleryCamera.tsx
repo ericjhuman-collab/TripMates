@@ -10,6 +10,7 @@ import { Heart, Trash2, Tag, Users, Edit3, ArrowDownAZ, Filter } from 'lucide-re
 import { createPortal } from 'react-dom';
 import styles from './GalleryCamera.module.css';
 import { useToast } from '../components/useToast';
+import { ImageCropperModal } from '../components/ImageCropperModal';
 
 type Mode = 'gallery' | 'camera';
 
@@ -38,6 +39,7 @@ export const GalleryCamera: React.FC = () => {
 
     // ── Tagging modal state ────────────────
     const [pendingFiles, setPendingFiles] = useState<(File | Blob)[]>([]);
+    const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
     const [pendingPreviewUrls, setPendingPreviewUrls] = useState<string[]>([]);
     const [uploadProgress, setUploadProgress] = useState<{ current: number; total: number } | null>(null);
     const [showTagModal, setShowTagModal] = useState(false);
@@ -254,7 +256,13 @@ export const GalleryCamera: React.FC = () => {
     const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
         const files = event.target.files ? Array.from(event.target.files) : [];
         if (files.length === 0) return;
-        openTagModal(files);
+        // Only single uploads get the crop step — batch uploads (vacation
+        // dumps) skip it so you don't have to crop 20 photos one by one.
+        if (files.length === 1) {
+            setPendingCropFile(files[0]);
+        } else {
+            openTagModal(files);
+        }
         if (fileInputRef.current) fileInputRef.current.value = '';
     };
 
@@ -824,6 +832,15 @@ export const GalleryCamera: React.FC = () => {
                 </div>,
                 document.body
             )}
+            <ImageCropperModal
+                file={pendingCropFile}
+                title="Crop photo"
+                onCropped={(cropped) => {
+                    setPendingCropFile(null);
+                    openTagModal([cropped]);
+                }}
+                onCancel={() => setPendingCropFile(null)}
+            />
         </div>
     );
 };

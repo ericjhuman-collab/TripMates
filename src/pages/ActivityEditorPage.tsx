@@ -8,6 +8,7 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { storage } from '../services/firebase';
 import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { ImageCropperModal } from '../components/ImageCropperModal';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './TripAdmin.module.css';
 import editorStyles from './ActivityEditorPage.module.css';
@@ -49,8 +50,8 @@ export const ActivityEditorPage: React.FC = () => {
     const [mapIcon, setMapIcon]           = useState(existingActivity?.mapIcon || '📍');
     const [category, setCategory]         = useState(existingActivity?.category || 'Activity');
     const [imageUrl, setImageUrl]         = useState(existingActivity?.imageUrl || '');
-    const [imageUploading, setImageUploading] = useState(false);
     const imageFileRef = useRef<File | null>(null);
+    const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
     const [enableVoting, setEnableVoting] = useState(existingActivity?.enableVoting || false);
     const [voteQuestion, setVoteQuestion] = useState(existingActivity?.voteQuestion || '');
     const [showVoteInfo, setShowVoteInfo] = useState(false);
@@ -268,7 +269,7 @@ export const ActivityEditorPage: React.FC = () => {
                             className={styles.coverPreview}
                         />
                         <label className={styles.coverUploadBtn} title="Upload cover photo">
-                            {imageUploading ? 'Uploading…' : <><Camera size={14} /> Change Photo</>}
+                            <><Camera size={14} /> Change Photo</>
                             <input
                                 type="file"
                                 accept="image/*"
@@ -276,10 +277,8 @@ export const ActivityEditorPage: React.FC = () => {
                                 onChange={(e) => {
                                     const file = e.target.files?.[0];
                                     if (!file) return;
-                                    imageFileRef.current = file;
-                                    setImageUploading(true);
-                                    setImageUrl(URL.createObjectURL(file));
-                                    setImageUploading(false);
+                                    setPendingCropFile(file);
+                                    e.target.value = '';
                                 }}
                             />
                         </label>
@@ -367,7 +366,21 @@ export const ActivityEditorPage: React.FC = () => {
 
                 <div className={editorStyles.field}>
                     <label className={editorStyles.label}>Full Address (for map pin)</label>
-                    <input placeholder="E.g. Piazza del Duomo, 20122 Milano" className="input-field" title="Full Address" value={address} onChange={e => setAddress(e.target.value)} />
+                    <ModernPlaceAutocomplete
+                        defaultValue={address}
+                        placeholder="E.g. Piazza del Duomo, 20122 Milano"
+                        displayValueAfterSelect="address"
+                        onInputChange={(val) => {
+                            setAddress(val);
+                            setLocationCoords(null);
+                        }}
+                        onPlaceSelected={(place) => {
+                            setAddress(place.formatted_address);
+                            setLocationCoords(place.location);
+                            if (!locationName) setLocationName(place.name);
+                        }}
+                        className={styles.pAutocomplete}
+                    />
                 </div>
 
                 {/* Voting */}
@@ -405,6 +418,17 @@ export const ActivityEditorPage: React.FC = () => {
                     {saving ? 'Saving…' : 'Save Activity'}
                 </button>
             </form>
+            <ImageCropperModal
+                file={pendingCropFile}
+                aspect={16 / 9}
+                title="Crop activity cover"
+                onCropped={(cropped) => {
+                    imageFileRef.current = cropped;
+                    setImageUrl(URL.createObjectURL(cropped));
+                    setPendingCropFile(null);
+                }}
+                onCancel={() => setPendingCropFile(null)}
+            />
         </div>
     );
 };

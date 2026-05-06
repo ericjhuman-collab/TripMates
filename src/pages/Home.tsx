@@ -12,6 +12,7 @@ import { db } from '../services/firebase';
 import type { AppUser } from '../context/AuthContext';
 import styles from './Home.module.css';
 import { useToast } from '../components/useToast';
+import { PendingInvitesBanner } from '../components/PendingInvitesBanner';
 
 // Map view bundles leaflet + Google Maps loader; lazy-load it so the
 // schedule view (the default) doesn't pay that cost.
@@ -179,6 +180,16 @@ export const Home: React.FC = () => {
         return () => { document.body.style.overflow = prevOverflow; };
     }, [viewMode]);
 
+    // Map view goes fullscreen Google-Maps style: the map fills the viewport
+    // edge-to-edge, and the header + nav pill overlay on top via a body class
+    // that triggers the global rules in App.css.
+    useEffect(() => {
+        if (viewMode === 'map') {
+            document.body.classList.add('map-fullscreen');
+            return () => document.body.classList.remove('map-fullscreen');
+        }
+    }, [viewMode]);
+
     const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
     const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
 
@@ -327,7 +338,7 @@ export const Home: React.FC = () => {
         .sort((a, b) => b.votes - a.votes);
 
     return (
-        <div className={`animate-fade-in ${styles.pageWrapper} ${viewMode === 'chat' ? styles.pageWrapperChat : ''}`}>
+        <div className={`animate-fade-in ${styles.pageWrapper} ${viewMode === 'chat' ? styles.pageWrapperChat : ''} ${viewMode === 'map' ? styles.pageWrapperMap : ''}`}>
             {/* Hamburger menu overlay + slide-out panel — rendered via portal to escape z-index/overflow */}
             {showViewMenu && createPortal(
                 <div className={styles.menuOverlay} onClick={() => setShowViewMenu(false)}>
@@ -394,6 +405,8 @@ export const Home: React.FC = () => {
                 </div>,
                 document.body
             )}
+
+            <PendingInvitesBanner />
 
             <div className={styles.navPill}>
                 {/* Hamburger — opens the calendar view picker */}
@@ -802,6 +815,13 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
                     <div className={styles.votingNotOpen}>
                         <p className={styles.votingNotOpenText}>Voting hasn't opened yet!</p>
                         <p className={styles.votingNotOpenDate}>Come back on {activity.day} after {activity.time}</p>
+                        <button
+                            className="btn btn-primary"
+                            style={{ marginTop: '1.25rem' }}
+                            onClick={onClose}
+                        >
+                            Close
+                        </button>
                     </div>
                 ) : isVotingClosed ? (
                     <div>

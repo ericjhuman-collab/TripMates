@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Grid, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
+import { Home, Grid, Camera, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { db } from '../services/firebase';
 import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
 import { searchUsersByUsernamePrefix } from '../services/username';
@@ -11,15 +10,6 @@ import { normalizeSearchInput } from '../utils/searchFields';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { PollBanner } from './PollBanner';
 import styles from './Layout.module.css';
-
-const CATEGORY_LABELS: Record<TripCategory, string> = {
-    current: 'Current',
-    future: 'Future',
-    past: 'Past',
-    bucketlist: 'Bucketlist',
-};
-
-const CATEGORY_ORDER: TripCategory[] = ['current', 'future', 'past', 'bucketlist'];
 
 interface UserResult {
     uid: string;
@@ -29,15 +19,9 @@ interface UserResult {
 
 export const Layout: React.FC = () => {
     const { appUser } = useAuth();
-    const { activeTrip, userTrips, switchTrip } = useTrip();
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [showTripDropdown, setShowTripDropdown] = useState(false);
-    const [tripDropdownTop, setTripDropdownTop] = useState(60);
-    const [expandedDropdownCat, setExpandedDropdownCat] = useState<TripCategory | null>(null);
-    const dropdownRef = useRef<HTMLButtonElement>(null);
-    const panelRef = useRef<HTMLDivElement>(null);
 
     // ── User search state ─────────────────────────
     const [searchOpen, setSearchOpen] = useState(false);
@@ -57,31 +41,14 @@ export const Layout: React.FC = () => {
         return () => { document.body.className = ''; };
     }, [themeClass]);
 
-    // Close trip dropdown on outside click
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (
-                showTripDropdown &&
-                dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-                panelRef.current && !panelRef.current.contains(e.target as Node)
-            ) {
-                setShowTripDropdown(false);
-                setExpandedDropdownCat(null);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showTripDropdown]);
-
-    // Close dropdown & search when page is scrolled (panel would drift otherwise)
+    // Close search when page is scrolled (panel would drift otherwise)
     useEffect(() => {
         const close = () => {
-            if (showTripDropdown) { setShowTripDropdown(false); setExpandedDropdownCat(null); }
             if (searchOpen) setSearchOpen(false);
         };
         window.addEventListener('scroll', close, { passive: true });
         return () => window.removeEventListener('scroll', close);
-    }, [showTripDropdown, searchOpen]);
+    }, [searchOpen]);
 
     // Focus search input when opened
     useEffect(() => {
@@ -167,19 +134,6 @@ export const Layout: React.FC = () => {
         navigate(`/profile/${uid}`);
     };
 
-    const groupedTrips = categorizeTrips(userTrips);
-    const tripLabel = activeTrip?.name || activeTrip?.destination || 'My Trips';
-
-    const handleSelectTrip = async (tripId: string) => {
-        setShowTripDropdown(false);
-        setExpandedDropdownCat(null);
-        await switchTrip(tripId);
-    };
-
-    const toggleDropdownCategory = (cat: TripCategory) => {
-        setExpandedDropdownCat(prev => prev === cat ? null : cat);
-    };
-
     const isOwnProfileActive = location.pathname === '/profile' || location.pathname === `/profile/${appUser?.uid}`;
 
     return (
@@ -197,90 +151,6 @@ export const Layout: React.FC = () => {
 
                 {!isProfilePage && (
                     <div className={styles.headerRight}>
-                        {/* My Trips Dropdown */}
-                        <div className={styles.tripDropdownWrapper}>
-                            <button
-                                ref={dropdownRef}
-                                onClick={() => {
-                                    if (!showTripDropdown && dropdownRef.current) {
-                                        setTripDropdownTop(dropdownRef.current.getBoundingClientRect().bottom + 8);
-                                    }
-                                    setShowTripDropdown(!showTripDropdown);
-                                }}
-                                className={styles.tripDropdownBtn}
-                                title="Switch trip"
-                            >
-                                <span className={styles.tripDropdownLabel}>{tripLabel}</span>
-                                <ChevronDown size={14} className={`${styles.tripDropdownChevron} ${showTripDropdown ? styles.tripDropdownChevronOpen : ''}`} />
-                            </button>
-                        </div>
-
-                        {showTripDropdown && createPortal(
-                            <div className={styles.tripDropdownOverlay} onClick={() => setShowTripDropdown(false)}>
-                                <div
-                                    ref={panelRef}
-                                    className={styles.tripDropdownPanel}
-                                    onClick={e => e.stopPropagation()}
-                                    style={{
-                                        position: 'fixed',
-                                        top: tripDropdownTop,
-                                        right: 16,
-                                    }}
-                                >
-                                    {userTrips.length === 0 ? (
-                                        <p className={styles.tripDropdownEmpty}>No trips yet</p>
-                                    ) : (
-                                        CATEGORY_ORDER.map(cat => {
-                                            const trips = groupedTrips[cat];
-                                            if (trips.length === 0) return null;
-                                            const isExpanded = expandedDropdownCat === cat;
-                                            return (
-                                                <div key={cat} className={styles.tripDropdownGroup}>
-                                                    <button
-                                                        className={`${styles.tripDropdownCategoryBtn} ${isExpanded ? styles.tripDropdownCategoryBtnActive : ''}`}
-                                                        onClick={() => toggleDropdownCategory(cat)}
-                                                    >
-                                                        <span className={styles.tripDropdownCategoryLabel}>{CATEGORY_LABELS[cat]}</span>
-                                                        <span className={styles.tripDropdownCategoryMeta}>
-                                                            <span className={styles.tripDropdownCategoryCount}>{trips.length}</span>
-                                                            <ChevronDown
-                                                                size={14}
-                                                                className={`${styles.tripDropdownCategoryChevron} ${isExpanded ? styles.tripDropdownCategoryChevronOpen : ''}`}
-                                                            />
-                                                        </span>
-                                                    </button>
-                                                    {isExpanded && (
-                                                        <div className={styles.tripDropdownCategoryTrips}>
-                                                            {trips.map(trip => (
-                                                                <button
-                                                                    key={trip.id}
-                                                                    onClick={() => handleSelectTrip(trip.id)}
-                                                                    className={`${styles.tripDropdownItem} ${activeTrip?.id === trip.id ? styles.tripDropdownItemActive : ''}`}
-                                                                >
-                                                                    <div className={styles.tripDropdownItemInfo}>
-                                                                        <span className={styles.tripDropdownItemName}>{trip.name}</span>
-                                                                        {trip.destination && (
-                                                                            <span className={styles.tripDropdownItemDest}>
-                                                                                <MapPin size={10} /> {trip.destination}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    {activeTrip?.id === trip.id && (
-                                                                        <Check size={16} className={styles.tripDropdownItemCheck} />
-                                                                    )}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>,
-                            document.body
-                        )}
-
                         {/* Search button — replaces the old profile icon */}
                         <button
                             onClick={() => setSearchOpen(o => !o)}

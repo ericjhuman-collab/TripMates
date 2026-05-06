@@ -3,7 +3,7 @@ import { MapContainer, TileLayer, Marker, Popup, Tooltip, useMap } from 'react-l
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import { format } from 'date-fns';
-import { ChevronLeft, ChevronRight, Copy, Check, Locate, Home } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Copy, Check, Locate, Home, Users, UserX } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { type Activity } from '../services/activities';
 import { useTrip } from '../context/TripContext';
@@ -351,15 +351,23 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                 });
                 const data = await res.json();
                 if (data && data.length > 0) {
+                    console.log('[Map] Geocoded', query, '→', data[0].lat, data[0].lon);
                     return [parseFloat(data[0].lat), parseFloat(data[0].lon)];
                 }
+                console.warn('[Map] Geocoding returned no results for:', query);
             } catch (err) {
-                console.error('Geocoding error:', err);
+                console.error('[Map] Geocoding error:', err);
             }
             return null;
         };
 
         const updateMapData = async () => {
+            console.log('[Map] updateMapData', {
+                accommodationLocation: activeTrip?.accommodationLocation,
+                accommodation: activeTrip?.accommodation,
+                accommodationAddress: activeTrip?.accommodationAddress,
+                destination: activeTrip?.destination,
+            });
             // Prefer exact coords stored at trip creation time
             if (activeTrip?.accommodationLocation) {
                 const { lat, lng } = activeTrip.accommodationLocation;
@@ -367,14 +375,22 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                 setCenter([lat, lng]);
                 return;
             }
-            // Fall back: geocode the accommodation name string
+            // Fall back: geocode the accommodation name string + destination context
             if (activeTrip?.accommodation) {
-                const coords = await fetchGeocode(activeTrip.accommodationAddress || activeTrip.accommodation);
+                const baseQuery = activeTrip.accommodationAddress || activeTrip.accommodation;
+                const queryWithCity = activeTrip.destination
+                    ? `${baseQuery}, ${activeTrip.destination}`
+                    : baseQuery;
+                let coords = await fetchGeocode(queryWithCity);
+                if (!coords && queryWithCity !== baseQuery) {
+                    coords = await fetchGeocode(baseQuery);
+                }
                 if (coords) {
                     setHomeCoords(coords);
                     setCenter(coords);
                     return;
                 }
+                console.warn('[Map] Could not geocode accommodation; home pin will be hidden. Falling back to destination center.');
             }
 
             setHomeCoords(null);
@@ -391,6 +407,33 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
     const displayActivities = activities.filter(a => a.location !== null && a.day === dayString);
 
+    // Diagnostic: warn about activities for the current day that have no coords.
+    // Without coords they cannot render — most often because Google Places
+    // autocomplete was unavailable (no API key) and Nominatim failed to geocode
+    // the typed text.
+    useEffect(() => {
+        const missing = activities.filter(a => a.day === dayString && !a.location);
+        if (missing.length > 0) {
+            console.warn(
+                '[Map] Skipping activities with no coordinates:',
+                missing.map(a => ({ id: a.id, title: a.title, locationName: a.locationName, address: a.address })),
+            );
+        }
+    }, [activities, dayString]);
+
+    // When an activity is at the same address as the trip's accommodation, we
+    // don't render a separate pin — instead we surface its time + info on the
+    // home (🏠) marker so the two don't fight for the same screen pixel.
+    const isAtHome = (act: { location?: { lat: number; lng: number } | null }): boolean => {
+        if (!homeCoords || !act.location) return false;
+        return (
+            Math.abs(homeCoords[0] - act.location.lat) < 1e-6 &&
+            Math.abs(homeCoords[1] - act.location.lng) < 1e-6
+        );
+    };
+    const activitiesAtHome = displayActivities.filter(isAtHome).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+    const activitiesElsewhere = displayActivities.filter(a => !isAtHome(a));
+
     return (
         <div className={`animate-fade-in ${styles.page}`}>
             <div className={styles.header}>
@@ -401,14 +444,14 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
                 <div className={styles.dayNav}>
                     <button onClick={onPrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
-                        <ChevronLeft size={20} />
+                        <ChevronLeft size={16} />
                     </button>
                     <div className={styles.dayLabel}>
                         <h2 className={styles.dayName}>{format(currentDate, 'EEEE')}</h2>
                         <p className={styles.dayDate}>{format(currentDate, 'MMM d')}</p>
                     </div>
                     <button onClick={onNextDay} className="btn-icon" title="Next day" aria-label="Next day">
-                        <ChevronRight size={20} />
+                        <ChevronRight size={16} />
                     </button>
                 </div>
             </div>
@@ -421,7 +464,7 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
                     />
 
-                    {displayActivities.map(act => {
+                    {activitiesElsewhere.map(act => {
                         const markerIcon = createEmojiIcon(act.mapIcon || '📍', false);
 
                         return act.location ? (
@@ -505,12 +548,30 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
 
                     {homeCoords && (
                         <Marker position={homeCoords} icon={createEmojiIcon('🏠', false)}>
+                            {activitiesAtHome.length > 0 && (
+                                <Tooltip permanent direction="top" offset={[0, -16]} className="custom-tooltip">
+                                    <span className={styles.tooltipTime}>
+                                        {activitiesAtHome.map(a => a.time).filter(Boolean).join(' · ')}
+                                    </span>
+                                </Tooltip>
+                            )}
                             <Popup maxWidth={260} minWidth={220}>
                                 <div className={styles.popupCenter} style={{ textAlign: 'center', padding: '0.2rem' }}>
                                     <strong style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                                         {activeTrip?.accommodation}
                                         <CopyAddressBtn address={activeTrip?.accommodation || ''} />
                                     </strong>
+                                    {activitiesAtHome.length > 0 && (
+                                        <div style={{ borderTop: '1px solid var(--color-border, #eee)', borderBottom: '1px solid var(--color-border, #eee)', padding: '0.5rem 0', marginBottom: '0.6rem', display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                                            {activitiesAtHome.map(a => (
+                                                <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.82rem', textAlign: 'left' }}>
+                                                    <span style={{ fontSize: '1.1em', flexShrink: 0 }}>{a.mapIcon || '📍'}</span>
+                                                    <span style={{ fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+                                                    <span style={{ color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}>{a.time}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                     <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.8rem' }}>
                                         I&apos;m too fucked to find my way home, show directions
                                     </span>
@@ -540,24 +601,19 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                     )}
                 </MapContainer>
 
-                {/* View Controls Overlay */}
+                {/* Right-side stack: icon-only round buttons, all the same size.
+                    Order top → bottom: members toggle, locate me, home. */}
                 <div className={styles.mapControls}>
-                    {activeTrip && (
-                        <LiveLocationPicker
-                            tripId={activeTrip.id}
-                            compact
-                            masterDisabled={appUser?.shareLocation === false}
-                        />
-                    )}
                     <button
-                        className={`glass-btn ${styles.mapBtn}`}
+                        className={`glass-btn ${styles.iconBtn} ${!showMembers ? styles.iconBtnOff : ''}`}
                         onClick={() => setShowMembers(!showMembers)}
-                        style={{ opacity: showMembers ? 1 : 0.6 }}
+                        aria-label={showMembers ? 'Hide members' : 'Show members'}
+                        title={showMembers ? 'Hide members' : 'Show members'}
                     >
-                        {showMembers ? 'Hide Members' : 'Show Members'}
+                        {showMembers ? <Users size={18} /> : <UserX size={18} />}
                     </button>
                     <button
-                        className={`glass-btn ${styles.locateBtn}`}
+                        className={`glass-btn ${styles.iconBtn}`}
                         onClick={handleLocateMe}
                         disabled={locating}
                         aria-label="Center on my location"
@@ -567,7 +623,7 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                     </button>
                     {homeCoords && (
                         <button
-                            className={`glass-btn ${styles.locateBtn}`}
+                            className={`glass-btn ${styles.iconBtn}`}
                             onClick={() => recenter(homeCoords)}
                             aria-label="Center on accommodation"
                             title={activeTrip?.accommodation ? `Center on ${activeTrip.accommodation}` : 'Center on accommodation'}
@@ -576,6 +632,17 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         </button>
                     )}
                 </div>
+
+                {/* Bottom-left: live location sharing pill (text + dot indicator). */}
+                {activeTrip && (
+                    <div className={styles.liveLocationCorner}>
+                        <LiveLocationPicker
+                            tripId={activeTrip.id}
+                            compact
+                            masterDisabled={appUser?.shareLocation === false}
+                        />
+                    </div>
+                )}
             </div>
         </div>
     );

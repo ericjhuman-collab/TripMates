@@ -50,6 +50,37 @@ body .app-container {
     box-shadow: none !important;
 }
 
+/* ── Map fullscreen mode ───────────────────────────────────────────────
+   Toggled by Home.tsx when viewMode === 'map'. Drops the app-container's
+   header padding so MapPage can fill viewport edge-to-edge, and makes the
+   Layout header transparent so the map shows through behind the title +
+   buttons (Google-Maps style overlay). */
+body.map-fullscreen .app-container {
+    padding-top: 0 !important;
+}
+
+body.map-fullscreen .app-container > header {
+    background: transparent !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+    pointer-events: none;
+}
+
+/* Re-enable interaction on the actual buttons inside the now
+   pointer-events:none header. */
+body.map-fullscreen .app-container > header button,
+body.map-fullscreen .app-container > header a,
+body.map-fullscreen .app-container > header input {
+    pointer-events: auto;
+}
+
+/* Header text + buttons need a soft white "halo" so they stay readable
+   over arbitrary map tiles. */
+body.map-fullscreen .app-container > header h1,
+body.map-fullscreen .app-container > header button {
+    text-shadow: 0 1px 3px rgba(255, 255, 255, 0.6);
+}
+
 header,
 main {
     position: relative;
