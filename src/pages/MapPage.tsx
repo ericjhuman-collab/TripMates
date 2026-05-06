@@ -207,8 +207,13 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
      *  when the daemon is broadcasting their location to RTDB for this
      *  trip — preferring the live RTDB value over a stale 📍 click since
      *  it auto-refreshes via the subscription. */
-    const [selfPosition, setSelfPosition] = useState<[number, number] | null>(null);
-    const [selfLastSeenAt, setSelfLastSeenAt] = useState<number | null>(null);
+    // Click-driven self-position from the "Center on my location" button.
+    // The displayed self-position (further down) prefers the live RTDB entry
+    // when present, falling back to this click-state. Storing the two sources
+    // separately lets us derive the final value during render — no setState-
+    // in-effect (react-hooks/set-state-in-effect).
+    const [locateClickPosition, setLocateClickPosition] = useState<[number, number] | null>(null);
+    const [locateClickAt, setLocateClickAt] = useState<number | null>(null);
 
     // Live mode for the active trip. Drives the self-pin colour: blue +
     // pulsing while sharing, red + "Last seen HH:MM" when the user has
@@ -234,8 +239,8 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
             (pos) => {
                 const next: [number, number] = [pos.coords.latitude, pos.coords.longitude];
                 recenter(next);
-                setSelfPosition(next);
-                setSelfLastSeenAt(Date.now());
+                setLocateClickPosition(next);
+                setLocateClickAt(Date.now());
                 setLocating(false);
             },
             (err) => {
@@ -261,16 +266,15 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
     }, [activeTrip?.id]);
 
     // Self-position: prefer the live RTDB entry (auto-refreshes via the
-    // subscription) when the daemon is broadcasting; otherwise leave the
-    // last 📍-click position in place.
-    useEffect(() => {
-        if (!appUser?.uid) return;
-        const mine = liveEntries[appUser.uid];
-        if (mine) {
-            setSelfPosition([mine.lat, mine.lng]);
-            setSelfLastSeenAt(mine.updatedAt);
-        }
-    }, [liveEntries, appUser?.uid]);
+    // subscription) when the daemon is broadcasting; otherwise fall back to
+    // the last 📍-click position. Derived during render so we don't ping-pong
+    // through state via setState-in-effect.
+    const liveSelf = appUser?.uid ? liveEntries[appUser.uid] : undefined;
+    const selfPosition: [number, number] | null = useMemo(() => {
+        if (liveSelf) return [liveSelf.lat, liveSelf.lng];
+        return locateClickPosition;
+    }, [liveSelf, locateClickPosition]);
+    const selfLastSeenAt: number | null = liveSelf?.updatedAt ?? locateClickAt;
 
     // One-shot fetch of member display metadata (name/avatar/lastKnown).
     // Avatars and names rarely change mid-trip, and Firestore reads are
