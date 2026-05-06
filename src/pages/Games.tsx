@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import { type BingoSquare, getBingoBoard, initBingoBoard, saveBingoBoard } from '../services/bingo';
@@ -13,8 +14,14 @@ import { useToast } from '../components/useToast';
 
 export const Games: React.FC = () => {
     const toast = useToast();
+    const location = useLocation();
     const { appUser, effectiveRole } = useAuth();
     const { activeTrip } = useTrip();
+    // When rendered inside Home (top-tab `viewMode === 'games'`), Home's
+    // own navPill already labels the page. Skip the redundant title and
+    // sit the game-switcher pill directly under that navPill instead of
+    // colliding with it. Standalone `/games` keeps the full top bar.
+    const embeddedInHome = location.pathname === '/';
     const isAdmin = effectiveRole === 'admin';
     const [squares, setSquares] = useState<BingoSquare[]>([]);
     const [loading, setLoading] = useState(true);
@@ -136,26 +143,38 @@ export const Games: React.FC = () => {
         setSelectedSquareIndex(null);
     };
 
-    return (
-        <div className={`animate-fade-in ${styles.page}`}>
-            <div className={styles.pageHeader}>
-                <h2 className={styles.pageTitle}>Trip Games</h2>
-            </div>
+    const showSwitcher = activeGamesList.length > 1;
+    const pageClass = embeddedInHome
+        ? `${styles.page} ${styles.pageEmbedded} ${showSwitcher ? styles.pageEmbeddedWithPills : ''}`
+        : `${styles.page} ${showSwitcher ? styles.pageWithPills : ''}`;
 
-            {/* Game switcher pill tabs — only shown when multiple games are active */}
-            {activeGamesList.length > 1 && (
-                <div className={styles.gamePills}>
-                    {activeGamesList.map(g => (
-                        <button
-                            key={g}
-                            onClick={() => setSelectedGame(g)}
-                            className={`${styles.gamePill} ${selectedGame === g ? styles.gamePillActive : ''}`}
-                        >
-                            {g.charAt(0).toUpperCase() + g.slice(1).replace('-', ' ')}
-                        </button>
-                    ))}
-                </div>
-            )}
+    return (
+        <div className={`animate-fade-in ${pageClass}`}>
+            {/* Fixed top bar — pinned below Layout's header (and below
+                Home's navPill when embedded). Standalone /games shows
+                the page title; embedded mode skips it because Home's
+                navPill already does the labelling. */}
+            <div className={`${styles.fixedTopBar} ${embeddedInHome ? styles.fixedTopBarEmbedded : ''}`}>
+                {!embeddedInHome && (
+                    <div className={styles.pageHeader}>
+                        <h2 className={styles.pageTitle}>Trip Games</h2>
+                    </div>
+                )}
+
+                {showSwitcher && (
+                    <div className={styles.gamePills}>
+                        {activeGamesList.map(g => (
+                            <button
+                                key={g}
+                                onClick={() => setSelectedGame(g)}
+                                className={`${styles.gamePill} ${selectedGame === g ? styles.gamePillActive : ''}`}
+                            >
+                                {g.charAt(0).toUpperCase() + g.slice(1).replace('-', ' ')}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {selectedGame === 'bingo' && (
                 <>

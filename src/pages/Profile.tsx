@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Building2 } from 'lucide-react';
+import { X, MapPin, Plus, CheckSquare, Camera, Images, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { useTrip, type Trip, type TripPhase, categorizeTrip } from '../context/TripContext';
 import { auth, db, storage } from '../services/firebase';
@@ -10,7 +10,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { getAllActivities, type Activity } from '../services/activities';
 import { getActivityGallery, getTripGallery, type GalleryImage } from '../services/gallery';
-import { followUser, unfollowUser, getNotifications, markNotificationRead, type SocialNotification } from '../services/social';
+import { followUser, unfollowUser } from '../services/social';
 import { changeUsername, isUsernameAvailable, normalizeUsername, validateUsername } from '../services/username';
 import { cityToCountry } from '../utils/cityToCountry';
 import { CountriesGlobe } from '../components/CountriesGlobe';
@@ -77,8 +77,8 @@ ActivitySlide.displayName = 'ActivitySlide';
 
 export const Profile: React.FC = () => {
     const toast = useToast();
-    const { logoutMock, appUser, updateProfile, refreshAppUser } = useAuth();
-    const { activeTrip, createTrip, joinTrip, userTrips: contextUserTrips, updateTrip } = useTrip();
+    const { appUser, updateProfile, refreshAppUser } = useAuth();
+    const { createTrip, joinTrip, userTrips: contextUserTrips, updateTrip } = useTrip();
 
     const navigate = useNavigate();
     const { uid } = useParams();
@@ -102,10 +102,8 @@ export const Profile: React.FC = () => {
     const [joiningTrip, setJoiningTrip] = useState(false);
 
     // ── UI drawers ─────────────────────────────
-    const location = useLocation();
-    const [showHamburger, setShowHamburger] = useState(
-        Boolean((location.state as { openMenu?: boolean } | null)?.openMenu)
-    );
+    // Hamburger drawer + notifications now live in Layout's HamburgerDrawer
+    // component — no per-page state needed here.
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deleteInProgress, setDeleteInProgress] = useState(false);
@@ -121,18 +119,6 @@ export const Profile: React.FC = () => {
         onApply: (cropped: File) => void;
     };
     const [cropPending, setCropPending] = useState<CropPending | null>(null);
-
-    useEffect(() => {
-        const state = location.state as { openMenu?: boolean } | null;
-        if (state?.openMenu) {
-            setShowHamburger(true);
-            window.history.replaceState({}, '');
-        }
-    }, [location.state]);
-
-    const [showNotifications, setShowNotifications] = useState(false);
-    const [notifications, setNotifications] = useState<SocialNotification[]>([]);
-    const unreadCount = notifications.filter(n => !n.read).length;
 
     // ── Follow state ──────────────────────────
     const [isFollowing, setIsFollowing] = useState(false);
@@ -422,8 +408,6 @@ export const Profile: React.FC = () => {
         setAvatarUploading(false);
     };
 
-    const handleLogout = () => { logoutMock(); auth.signOut(); navigate('/login'); };
-
     const handlePasswordReset = async () => {
         const email = auth.currentUser?.email;
         if (!email) return;
@@ -470,11 +454,6 @@ export const Profile: React.FC = () => {
         setIsFollowing((appUser.following || []).includes(uid));
     }, [uid, isOwner, appUser]);
 
-    useEffect(() => {
-        if (!appUser || !isOwner) return;
-        getNotifications(appUser.uid).then(setNotifications).catch(console.error);
-    }, [appUser, isOwner]);
-
     const handleFollow = async () => {
         if (!appUser || !targetUser || followLoading) return;
         setFollowLoading(true);
@@ -493,13 +472,6 @@ export const Profile: React.FC = () => {
         setFollowLoading(false);
     };
 
-    const handleFollowBack = async (fromUid: string, notifId: string) => {
-        if (!appUser) return;
-        await followUser(appUser.uid, fromUid, appUser.name, appUser.avatarUrl);
-        await markNotificationRead(appUser.uid, notifId);
-        setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
-        await refreshAppUser();
-    };
 
     // ── Globe toggle country ───────────────
     const handleToggleCountry = async (country: string, add: boolean) => {
@@ -535,28 +507,9 @@ export const Profile: React.FC = () => {
     return (
         <div className={`animate-fade-in ${styles.page}`}>
 
-            {/* ── Header icons portalled into Layout's header slot ── */}
-            {isOwner && (() => {
-                const slot = document.getElementById('profile-header-slot');
-                if (!slot) return null;
-                
-                // Hide hamburger menu entirely if we are deep linked so we don't have overlapping buttons
-                if (mainTab !== 'profile') {
-                    return null;
-                }
-
-                return createPortal(
-                    <button
-                        className={styles.topBarBtn}
-                        onClick={() => setShowHamburger(true)}
-                        title="Menu"
-                    >
-                        <Menu size={22} />
-                        {unreadCount > 0 && <span className={styles.notifBadge}>{unreadCount}</span>}
-                    </button>,
-                    slot
-                );
-            })()}
+            {/* The Layout header now owns both the hamburger button (with
+                its own drawer) and the back-arrow on Profile sub-pages —
+                no portal needed here anymore. */}
 
             {/* ── Profile hero ─────────────────────── */}
             {mainTab === 'profile' && (
@@ -615,13 +568,29 @@ export const Profile: React.FC = () => {
                             </button>
                         )}
 
-                        {/* Current location */}
-                        {(isOwner ? activeTrip : targetTrips.find(t => t.id === displayUser?.activeTripId)) && (
-                            <p className={styles.heroLocation}>
-                                <MapPin size={13} />
-                                Currently in {(isOwner ? activeTrip?.destination : targetTrips.find(t => t.id === displayUser?.activeTripId)?.destination) || 'Active Trip'}
-                            </p>
-                        )}
+                        {/* Current location — driven purely by trip dates
+                            (categorizeTrip === 'current' means start ≤ today ≤ end).
+                            The user's selected `activeTrip` is intentionally
+                            ignored here: a trip can stay set as "active" long
+                            after it ended, but the profile pill should reflect
+                            real travel state, not UI selection. */}
+                        {(() => {
+                            const currentTrip = tripsToAnalyze.find(t => categorizeTrip(t) === 'current');
+                            if (currentTrip) {
+                                return (
+                                    <p className={styles.heroLocation}>
+                                        <MapPin size={13} />
+                                        Currently in {currentTrip.destination || currentTrip.name || 'Active Trip'}
+                                    </p>
+                                );
+                            }
+                            return (
+                                <p className={`${styles.heroLocation} ${styles.heroLocationIdle}`}>
+                                    <MapPin size={13} />
+                                    {isOwner ? 'Dreaming of the next adventure' : 'Between trips'}
+                                </p>
+                            );
+                        })()}
                     </div>
 
                     {/* Trips grid */}
@@ -1042,125 +1011,8 @@ export const Profile: React.FC = () => {
                 document.body
             )}
 
-            {/* ── Hamburger side drawer (with notifications sub-view) ── */}
-            {showHamburger && createPortal(
-                <div className={styles.drawerOverlay} onClick={() => { setShowHamburger(false); setShowNotifications(false); }}>
-                    <div className={styles.drawer} onClick={e => e.stopPropagation()}>
-                        {!showNotifications ? (
-                            /* ── Main menu view ── */
-                            <>
-                                <div className={styles.drawerHeader}>
-                                    <h3 className={styles.drawerTitle}>Menu</h3>
-                                </div>
-                                <div className={styles.drawerList}>
-                                    <button className={styles.drawerItem} onClick={() => setShowNotifications(true)}>
-                                        <span className={styles.drawerItemIcon}><Bell size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>Notifications</span>
-                                        {unreadCount > 0 && <span className={styles.drawerItemBadge}>{unreadCount}</span>}
-                                    </button>
-                                </div>
-
-                                <div className={styles.drawerDivider} />
-                                <div className={styles.drawerHeader} style={{ padding: '0.5rem 0.75rem' }}>
-                                    <h3 className={styles.drawerTitle}>Account</h3>
-                                </div>
-                                <div className={styles.drawerList}>
-                                    <button
-                                        className={`${styles.drawerItem} ${mainTab === 'admin' ? styles.drawerItemActive : ''}`}
-                                        onClick={() => { setMainTab('admin'); setShowHamburger(false); }}
-                                    >
-                                        <span className={styles.drawerItemIcon}><MapIcon size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>My Trips</span>
-                                    </button>
-                                    <button
-                                        className={`${styles.drawerItem} ${mainTab === 'myActivities' ? styles.drawerItemActive : ''}`}
-                                        onClick={() => { setMainTab('myActivities'); setShowHamburger(false); }}
-                                    >
-                                        <span className={styles.drawerItemIcon}><CheckSquare size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>My Locations</span>
-                                    </button>
-                                    <button
-                                        className={`${styles.drawerItem} ${mainTab === 'network' ? styles.drawerItemActive : ''}`}
-                                        onClick={() => { setMainTab('network'); setShowHamburger(false); }}
-                                    >
-                                        <span className={styles.drawerItemIcon}><UserPlus size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>Network</span>
-                                    </button>
-                                    <button
-                                        className={`${styles.drawerItem} ${mainTab === 'settings' ? styles.drawerItemActive : ''}`}
-                                        onClick={() => { setMainTab('settings'); setShowHamburger(false); }}
-                                    >
-                                        <span className={styles.drawerItemIcon}><Settings size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>Settings</span>
-                                    </button>
-                                </div>
-
-                                <div className={styles.drawerDivider} />
-                                <div className={styles.drawerList}>
-                                    <button
-                                        className={`${styles.drawerItem} ${mainTab === 'businessDashboard' ? styles.drawerItemActive : ''}`}
-                                        onClick={() => { setMainTab('businessDashboard'); setShowHamburger(false); }}
-                                    >
-                                        <span className={styles.drawerItemIcon}><Building2 size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>
-                                            {appUser?.managedBusinessIds?.length ? 'Business Partner HQ' : 'Register as Business Partner'}
-                                        </span>
-                                    </button>
-                                </div>
-
-                                <div className={styles.drawerDivider} />
-                                <div className={styles.drawerList}>
-                                    <button className={`${styles.drawerItem} ${styles.drawerItemDanger}`} onClick={handleLogout}>
-                                        <span className={styles.drawerItemIcon}><LogOut size={18} /></span>
-                                        <span className={styles.drawerItemLabel}>Log Out</span>
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            /* ── Notifications sub-view ── */
-                            <>
-                                <div className={styles.drawerHeader}>
-                                    <button
-                                        className={styles.drawerBackBtn}
-                                        onClick={() => setShowNotifications(false)}
-                                        title="Back to menu"
-                                    >
-                                        <ArrowLeft size={20} />
-                                    </button>
-                                    <h3 className={styles.drawerTitle}>Notifications</h3>
-                                    <button className={styles.drawerCloseBtn} onClick={() => { setShowHamburger(false); setShowNotifications(false); }} aria-label="Close menu"><X size={20} /></button>
-                                </div>
-                                <div className={styles.drawerList}>
-                                    {notifications.length === 0 && (
-                                        <p className={styles.notifEmpty}>No notifications yet.</p>
-                                    )}
-                                    {notifications.map(n => (
-                                        <div key={n.id} className={`${styles.notifItem} ${!n.read ? styles.notifItemUnread : ''}`}>
-                                            {n.fromAvatarUrl
-                                                ? <img src={n.fromAvatarUrl} className={styles.notifAvatar} alt={n.fromName} loading="lazy" />
-                                                : <div className={styles.notifAvatarPlaceholder}>{n.fromName.charAt(0).toUpperCase()}</div>
-                                            }
-                                            <div className={styles.notifMeta}>
-                                                <span className={styles.notifText}><strong>{n.fromName}</strong> started following you</span>
-                                                <span className={styles.notifTime}>{new Date(n.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            {!((appUser?.following || []).includes(n.fromUid)) && (
-                                                <button
-                                                    className={styles.followBackBtn}
-                                                    onClick={() => handleFollowBack(n.fromUid, n.id)}
-                                                >
-                                                    Follow back
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>,
-                document.body
-            )}
+            {/* Hamburger drawer + notifications sub-view live in
+                src/components/HamburgerDrawer.tsx, mounted by Layout. */}
 
             {/* Countries Globe — portalled to body so it covers full screen */}
             {showGlobe && createPortal(

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Grid, Camera, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
+import { Outlet, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Home, MessageCircle, Camera, Banknote, Search, User as UserIcon, X, Menu, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
@@ -9,6 +9,7 @@ import { searchUsersByUsernamePrefix } from '../services/username';
 import { normalizeSearchInput } from '../utils/searchFields';
 import { EmailVerificationBanner } from './EmailVerificationBanner';
 import { PollBanner } from './PollBanner';
+import { HamburgerDrawer } from './HamburgerDrawer';
 import styles from './Layout.module.css';
 
 interface UserResult {
@@ -21,6 +22,7 @@ export const Layout: React.FC = () => {
     const { appUser } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
+    const [searchParams, setSearchParams] = useSearchParams();
 
 
     // ── User search state ─────────────────────────
@@ -31,7 +33,16 @@ export const Layout: React.FC = () => {
     const searchInputRef = useRef<HTMLInputElement>(null);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const isProfilePage = location.pathname.startsWith('/profile') || location.pathname.startsWith('/admin');
+    // ── Hamburger drawer (lifted from Profile so it can open over any page) ──
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [drawerUnreadCount, setDrawerUnreadCount] = useState(0);
+
+    // The header's right-most button swaps based on context: back-arrow when
+    // we're on a Profile sub-page (settings/admin/network/etc.), hamburger
+    // everywhere else. Detected purely from the URL — no portal/context.
+    const profileTabParam = location.pathname.startsWith('/profile') ? searchParams.get('tab') : null;
+    const isProfileSubPage = !!profileTabParam && profileTabParam !== 'profile';
+
 
     const getThemeClass = () => 'theme-default-trip';
     const themeClass = getThemeClass();
@@ -139,41 +150,54 @@ export const Layout: React.FC = () => {
     return (
         <div className={`app-container ${styles.appContainer} ${styles.appContainerWithNav}`}>
             <header className={styles.header}>
-                {isProfilePage ? (
-                    <div className={styles.profileHeaderRow}>
-                        <div id="profile-header-slot" className={styles.profileHeaderSlot} />
-                    </div>
-                ) : (
-                    <div className={styles.headerLeft}>
-                        <h1 className={styles.appTitle}>TripMates</h1>
-                    </div>
-                )}
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.appTitle}>TripMates</h1>
+                </div>
 
-                {!isProfilePage && (
-                    <div className={styles.headerRight}>
-                        {/* Search button — replaces the old profile icon */}
+                <div className={styles.headerRight}>
+                    {/* Search button — visible on every page including /profile,
+                        so users don't lose the people-search affordance when
+                        they switch to their own profile. */}
+                    <button
+                        onClick={() => setSearchOpen(o => !o)}
+                        title="Search users"
+                        className={styles.searchIconBtn}
+                    >
+                        {searchOpen ? <X size={22} /> : <Search size={22} />}
+                    </button>
+
+                    {/* Right-most action: back-arrow on Profile sub-pages,
+                        hamburger everywhere else. The hamburger now opens the
+                        drawer in-place instead of redirecting to /profile —
+                        closing the menu leaves the user on whatever page they
+                        opened it from. */}
+                    {isProfileSubPage ? (
                         <button
-                            onClick={() => setSearchOpen(o => !o)}
-                            title="Search users"
+                            onClick={() => setSearchParams({})}
+                            title="Back to profile"
+                            aria-label="Back to profile"
                             className={styles.searchIconBtn}
                         >
-                            {searchOpen ? <X size={22} /> : <Search size={22} />}
+                            <ArrowLeft size={22} />
                         </button>
-
-                        {/* Hamburger menu — opens the same drawer as on /profile */}
+                    ) : (
                         <button
-                            onClick={() => navigate('/profile', { state: { openMenu: true } })}
+                            onClick={() => setDrawerOpen(true)}
                             title="Menu"
+                            aria-label="Menu"
                             className={styles.searchIconBtn}
                         >
                             <Menu size={22} />
+                            {drawerUnreadCount > 0 && (
+                                <span className={styles.menuUnreadBadge}>{drawerUnreadCount}</span>
+                            )}
                         </button>
-                    </div>
-                )}
+                    )}
+                </div>
             </header>
 
             {/* ── User search overlay ───────────────── */}
-            {searchOpen && !isProfilePage && createPortal(
+            {searchOpen && createPortal(
                 <div className={styles.searchOverlay} onClick={() => setSearchOpen(false)}>
                     <div className={styles.searchPanel} onClick={e => e.stopPropagation()}>
                         <div className={styles.searchInputRow}>
@@ -223,14 +247,16 @@ export const Layout: React.FC = () => {
                 <Outlet />
             </main>
 
+            <HamburgerDrawer
+                open={drawerOpen}
+                onClose={() => setDrawerOpen(false)}
+                onUnreadCountChange={setDrawerUnreadCount}
+            />
+
             <nav className={`nav-container ${styles.navBar}`}>
                     <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Home size={22} />
                         <span>Trip</span>
-                    </NavLink>
-                    <NavLink to="/games" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Grid size={22} />
-                        <span>Games</span>
                     </NavLink>
                     <NavLink to="/gallery" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Camera size={22} />
@@ -239,6 +265,10 @@ export const Layout: React.FC = () => {
                     <NavLink to="/even" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Banknote size={22} />
                         <span>Even</span>
+                    </NavLink>
+                    <NavLink to="/chat" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <MessageCircle size={22} />
+                        <span>Chat</span>
                     </NavLink>
 
                     {/* Profile avatar — replaces Explore */}

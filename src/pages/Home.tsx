@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspens
 import { useLocation } from 'react-router-dom';
 import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, MessageCircle, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, Gamepad2, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { getActivitiesByDay, getAllActivities, type Activity } from '../services/activities';
@@ -19,10 +19,10 @@ import { PendingInvitesBanner } from '../components/PendingInvitesBanner';
 const MapPage = lazy(() => import('./MapPage').then(m => ({ default: m.MapPage })));
 const Members = lazy(() => import('./Members').then(m => ({ default: m.Members })));
 const Polls = lazy(() => import('./Polls').then(m => ({ default: m.Polls })));
-const TripChat = lazy(() => import('../components/TripChat').then(m => ({ default: m.TripChat })));
+const Games = lazy(() => import('./Games').then(m => ({ default: m.Games })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
-type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members' | 'chat';
+type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members' | 'games';
 
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
@@ -170,15 +170,6 @@ export const Home: React.FC = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showViewMenu]);
-
-    // Lock body scroll while the Chat tab is open — only the chat-message
-    // list itself should scroll, never the page behind it.
-    useEffect(() => {
-        if (viewMode !== 'chat') return;
-        const prevOverflow = document.body.style.overflow;
-        document.body.style.overflow = 'hidden';
-        return () => { document.body.style.overflow = prevOverflow; };
-    }, [viewMode]);
 
     // Map view goes fullscreen Google-Maps style: the map fills the viewport
     // edge-to-edge, and the header + nav pill overlay on top via a body class
@@ -338,7 +329,7 @@ export const Home: React.FC = () => {
         .sort((a, b) => b.votes - a.votes);
 
     return (
-        <div className={`animate-fade-in ${styles.pageWrapper} ${viewMode === 'chat' ? styles.pageWrapperChat : ''} ${viewMode === 'map' ? styles.pageWrapperMap : ''}`}>
+        <div className={`animate-fade-in ${styles.pageWrapper} ${viewMode === 'map' ? styles.pageWrapperMap : ''}`}>
             {/* Hamburger menu overlay + slide-out panel — rendered via portal to escape z-index/overflow */}
             {showViewMenu && createPortal(
                 <div className={styles.menuOverlay} onClick={() => setShowViewMenu(false)}>
@@ -429,11 +420,11 @@ export const Home: React.FC = () => {
                 </button>
 
                 {/* Other tabs — icon + label stacked, equal-flex */}
-                {(['map', 'polls', 'chat', 'members'] as const).map(mode => {
+                {(['map', 'polls', 'games', 'members'] as const).map(mode => {
                     const config = {
                         map: { label: 'Map', icon: <MapPin size={18} /> },
                         polls: { label: 'Polls', icon: <BarChart3 size={18} /> },
-                        chat: { label: 'Chat', icon: <MessageCircle size={18} /> },
+                        games: { label: 'Games', icon: <Gamepad2 size={18} /> },
                         members: { label: 'Members', icon: <Users size={18} /> },
                     } as const;
                     const c = config[mode];
@@ -687,9 +678,9 @@ export const Home: React.FC = () => {
                 </Suspense>
             )}
 
-            {viewMode === 'chat' && activeTrip && (
+            {viewMode === 'games' && (
                 <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
-                    <TripChat tripId={activeTrip.id} />
+                    <Games />
                 </Suspense>
             )}
         </div>

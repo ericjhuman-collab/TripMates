@@ -401,42 +401,47 @@ export const Even: React.FC = () => {
     return (
         <div className={styles.evenContainer}>
 
-             <div className={styles.titleRow}>
-                 <div>
-                     <h1 className={styles.title}>{activeTrip?.destination || activeTrip?.name || 'Kungsleden 2025'}</h1>
-                     <span className={styles.totalCost}>
-                         Total expenses: {formatCurrency(totalTripCost, baseCurrency)}
-                         {fxLoading && <span className={styles.fxBadge} title="Hämtar växelkurser…"> · omräknar…</span>}
-                         {fxFailed && !fxLoading && <span className={styles.fxBadgeFailed} title="Vissa växelkurser kunde inte hämtas"> · FX saknas</span>}
-                     </span>
+             {/* Fixed top bar — title + tab pill stay pinned below the
+                 Layout header while the expense list / balances / etc.
+                 scroll. Same pattern as Home's navPill. */}
+             <div className={styles.fixedTopBar}>
+                 <div className={styles.titleRow}>
+                     <div>
+                         <h1 className={styles.title}>{activeTrip?.destination || activeTrip?.name || 'Kungsleden 2025'}</h1>
+                         <span className={styles.totalCost}>
+                             Total expenses: {formatCurrency(totalTripCost, baseCurrency)}
+                             {fxLoading && <span className={styles.fxBadge} title="Hämtar växelkurser…"> · omräknar…</span>}
+                             {fxFailed && !fxLoading && <span className={styles.fxBadgeFailed} title="Vissa växelkurser kunde inte hämtas"> · FX saknas</span>}
+                         </span>
+                     </div>
+                     <div className={styles.titleActions}>
+                         <button
+                             className={styles.infoIconButton}
+                             title="Information"
+                             onClick={() => setInfoModal({
+                                 title: 'Information',
+                                 content: <InfoAccordion />
+                             })}
+                         >
+                             <i className={styles.infoIcon}>i</i>
+                         </button>
+                         {!isSettled && (
+                             <button className={`btn btn-primary ${styles.settleUpBtn}`} onClick={() => setShowSettleModal(true)}>Settle Up</button>
+                         )}
+                     </div>
                  </div>
-                 <div className={styles.titleActions}>
-                     <button 
-                         className={styles.infoIconButton}
-                         title="Information"
-                         onClick={() => setInfoModal({
-                             title: 'Information',
-                             content: <InfoAccordion />
-                         })}
-                     >
-                         <i className={styles.infoIcon}>i</i>
-                     </button>
-                     {!isSettled && (
-                         <button className={`btn btn-primary ${styles.settleUpBtn}`} onClick={() => setShowSettleModal(true)}>Settle Up</button>
-                     )}
-                 </div>
-             </div>
 
-             <div className={styles.navPill}>
-                 {(['EXPENSES', 'BALANCES', 'PAYMENTS', 'INSIGHTS'] as TabView[]).map(tab => (
-                     <button 
-                        key={tab}
-                        className={`${styles.navTab} ${activeTab === tab ? styles.navTabActive : ''}`}
-                        onClick={() => setActiveTab(tab)}
-                     >
-                         {tab.charAt(0).toUpperCase() + tab.slice(1).toLowerCase()}
-                     </button>
-                 ))}
+                 <div className={styles.navPill}>
+                     {(['EXPENSES', 'BALANCES', 'PAYMENTS', 'INSIGHTS'] as TabView[]).map(tab => (
+                         <button
+                            key={tab}
+                            className={`${styles.navTab} ${activeTab === tab ? styles.navTabActive : ''}`}
+                            onClick={() => setActiveTab(tab)}
+                         >
+                             {tab.charAt(0).toUpperCase() + tab.slice(1).toLowerCase()}
+                         </button>
+                     ))}
+                 </div>
              </div>
 
              <div className={styles.tabsContentArea}>

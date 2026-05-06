@@ -1,14 +1,53 @@
 /* Games.module.css */
 
+/* Reserve top space for the fixed .fixedTopBar. Standalone /games shows
+   page title + (optionally) game switcher; embedded inside Home skips
+   the title and only shows the switcher under Home's navPill. */
 .page {
+  padding-top: 3.75rem;
   padding-bottom: 2rem;
+}
+
+.pageWithPills {
+  padding-top: 7.25rem;
+}
+
+/* Embedded inside Home: Home's pageWrapper already reserves room for
+   the navPill, so we only need extra space for the optional switcher. */
+.pageEmbedded {
+  padding-top: 0;
+}
+
+.pageEmbeddedWithPills {
+  padding-top: 3.5rem;
+}
+
+/* Pinned area below Layout's fixed header — keeps the page title and
+   (when present) game switcher on screen while the bingo board / odds
+   list scrolls underneath. */
+.fixedTopBar {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 416px;
+  z-index: 40;
+  background: var(--color-bg-primary);
+  padding-bottom: 0.25rem;
+}
+
+/* Embedded mode: drop down below Home's navPill (~54px tall + 8px gap)
+   so the two fixed bars stack instead of overlapping. */
+.fixedTopBarEmbedded {
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + 54px + 0.5rem);
 }
 
 .pageHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1rem;
+  margin: 0 0 0.5rem;
 }
 
 .pageTitle {
@@ -24,8 +63,7 @@
   background: var(--color-surface);
   border-radius: 999px;
   padding: 0.35rem;
-  margin-top: 0.5rem;
-  margin-bottom: 1.25rem;
+  margin: 0;
   box-shadow: var(--shadow-sm);
   border: 1px solid rgba(0, 0, 0, 0.05);
   overflow-x: auto;

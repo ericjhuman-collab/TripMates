@@ -1,35 +1,23 @@
 /* Home.module.css */
 
+/* Top padding reserves space for the fixed .navPill below; bottom padding
+   keeps a breathing gap above the bottom dock. */
 .pageWrapper {
+  padding-top: calc(58px + 0.5rem);
   padding-bottom: 2rem;
-}
-
-/* Chat tab fills available vertical space — kill the wrapper's bottom
-   padding so the chat container can extend right up to the dock-reserved
-   area. Combined with body overflow-lock in Home.tsx, the page below the
-   chat is visually flush. */
-.pageWrapperChat {
-  padding-bottom: 0;
 }
 
 /* Map tab goes fullscreen Google-Maps style. The wrapper's vertical
    padding is killed so the map can fill from under the (now-transparent)
-   app header all the way down to the bottom nav. The nav-pill becomes a
-   floating overlay positioned just below the app header instead of sitting
-   in flow above the map. */
+   app header all the way down to the bottom nav. The nav-pill remains
+   floating in the same place but with a slightly higher z-index since
+   the map renders on top of normal content. */
 .pageWrapperMap {
   padding: 0;
 }
 
 .pageWrapperMap .navPill {
-  position: fixed;
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.5rem);
-  left: 50%;
-  transform: translateX(-50%);
   z-index: 60;
-  margin: 0;
-  width: calc(100% - 3rem);
-  max-width: 416px;
 }
 
 /* ── Nav Pill ───────────────────────────────── */
@@ -38,14 +26,25 @@
   background: var(--color-surface);
   border-radius: 999px;
   padding: 0.35rem;
-  margin-bottom: 1.5rem;
-  margin-top: 0.5rem;
   box-shadow: var(--shadow-sm);
   border: 1px solid rgba(0, 0, 0, 0.05);
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none;
   align-items: center;
+  /* Pin the nav pill just below the fixed Layout header — fixed (not
+     sticky) because sticky is unreliable inside `.app-container`'s
+     overflow-x: hidden context on iOS WKWebView (same reason the Layout
+     header is fixed). The map view overrides this with its own rule. */
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 416px;
+  z-index: 40;
+  margin: 0;
+  box-sizing: border-box;
 }
 
 .navPill::-webkit-scrollbar {

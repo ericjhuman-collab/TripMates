@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Camera as CameraIcon, Image as ImageIcon, Download, Plus, RefreshCw, ChevronDown, X } from 'lucide-react';
+import { Camera as CameraIcon, Image as ImageIcon, Download, Plus, RefreshCw, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, type Trip } from '../context/TripContext';
 import { db } from '../services/firebase';
@@ -48,7 +48,6 @@ export const GalleryCamera: React.FC = () => {
     const [tagActivityId, setTagActivityId] = useState<string>('');
     const [tagActivityName, setTagActivityName] = useState<string>('');
     const [taggedMemberUids, setTaggedMemberUids] = useState<string[]>([]);
-    const [showTripPicker, setShowTripPicker] = useState(false);
 
     // ── Sort & filter state ────────────────
     type SortMode = 'newest' | 'oldest' | 'mostLiked';
@@ -340,24 +339,46 @@ export const GalleryCamera: React.FC = () => {
     };
 
     const handleDownload = async (url: string, filename: string) => {
+        // iOS WKWebView ignores the `<a download>` attribute, so on a phone
+        // tapping the desktop-style download link did nothing. The reliable
+        // path is the Web Share API with a File payload — that surfaces
+        // iOS's native share sheet, which has a "Save Image" action that
+        // writes to the Photos library. Desktop browsers fall back to the
+        // classic blob-link download.
         try {
             const response = await fetch(url);
             const blob = await response.blob();
+            const safeName = filename || 'tripmates-image.jpg';
+            const file = new File([blob], safeName, { type: blob.type || 'image/jpeg' });
+
+            const nav = navigator as Navigator & { canShare?: (data: { files: File[] }) => boolean };
+            if (typeof nav.share === 'function' && nav.canShare?.({ files: [file] })) {
+                try {
+                    await nav.share({ files: [file] });
+                    return;
+                } catch (shareErr) {
+                    // User cancelled the share sheet — that's not an error
+                    // worth surfacing or falling back from.
+                    if (shareErr instanceof Error && shareErr.name === 'AbortError') return;
+                    // Anything else: drop through to the blob-link fallback.
+                    console.warn('Share failed, falling back to download link', shareErr);
+                }
+            }
+
             const blobUrl = window.URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = filename || 'alen-image.jpg';
+            link.download = safeName;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
             window.URL.revokeObjectURL(blobUrl);
         } catch (error) {
             console.error('Download error:', error);
-            window.open(url, '_blank');
+            toast.error('Could not download image.');
         }
     };
 
-    const selectedTripName = userTrips.find((t: Trip) => t.id === selectedTripId)?.name || 'Select Trip';
     const isCamera = mode === 'camera';
 
     return (
@@ -519,7 +540,7 @@ export const GalleryCamera: React.FC = () => {
                                                         </button>
                                                     )}
                                                     <button
-                                                        onClick={(e) => { e.stopPropagation(); handleDownload(img.url, `alen_${img.id}.jpg`); }}
+                                                        onClick={(e) => { e.stopPropagation(); handleDownload(img.url, `tripmates_${img.id}.jpg`); }}
                                                         className={styles.iconActionBtn}
                                                         title="Download image"
                                                     >
@@ -574,10 +595,11 @@ export const GalleryCamera: React.FC = () => {
                     </div>
                 </div>
 
-                {/* Primary Controls Row */}
+                {/* Primary Controls Row — single centered shutter / upload button.
+                    The empty spacers keep the existing 1fr/auto/1fr grid balanced
+                    so the button stays horizontally centered. */}
                 <div className={styles.controlsRow}>
                     <div aria-hidden />
-                    {/* Shutter / Upload Button */}
                     <div className={styles.shutterCenter}>
                         {isCamera ? (
                             <button
@@ -602,44 +624,9 @@ export const GalleryCamera: React.FC = () => {
                             </>
                         )}
                     </div>
-
-                    {/* Trip Selector */}
-                    <div className={styles.tripSelectorWrapper}>
-                        <div
-                            className={`${styles.tripSelectorDisplay} ${isCamera ? styles.tripSelectorDisplayCamera : styles.tripSelectorDisplayGallery}`}
-                            onClick={() => setShowTripPicker(true)}
-                            role="button"
-                            tabIndex={0}
-                        >
-                            <span>{selectedTripName}</span>
-                            <ChevronDown size={14} />
-                        </div>
-                    </div>
+                    <div aria-hidden />
                 </div>
             </div>
-
-            {/* Trip Picker Sheet */}
-            {showTripPicker && createPortal(
-                <div className={styles.tripPickerBackdrop} onClick={() => setShowTripPicker(false)}>
-                    <div className={styles.tripPickerSheet} onClick={e => e.stopPropagation()}>
-                        <div className={styles.tripPickerHandle} />
-                        <h3 className={styles.tripPickerTitle}>Switch Trip</h3>
-                        <div className={styles.tripPickerList}>
-                            {userTrips.map((trip: Trip) => (
-                                <button
-                                    key={trip.id}
-                                    className={`${styles.tripPickerItem} ${trip.id === selectedTripId ? styles.tripPickerItemActive : ''}`}
-                                    onClick={() => { setSelectedTripId(trip.id); setShowTripPicker(false); }}
-                                >
-                                    <span>{trip.name}</span>
-                                    {trip.id === selectedTripId && <span className={styles.tripPickerCheck}>✓</span>}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
 
             {/* ── Edit Tags Modal (post-upload) ───────── */}
             {editingImage && createPortal(
