@@ -72,7 +72,8 @@
 
 /* When the sub-pill lives inside the fixed top bar, drop the default
    margins so it sits flush under the title row. */
-.adminFixedTopBar .subNavPill {
+.adminFixedTopBar .subNavPill,
+.networkFixedTopBar .subNavPill {
   margin: 0;
 }
 
@@ -80,6 +81,32 @@
   margin: 0;
   font-size: 1.5rem;
   color: var(--color-text);
+}
+
+/* ── Network page (sub-tab in Profile) ──────
+   Same fixed-top-bar pattern as .adminFixedTopBar so the page header,
+   search input, and Following/Followers pill stay pinned below Layout's
+   header while the user list scrolls. */
+.networkPage {
+  padding-top: 11rem;
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 2rem;
+}
+
+.networkFixedTopBar {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 416px;
+  z-index: 40;
+  background: var(--color-bg-primary);
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 /* ── Sub nav pills (shared style) ────────── */

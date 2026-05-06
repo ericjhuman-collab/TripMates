@@ -155,25 +155,44 @@ export const Network: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
     };
 
     return (
-        <div className={styles.scrollContainer} style={{ padding: '0 1.25rem 2rem' }}>
-            <div className={tripStyles.pageHeader} style={{ marginBottom: '1.5rem' }}>
-                {onBack && (
-                    <button onClick={onBack} className={tripStyles.backBtn} title="Go back" aria-label="Go back">
-                        <ArrowLeft size={20} color="var(--color-primary-dark)" />
-                    </button>
-                )}
-                <h2 className={tripStyles.pageTitle}>My Network</h2>
-            </div>
+        <div className={styles.networkPage}>
+            <div className={styles.networkFixedTopBar}>
+                <div className={tripStyles.pageHeader} style={{ margin: 0 }}>
+                    {onBack && (
+                        <button onClick={onBack} className={tripStyles.backBtn} title="Go back" aria-label="Go back">
+                            <ArrowLeft size={20} color="var(--color-primary-dark)" />
+                        </button>
+                    )}
+                    <h2 className={tripStyles.pageTitle}>My Network</h2>
+                </div>
 
-            <div style={{ position: 'relative', marginBottom: '1.5rem' }}>
-                <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
-                <input 
-                    className="input-field"
-                    style={{ paddingLeft: '2.75rem' }}
-                    placeholder="Find friends to follow..."
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                />
+                <div style={{ position: 'relative' }}>
+                    <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-muted)' }} />
+                    <input
+                        className="input-field"
+                        style={{ paddingLeft: '2.75rem' }}
+                        placeholder="Find friends to follow..."
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                    />
+                </div>
+
+                {searchQuery.trim().length < 2 && (
+                    <div style={{ display: 'flex', gap: '0.5rem', background: 'var(--color-bg-card)', padding: '0.35rem', borderRadius: 999 }}>
+                        <button
+                            style={{ flex: 1, padding: '0.6rem', borderRadius: 999, border: 'none', background: activeTab === 'following' ? 'var(--color-bg-primary)' : 'transparent', color: activeTab === 'following' ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: 600, boxShadow: activeTab === 'following' ? 'var(--shadow-sm)' : 'none', cursor: 'pointer' }}
+                            onClick={() => setActiveTab('following')}
+                        >
+                            Following ({localFollowing.length})
+                        </button>
+                        <button
+                            style={{ flex: 1, padding: '0.6rem', borderRadius: 999, border: 'none', background: activeTab === 'followers' ? 'var(--color-bg-primary)' : 'transparent', color: activeTab === 'followers' ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: 600, boxShadow: activeTab === 'followers' ? 'var(--shadow-sm)' : 'none', cursor: 'pointer' }}
+                            onClick={() => setActiveTab('followers')}
+                        >
+                            Followers ({appUser?.followers?.length || 0})
+                        </button>
+                    </div>
+                )}
             </div>
 
             {searchQuery.trim().length >= 2 ? (
@@ -186,27 +205,9 @@ export const Network: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
                     )}
                 </div>
             ) : (
-                <>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem', background: 'var(--color-bg-card)', padding: '0.35rem', borderRadius: 999 }}>
-                        <button 
-                            style={{ flex: 1, padding: '0.6rem', borderRadius: 999, border: 'none', background: activeTab === 'following' ? 'var(--color-bg-primary)' : 'transparent', color: activeTab === 'following' ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: 600, boxShadow: activeTab === 'following' ? 'var(--shadow-sm)' : 'none', cursor: 'pointer' }}
-                            onClick={() => setActiveTab('following')}
-                        >
-                            Following ({localFollowing.length})
-                        </button>
-                        <button 
-                            style={{ flex: 1, padding: '0.6rem', borderRadius: 999, border: 'none', background: activeTab === 'followers' ? 'var(--color-bg-primary)' : 'transparent', color: activeTab === 'followers' ? 'var(--color-primary)' : 'var(--color-text-muted)', fontWeight: 600, boxShadow: activeTab === 'followers' ? 'var(--shadow-sm)' : 'none', cursor: 'pointer' }}
-                            onClick={() => setActiveTab('followers')}
-                        >
-                            Followers ({appUser?.followers?.length || 0})
-                        </button>
-                    </div>
-
-                    {activeTab === 'following' 
-                        ? renderUserList(followingUsers, "You aren't following anyone yet.")
-                        : renderUserList(followersUsers, "You don't have any followers yet.")
-                    }
-                </>
+                activeTab === 'following'
+                    ? renderUserList(followingUsers, "You aren't following anyone yet.")
+                    : renderUserList(followersUsers, "You don't have any followers yet.")
             )}
         </div>
     );
