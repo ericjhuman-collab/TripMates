@@ -52,14 +52,17 @@
 
 .menu {
     position: absolute;
-    top: calc(100% + 0.5rem);
+    /* Open upward — the compact pill lives at the bottom of the Map view,
+       so a downward menu would slide under the floating bottom-nav and
+       hide the higher-level options. */
+    bottom: calc(100% + 0.5rem);
     left: 0;
     background: rgba(255, 255, 255, 0.95);
     -webkit-backdrop-filter: blur(12px);
     backdrop-filter: blur(12px);
     border: 1px solid rgba(0, 0, 0, 0.08);
     border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+    box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.18);
     padding: 0.35rem;
     min-width: 140px;
     z-index: 1000;
