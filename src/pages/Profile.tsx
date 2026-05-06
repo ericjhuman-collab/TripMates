@@ -505,11 +505,14 @@ export const Profile: React.FC = () => {
     }
 
     return (
-        <div className={`animate-fade-in ${styles.page}`}>
+        <div className={styles.page}>
 
             {/* The Layout header now owns both the hamburger button (with
                 its own drawer) and the back-arrow on Profile sub-pages —
-                no portal needed here anymore. */}
+                no portal needed here anymore. The fade-in lives on each
+                mainTab branch's inner wrapper instead, since putting it
+                here would create a `transform`-based containing block
+                that breaks the fixed top bar inside .adminPage. */}
 
             {/* ── Profile hero ─────────────────────── */}
             {mainTab === 'profile' && (
@@ -672,7 +675,7 @@ export const Profile: React.FC = () => {
 
             {/* ── My Trips tab (from hamburger) ── */}
             {mainTab === 'admin' && (
-                <div className={`animate-fade-in ${styles.adminPage}`}>
+                <div className={styles.adminPage}>
                         {/* Fixed header — title row + Current/Future/Past/Bucketlist
                             pill stay pinned below Layout's header while the trip
                             list scrolls. */}

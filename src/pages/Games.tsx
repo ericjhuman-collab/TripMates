@@ -98,10 +98,26 @@ export const Games: React.FC = () => {
     };
 
     const fetchMembers = async () => {
+        if (!activeTrip) { setMembers([]); return; }
         try {
             const snapshot = await getDocs(collection(db, 'users'));
             const usersData = snapshot.docs.map(doc => doc.data() as AppUser);
-            setMembers(usersData.filter(m => m.hasAgreed));
+
+            // Only members of the active trip — Bingo's leaderboard and the
+            // member picker must show people on this specific trip, not the
+            // whole user table. Mirrors the filter in Members.tsx.
+            const validMembers = usersData.filter(m => m.hasAgreed && activeTrip.members.includes(m.uid));
+
+            const mockUids = activeTrip.members.filter(m => m.startsWith('mock_'));
+            const mockUsers: AppUser[] = mockUids.map(uid => ({
+                uid,
+                name: uid.replace('mock_', ''),
+                fullName: uid.replace('mock_', ''),
+                role: 'user',
+                hasAgreed: true,
+            }));
+
+            setMembers([...validMembers, ...mockUsers]);
         } catch (err) {
             console.error('Failed to fetch members', err);
         }
@@ -111,7 +127,7 @@ export const Games: React.FC = () => {
         fetchBoard();
         fetchMembers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin]);
+    }, [isAdmin, activeTrip?.id]);
 
     const handleSquareClick = async (index: number) => {
         if (!appUser || !activeTrip) return;
@@ -149,7 +165,11 @@ export const Games: React.FC = () => {
         : `${styles.page} ${showSwitcher ? styles.pageWithPills : ''}`;
 
     return (
-        <div className={`animate-fade-in ${pageClass}`}>
+        // No `animate-fade-in` on this wrapper: it would add a `transform`
+        // and turn .page into a containing block for `.fixedTopBar`
+        // (position: fixed), making the Bingo/Odds switcher render shifted
+        // down and overlap the cards. See feedback_tripmates_fixed_tab_bar.
+        <div className={pageClass}>
             {/* Fixed top bar — pinned below Layout's header (and below
                 Home's navPill when embedded). Standalone /games shows
                 the page title; embedded mode skips it because Home's

@@ -329,7 +329,7 @@ export const Home: React.FC = () => {
         .sort((a, b) => b.votes - a.votes);
 
     return (
-        <div className={`animate-fade-in ${styles.pageWrapper} ${viewMode === 'map' ? styles.pageWrapperMap : ''}`}>
+        <div className={`${styles.pageWrapper} ${viewMode === 'map' ? styles.pageWrapperMap : ''}`}>
             {/* Hamburger menu overlay + slide-out panel — rendered via portal to escape z-index/overflow */}
             {showViewMenu && createPortal(
                 <div className={styles.menuOverlay} onClick={() => setShowViewMenu(false)}>
@@ -597,21 +597,23 @@ export const Home: React.FC = () => {
             )}
 
             {viewMode === 'day' && (
-                <div className="animate-fade-in">
-                    <div className={styles.dayHeader}>
-                        <button onClick={handlePrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
-                            <ChevronLeft size={20} />
-                        </button>
-                        <div className={styles.dayHeaderCenter}>
-                            <h2 className={styles.dayTitle}>{format(currentDate, 'EEEE')}</h2>
-                            <p className={styles.daySubtitle}>{format(currentDate, 'MMMM d, yyyy')}</p>
-                            {tripDayNumber > 0 && (
-                                <p className={styles.dayTripNumber}>Day {tripDayNumber} of Trip</p>
-                            )}
+                <div className={styles.dayViewContent}>
+                    <div className={styles.dayHeaderFixed}>
+                        <div className={styles.dayHeader}>
+                            <button onClick={handlePrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
+                                <ChevronLeft size={20} />
+                            </button>
+                            <div className={styles.dayHeaderCenter}>
+                                <h2 className={styles.dayTitle}>{format(currentDate, 'EEEE')}</h2>
+                                <p className={styles.daySubtitle}>{format(currentDate, 'MMMM d, yyyy')}</p>
+                                {tripDayNumber > 0 && (
+                                    <p className={styles.dayTripNumber}>Day {tripDayNumber} of Trip</p>
+                                )}
+                            </div>
+                            <button onClick={handleNextDay} className="btn-icon" title="Next day" aria-label="Next day">
+                                <ChevronRight size={20} />
+                            </button>
                         </div>
-                        <button onClick={handleNextDay} className="btn-icon" title="Next day" aria-label="Next day">
-                            <ChevronRight size={20} />
-                        </button>
                     </div>
 
                     {loading ? (

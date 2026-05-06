@@ -389,6 +389,29 @@
 }
 
 /* ── Day View ──────────────────────────────── */
+/* Pin the date row below the fixed .navPill so only the activity list
+   scrolls. Same fixed-not-sticky reason as the rest of the app's pinned
+   chrome on iOS WKWebView. */
+.dayHeaderFixed {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 7.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 416px;
+  z-index: 39;
+  background: var(--color-bg-primary);
+  padding: 0.25rem 0 0.5rem;
+}
+
+.dayHeaderFixed .dayHeader {
+  margin-bottom: 0;
+}
+
+.dayViewContent {
+  padding-top: 6rem;
+}
+
 .dayHeader {
   display: flex;
   align-items: center;

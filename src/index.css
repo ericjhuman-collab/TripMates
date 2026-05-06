@@ -187,6 +187,13 @@ body {
 }
 
 /* Animations */
+/* Note: `transform` (any non-`none` value) creates a containing block
+   for `position: fixed` descendants. Don't put `animate-fade-in` on a
+   wrapper that holds a `position: fixed` top bar — its `top:` will be
+   measured from the wrapper instead of the viewport while the animation
+   plays AND afterwards (because `forwards` keeps the final `translateY(0)`
+   sticky). Animate inner content instead, or skip the animation on that
+   page. */
 @keyframes fadeIn {
   from {
     opacity: 0;

@@ -405,6 +405,85 @@ export const GalleryCamera: React.FC = () => {
 
     return (
         <div className={`${styles.fullscreen} ${isCamera ? styles.fullscreenCamera : styles.fullscreenGallery}`}>
+            {/* Sort & filter toolbar — sits ABOVE the scrolling .contentArea
+                so only the gallery grid scrolls; toolbar + filter chips stay
+                pinned under the Layout header. */}
+            {!isCamera && images.length > 0 && (
+                <div className={styles.galleryToolbar}>
+                    <label className={styles.toolbarSortWrap}>
+                        <ArrowDownAZ size={14} />
+                        <select
+                            value={sortBy}
+                            onChange={e => setSortBy(e.target.value as SortMode)}
+                            className={styles.toolbarSelect}
+                        >
+                            <option value="newest">Newest first</option>
+                            <option value="oldest">Oldest first</option>
+                            <option value="mostLiked">Most liked</option>
+                        </select>
+                    </label>
+                    <button
+                        type="button"
+                        className={`${styles.toolbarFilterBtn} ${activeFilterCount > 0 ? styles.toolbarFilterBtnActive : ''}`}
+                        onClick={() => setShowFilterPanel(v => !v)}
+                    >
+                        <Filter size={14} />
+                        Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+                    </button>
+                </div>
+            )}
+
+            {!isCamera && showFilterPanel && (
+                <div className={styles.filterPanel}>
+                    {tripActivities.length > 0 && (
+                        <div className={styles.filterSection}>
+                            <div className={styles.filterLabel}>Activity</div>
+                            <select
+                                value={filterActivityId}
+                                onChange={e => setFilterActivityId(e.target.value)}
+                                className={styles.toolbarSelect}
+                            >
+                                <option value="">All activities</option>
+                                {tripActivities.map(a => (
+                                    <option key={a.id} value={a.id}>{a.locationName || a.title}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                    {tripMembers.length > 1 && (
+                        <div className={styles.filterSection}>
+                            <div className={styles.filterLabel}>Tagged members (must include all)</div>
+                            <div className={styles.tagChips}>
+                                {tripMembers.map(m => {
+                                    const on = filterTaggedUids.includes(m.uid);
+                                    return (
+                                        <button
+                                            type="button"
+                                            key={m.uid}
+                                            className={`${styles.tagChip} ${on ? styles.tagChipActive : ''}`}
+                                            onClick={() => setFilterTaggedUids(prev =>
+                                                on ? prev.filter(u => u !== m.uid) : [...prev, m.uid]
+                                            )}
+                                        >
+                                            {m.name.split(' ')[0]}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                    {activeFilterCount > 0 && (
+                        <button
+                            type="button"
+                            className={styles.filterClearBtn}
+                            onClick={() => { setFilterActivityId(''); setFilterTaggedUids([]); }}
+                        >
+                            Clear filters
+                        </button>
+                    )}
+                </div>
+            )}
+
             {/* Main Content Area */}
             <div className={styles.contentArea}>
                 {/* CAMERA MODE */}
@@ -424,84 +503,6 @@ export const GalleryCamera: React.FC = () => {
                 {/* GALLERY MODE */}
                 {!isCamera && (
                     <div className={styles.galleryContainer}>
-                        {/* Sort & filter toolbar */}
-                        {images.length > 0 && (
-                            <div className={styles.galleryToolbar}>
-                                <label className={styles.toolbarSortWrap}>
-                                    <ArrowDownAZ size={14} />
-                                    <select
-                                        value={sortBy}
-                                        onChange={e => setSortBy(e.target.value as SortMode)}
-                                        className={styles.toolbarSelect}
-                                    >
-                                        <option value="newest">Newest first</option>
-                                        <option value="oldest">Oldest first</option>
-                                        <option value="mostLiked">Most liked</option>
-                                    </select>
-                                </label>
-                                <button
-                                    type="button"
-                                    className={`${styles.toolbarFilterBtn} ${activeFilterCount > 0 ? styles.toolbarFilterBtnActive : ''}`}
-                                    onClick={() => setShowFilterPanel(v => !v)}
-                                >
-                                    <Filter size={14} />
-                                    Filter{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Filter panel */}
-                        {showFilterPanel && (
-                            <div className={styles.filterPanel}>
-                                {tripActivities.length > 0 && (
-                                    <div className={styles.filterSection}>
-                                        <div className={styles.filterLabel}>Activity</div>
-                                        <select
-                                            value={filterActivityId}
-                                            onChange={e => setFilterActivityId(e.target.value)}
-                                            className={styles.toolbarSelect}
-                                        >
-                                            <option value="">All activities</option>
-                                            {tripActivities.map(a => (
-                                                <option key={a.id} value={a.id}>{a.locationName || a.title}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                                {tripMembers.length > 1 && (
-                                    <div className={styles.filterSection}>
-                                        <div className={styles.filterLabel}>Tagged members (must include all)</div>
-                                        <div className={styles.tagChips}>
-                                            {tripMembers.map(m => {
-                                                const on = filterTaggedUids.includes(m.uid);
-                                                return (
-                                                    <button
-                                                        type="button"
-                                                        key={m.uid}
-                                                        className={`${styles.tagChip} ${on ? styles.tagChipActive : ''}`}
-                                                        onClick={() => setFilterTaggedUids(prev =>
-                                                            on ? prev.filter(u => u !== m.uid) : [...prev, m.uid]
-                                                        )}
-                                                    >
-                                                        {m.name.split(' ')[0]}
-                                                    </button>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                )}
-                                {activeFilterCount > 0 && (
-                                    <button
-                                        type="button"
-                                        className={styles.filterClearBtn}
-                                        onClick={() => { setFilterActivityId(''); setFilterTaggedUids([]); }}
-                                    >
-                                        Clear filters
-                                    </button>
-                                )}
-                            </div>
-                        )}
-
                         <div className={styles.galleryGrid}>
                             {images.length === 0 ? (
                                 <div className={styles.galleryEmpty}>
