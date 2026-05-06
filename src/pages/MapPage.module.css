@@ -124,10 +124,11 @@
 }
 
 /* Right-side vertical control stack — all icon buttons share one size
-   and one style for visual consistency (Google-Maps style). */
+   and one style for visual consistency (Google-Maps style). Sits above
+   the floating bottom-nav pill (which is bottom:1.5rem + ~3rem tall + safe). */
 .mapControls {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  bottom: calc(env(safe-area-inset-bottom) + 6rem);
   right: 12px;
   z-index: 1000; /* Leaflet maps sit at z-index 400 */
   display: flex;
@@ -174,10 +175,11 @@
   background: rgba(255, 255, 255, 0.75);
 }
 
-/* Bottom-left corner — live location sharing pill. */
+/* Bottom-left corner — live location sharing pill. Same vertical anchor
+   as .mapControls so it sits above the floating bottom-nav pill too. */
 .liveLocationCorner {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom) + 1rem);
+  bottom: calc(env(safe-area-inset-bottom) + 6rem);
   left: 12px;
   z-index: 1000;
 }
