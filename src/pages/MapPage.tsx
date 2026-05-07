@@ -108,12 +108,16 @@ const distanceMeters = (
 
 const SAME_LOCATION_THRESHOLD_M = 25;
 
-// Stacked-avatar marker for clusters of 2+ co-located people. Shows the
-// first member's avatar with a small "+N" badge to signal there are more
-// at this spot. Tooltip + popup list everyone in the cluster.
+// Cluster marker for 2+ co-located people. Variants:
+//   - members only (no self): primary member's avatar + total-count
+//     badge ("3" for three people, etc.)
+//   - includes self: blue self-pulse on top + total-count badge so the
+//     "you are here" affordance survives the merge with members.
+// Tooltip + popup list everyone in the cluster.
 const createClusterIcon = (
     primary: { avatarUrl?: string; name: string; live: boolean },
     count: number,
+    includesSelf: boolean,
 ) => {
     const initials = safeInitials(primary.name);
     const safeUrl = primary.avatarUrl && isSafeAvatarUrl(primary.avatarUrl) ? primary.avatarUrl : '';
@@ -121,15 +125,19 @@ const createClusterIcon = (
     const grayscale = primary.live ? '0' : '60%';
     const filter = `opacity(${opacity}) grayscale(${grayscale})`;
 
-    const avatar = safeUrl
-        ? `<div style="background-image: url('${safeUrl}'); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`
-        : `<div style="background-color: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};">${initials}</div>`;
+    const baseIcon = includesSelf
+        ? `<div style="position: absolute; inset: 0; border-radius: 50%; background: rgba(66, 133, 244, 0.25); animation: tripmates-self-pulse 2s ease-out infinite;"></div>
+           <div style="position: absolute; inset: 6px; border-radius: 50%; background: #4285F4; border: 3px solid white; box-shadow: 0 1px 4px rgba(0,0,0,0.3);"></div>`
+        : safeUrl
+            ? `<div style="background-image: url('${safeUrl}'); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`
+            : `<div style="background-color: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};">${initials}</div>`;
 
-    const badge = `<div style="position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #ef4444; color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--color-surface); box-shadow: 0 2px 4px rgba(0,0,0,0.3); box-sizing: border-box;">+${count - 1}</div>`;
+    // Total-count badge — "3" reads at-a-glance for any cluster size.
+    const badge = `<div style="position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #ef4444; color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--color-surface); box-shadow: 0 2px 4px rgba(0,0,0,0.3); box-sizing: border-box;">${count}</div>`;
 
     return L.divIcon({
         className: 'custom-cluster-icon',
-        html: `<div style="position: relative; width: 36px; height: 36px;">${avatar}${badge}</div>`,
+        html: `<div style="position: relative; width: 36px; height: 36px;">${baseIcon}${badge}</div>`,
         iconSize: [36, 36],
         iconAnchor: [18, 18],
         popupAnchor: [0, -18],
@@ -393,32 +401,41 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
         return out;
     }, [activeTrip, showMembers, appUser?.uid, liveEntries, memberMeta]);
 
-    // Group co-located members so two people at the same restaurant don't
-    // render as a single overlapping pin. Each cluster keeps a list of
-    // members sharing that spot; the marker renders as a stacked avatar
-    // with a "+N" badge when count > 1, and the popup lists everyone.
-    const memberClusters: { lat: number; lng: number; members: MemberLocation[] }[] = useMemo(() => {
-        const clusters: { lat: number; lng: number; members: MemberLocation[] }[] = [];
-        for (const ml of memberLocations) {
-            const existing = clusters.find(c => distanceMeters({ lat: c.lat, lng: c.lng }, ml) < SAME_LOCATION_THRESHOLD_M);
+    // Build a single position list (members + self) and cluster it so
+    // "we're all at the same place" renders as ONE marker with a total
+    // count, not a stack of overlapping pins. Self gets a sentinel uid
+    // of 'self' and an isSelf flag so the renderer can keep the blue
+    // pulse affordance for clusters that include the user.
+    type MapPin = MemberLocation & { isSelf?: boolean };
+    const allPins: MapPin[] = useMemo(() => {
+        const out: MapPin[] = showMembers ? [...memberLocations] : [];
+        if (selfPosition && appUser?.uid) {
+            out.push({
+                uid: 'self',
+                lat: selfPosition[0],
+                lng: selfPosition[1],
+                timestamp: selfLastSeenAt ?? Date.now(),
+                name: appUser.name || 'You',
+                avatarUrl: appUser.avatarUrl,
+                live: selfSharing,
+                isSelf: true,
+            });
+        }
+        return out;
+    }, [memberLocations, selfPosition, selfLastSeenAt, selfSharing, appUser?.uid, appUser?.name, appUser?.avatarUrl, showMembers]);
+
+    const positionClusters: { lat: number; lng: number; pins: MapPin[] }[] = useMemo(() => {
+        const clusters: { lat: number; lng: number; pins: MapPin[] }[] = [];
+        for (const pin of allPins) {
+            const existing = clusters.find(c => distanceMeters({ lat: c.lat, lng: c.lng }, pin) < SAME_LOCATION_THRESHOLD_M);
             if (existing) {
-                existing.members.push(ml);
+                existing.pins.push(pin);
             } else {
-                clusters.push({ lat: ml.lat, lng: ml.lng, members: [ml] });
+                clusters.push({ lat: pin.lat, lng: pin.lng, pins: [pin] });
             }
         }
         return clusters;
-    }, [memberLocations]);
-
-    // Count of OTHER members co-located with self (within the same
-    // threshold) so the self pin can flag "you're with N people here"
-    // without changing its iconography.
-    const peersAtSelfPosition = useMemo(() => {
-        if (!selfPosition) return [] as MemberLocation[];
-        return memberLocations.filter(ml =>
-            distanceMeters({ lat: selfPosition[0], lng: selfPosition[1] }, ml) < SAME_LOCATION_THRESHOLD_M
-        );
-    }, [memberLocations, selfPosition]);
+    }, [allPins]);
 
 
     useEffect(() => {
@@ -584,51 +601,77 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         ) : null;
                     })}
 
-                    {showMembers && memberClusters.map(cluster => {
-                        if (cluster.members.length === 1) {
-                            const ml = cluster.members[0];
+                    {positionClusters.map(cluster => {
+                        const includesSelf = cluster.pins.some(p => p.isSelf);
+
+                        // Single pin → keep the existing dedicated icons.
+                        if (cluster.pins.length === 1) {
+                            const pin = cluster.pins[0];
+                            if (pin.isSelf) {
+                                return (
+                                    <Marker key="self" position={[pin.lat, pin.lng]} icon={selfSharing ? createSelfIcon() : createSelfStaleIcon()}>
+                                        <Popup>
+                                            <div style={{ textAlign: 'center' }}>
+                                                {selfSharing ? <strong>You are here</strong> : (
+                                                    <>
+                                                        <strong>Last position</strong>
+                                                        {selfLastSeenAt && (
+                                                            <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                                {formatLastSeen(selfLastSeenAt)}
+                                                            </p>
+                                                        )}
+                                                    </>
+                                                )}
+                                            </div>
+                                        </Popup>
+                                    </Marker>
+                                );
+                            }
                             return (
-                                <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name, ml.live)}>
+                                <Marker key={pin.uid} position={[pin.lat, pin.lng]} icon={createAvatarIcon(pin.avatarUrl, pin.name, pin.live)}>
                                     <Tooltip permanent direction="top" offset={[0, -18]} className="custom-tooltip">
-                                        <span className={styles.memberLabel} data-live={ml.live}>
-                                            {(ml.name || '').split(' ')[0] || '?'}
+                                        <span className={styles.memberLabel} data-live={pin.live}>
+                                            {(pin.name || '').split(' ')[0] || '?'}
                                         </span>
                                     </Tooltip>
                                     <Popup>
                                         <div style={{ textAlign: 'center' }}>
-                                            <h4 style={{ margin: 0 }}>{ml.name}</h4>
+                                            <h4 style={{ margin: 0 }}>{pin.name}</h4>
                                             <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                                {ml.live ? 'Sharing live' : formatLastSeen(ml.timestamp)}
+                                                {pin.live ? 'Sharing live' : formatLastSeen(pin.timestamp)}
                                             </p>
                                         </div>
                                     </Popup>
                                 </Marker>
                             );
                         }
-                        // 2+ members at the same spot — single stacked marker
-                        // listing everyone in the popup.
-                        const primary = cluster.members[0];
-                        const firstNames = cluster.members.map(m => (m.name || '').split(' ')[0]).join(', ');
+
+                        // 2+ co-located → single stacked marker. If self is
+                        // in the cluster, prefer the blue pulse so "you are
+                        // here" survives the merge; otherwise show the first
+                        // member's avatar as the primary.
+                        const primary = cluster.pins.find(p => !p.isSelf) ?? cluster.pins[0];
+                        const labelNames = cluster.pins.map(p => p.isSelf ? 'You' : (p.name || '').split(' ')[0]).join(', ');
                         return (
                             <Marker
-                                key={cluster.members.map(m => m.uid).join(':')}
+                                key={cluster.pins.map(p => p.uid).join(':')}
                                 position={[cluster.lat, cluster.lng]}
-                                icon={createClusterIcon(primary, cluster.members.length)}
+                                icon={createClusterIcon(primary, cluster.pins.length, includesSelf)}
                             >
                                 <Tooltip permanent direction="top" offset={[0, -18]} className="custom-tooltip">
                                     <span className={styles.memberLabel} data-live={primary.live}>
-                                        {firstNames}
+                                        {labelNames}
                                     </span>
                                 </Tooltip>
                                 <Popup>
                                     <div style={{ textAlign: 'center' }}>
-                                        <h4 style={{ margin: 0 }}>{cluster.members.length} people here</h4>
+                                        <h4 style={{ margin: 0 }}>{cluster.pins.length} people here</h4>
                                         <ul style={{ margin: '0.5rem 0 0', padding: 0, listStyle: 'none', textAlign: 'left' }}>
-                                            {cluster.members.map(m => (
-                                                <li key={m.uid} style={{ fontSize: '0.85rem', padding: '0.15rem 0' }}>
-                                                    <strong>{m.name}</strong>
+                                            {cluster.pins.map(p => (
+                                                <li key={p.uid} style={{ fontSize: '0.85rem', padding: '0.15rem 0' }}>
+                                                    <strong>{p.isSelf ? 'You' : p.name}</strong>
                                                     <span style={{ marginLeft: '0.4rem', color: 'var(--color-text-muted)' }}>
-                                                        {m.live ? 'live' : formatLastSeen(m.timestamp)}
+                                                        {p.live ? 'live' : formatLastSeen(p.timestamp)}
                                                     </span>
                                                 </li>
                                             ))}
@@ -638,35 +681,6 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                             </Marker>
                         );
                     })}
-
-
-                    {selfPosition && (
-                        <Marker position={selfPosition} icon={selfSharing ? createSelfIcon() : createSelfStaleIcon()}>
-                            <Popup>
-                                <div style={{ textAlign: 'center' }}>
-                                    {selfSharing ? (
-                                        <strong>You are here</strong>
-                                    ) : (
-                                        <>
-                                            <strong>Last position</strong>
-                                            {selfLastSeenAt && (
-                                                <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                                    {formatLastSeen(selfLastSeenAt)}
-                                                </p>
-                                            )}
-                                        </>
-                                    )}
-                                    {peersAtSelfPosition.length > 0 && (
-                                        <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)' }}>
-                                            <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600 }}>
-                                                With {peersAtSelfPosition.map(p => (p.name || '').split(' ')[0]).join(', ')}
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </Popup>
-                        </Marker>
-                    )}
 
                     {homeCoords && (
                         <Marker position={homeCoords} icon={createEmojiIcon('🏠', false)}>
