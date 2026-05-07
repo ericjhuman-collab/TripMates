@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Outlet, NavLink, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Home, MessageCircle, Camera, Banknote, Search, User as UserIcon, X, Menu, ArrowLeft } from 'lucide-react';
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { Home, MessageCircle, Camera, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../services/firebase';
 import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
@@ -21,7 +21,6 @@ export const Layout: React.FC = () => {
     const { appUser } = useAuth();
     const navigate = useNavigate();
     const location = useLocation();
-    const [searchParams, setSearchParams] = useSearchParams();
 
 
     // ── User search state ─────────────────────────
@@ -36,11 +35,10 @@ export const Layout: React.FC = () => {
     const [drawerOpen, setDrawerOpen] = useState(false);
     const [drawerUnreadCount, setDrawerUnreadCount] = useState(0);
 
-    // The header's right-most button swaps based on context: back-arrow when
-    // we're on a Profile sub-page (settings/admin/network/etc.), hamburger
-    // everywhere else. Detected purely from the URL — no portal/context.
-    const profileTabParam = location.pathname.startsWith('/profile') ? searchParams.get('tab') : null;
-    const isProfileSubPage = !!profileTabParam && profileTabParam !== 'profile';
+    // The header's right-most button is always the hamburger — every
+    // sub-page renders its own back-arrow inside its page header
+    // (Profile.tsx admin/settings/network/etc.) so duplicating it in
+    // the app-shell header was redundant and disorienting.
 
 
     const getThemeClass = () => 'theme-default-trip';
@@ -165,33 +163,21 @@ export const Layout: React.FC = () => {
                         {searchOpen ? <X size={22} /> : <Search size={22} />}
                     </button>
 
-                    {/* Right-most action: back-arrow on Profile sub-pages,
-                        hamburger everywhere else. The hamburger now opens the
-                        drawer in-place instead of redirecting to /profile —
-                        closing the menu leaves the user on whatever page they
-                        opened it from. */}
-                    {isProfileSubPage ? (
-                        <button
-                            onClick={() => setSearchParams({})}
-                            title="Back to profile"
-                            aria-label="Back to profile"
-                            className={styles.searchIconBtn}
-                        >
-                            <ArrowLeft size={22} />
-                        </button>
-                    ) : (
-                        <button
-                            onClick={() => setDrawerOpen(true)}
-                            title="Menu"
-                            aria-label="Menu"
-                            className={styles.searchIconBtn}
-                        >
-                            <Menu size={22} />
-                            {drawerUnreadCount > 0 && (
-                                <span className={styles.menuUnreadBadge}>{drawerUnreadCount}</span>
-                            )}
-                        </button>
-                    )}
+                    {/* Right-most action: always the hamburger menu.
+                        Sub-pages render their own back-arrow inside their
+                        page header — duplicating it in the app shell was
+                        redundant and confusing. */}
+                    <button
+                        onClick={() => setDrawerOpen(true)}
+                        title="Menu"
+                        aria-label="Menu"
+                        className={styles.searchIconBtn}
+                    >
+                        <Menu size={22} />
+                        {drawerUnreadCount > 0 && (
+                            <span className={styles.menuUnreadBadge}>{drawerUnreadCount}</span>
+                        )}
+                    </button>
                 </div>
             </header>
 

@@ -82,6 +82,12 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     const [bingoSquares, setBingoSquares] = useState<BingoSquare[]>([]);
     const [showEditBingoModal, setShowEditBingoModal] = useState(false);
     const [savingBingo, setSavingBingo] = useState(false);
+    // Per-task edit modal: instead of 30 inline inputs editable at once
+    // (overwhelming + easy to lose unsaved changes), the overview shows
+    // read-only rows. Tapping a row opens this nested modal with a single
+    // input that persists on Save and closes back to the overview.
+    const [editingBingoIndex, setEditingBingoIndex] = useState<number | null>(null);
+    const [editingBingoDraft, setEditingBingoDraft] = useState('');
     const [coverPreview, setCoverPreview] = useState(trip.imageUrl || '');
     const [imageUploading, setImageUploading] = useState(false);
     const coverFileRef = useRef<File | null>(null);
@@ -757,47 +763,94 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         </div>
                         <div className={styles.modalForm} style={{ overflowY: 'auto', paddingRight: '0.5rem', flex: 1 }}>
                             <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-                                Modify the 30 tasks for your Bingo game. Changes here will update the board for all players immediately upon saving.
+                                Tap a task to edit it. Changes are saved one task at a time and update the board for all players immediately.
                             </p>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                                 {bingoSquares.map((sq, i) => (
-                                    <div key={sq.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--color-bg-primary)', padding: '0.5rem', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
-                                        <input 
-                                            className="input-field"
-                                            style={{ flex: 1, padding: '0.4rem 0.75rem', fontSize: '0.9rem' }}
-                                            value={sq.task}
-                                            onChange={e => {
-                                                const newSquares = [...bingoSquares];
-                                                newSquares[i] = { ...sq, task: e.target.value };
-                                                setBingoSquares(newSquares);
-                                            }}
-                                        />
-                                    </div>
+                                    <button
+                                        key={sq.id}
+                                        type="button"
+                                        onClick={() => {
+                                            setEditingBingoIndex(i);
+                                            setEditingBingoDraft(sq.task);
+                                        }}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '0.5rem',
+                                            background: 'var(--color-bg-primary)',
+                                            padding: '0.65rem 0.75rem',
+                                            borderRadius: 8,
+                                            border: '1px solid var(--color-border)',
+                                            textAlign: 'left',
+                                            cursor: 'pointer',
+                                            font: 'inherit',
+                                            color: 'inherit',
+                                            width: '100%',
+                                        }}
+                                    >
+                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', width: '20px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                                        <span style={{ flex: 1, fontSize: '0.9rem', color: sq.task ? 'var(--color-text)' : 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {sq.task || 'Tap to add task'}
+                                        </span>
+                                        <Edit2 size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                                    </button>
                                 ))}
                             </div>
                         </div>
-                        <div style={{ flexShrink: 0, marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-                            <button 
-                                className="btn btn-primary" 
-                                style={{ width: '100%' }}
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Per-task edit modal — opens on top of the overview modal.
+                Saves the single task to Firestore on confirm and returns
+                to the overview without dismissing it. */}
+            {editingBingoIndex !== null && createPortal(
+                <div
+                    className={`modal-backdrop ${styles.modalBackdrop}`}
+                    style={{ zIndex: 1100 }}
+                    onClick={() => setEditingBingoIndex(null)}
+                >
+                    <div className={`card animate-fade-in ${styles.modalCard}`} style={{ width: '90%', maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>Edit task #{editingBingoIndex + 1}</h2>
+                            <button onClick={() => setEditingBingoIndex(null)} className={styles.modalCloseBtn} title="Close">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.modalForm}>
+                            <input
+                                autoFocus
+                                className="input-field"
+                                style={{ width: '100%', padding: '0.75rem 1rem' }}
+                                value={editingBingoDraft}
+                                onChange={e => setEditingBingoDraft(e.target.value)}
+                                placeholder="What needs to be done?"
+                            />
+                            <button
+                                className="btn btn-primary"
+                                style={{ width: '100%', marginTop: '1rem' }}
                                 disabled={savingBingo}
                                 onClick={async () => {
-                                    if(trip.id) {
-                                        setSavingBingo(true);
-                                        try {
-                                            await saveBingoBoard(trip.id, bingoSquares);
-                                            setShowEditBingoModal(false);
-                                        } catch(e) {
-                                            console.error(e);
-                                            toast.error("Failed to save Bingo Board.");
-                                        } finally {
-                                            setSavingBingo(false);
-                                        }
+                                    if (editingBingoIndex === null || !trip.id) return;
+                                    const newSquares = bingoSquares.map((sq, i) =>
+                                        i === editingBingoIndex ? { ...sq, task: editingBingoDraft } : sq
+                                    );
+                                    setSavingBingo(true);
+                                    try {
+                                        await saveBingoBoard(trip.id, newSquares);
+                                        setBingoSquares(newSquares);
+                                        setEditingBingoIndex(null);
+                                    } catch (e) {
+                                        console.error(e);
+                                        toast.error('Failed to save task.');
+                                    } finally {
+                                        setSavingBingo(false);
                                     }
                                 }}
                             >
-                                {savingBingo ? 'Saving...' : 'Save Bingo Board'}
+                                {savingBingo ? 'Saving…' : 'Save'}
                             </button>
                         </div>
                     </div>

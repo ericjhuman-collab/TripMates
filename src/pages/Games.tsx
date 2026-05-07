@@ -126,8 +126,12 @@ export const Games: React.FC = () => {
     useEffect(() => {
         fetchBoard();
         fetchMembers();
+    // Re-run when members change (e.g. someone joins via invite while
+    // we're on the Bingo screen) — without this the picker would still
+    // show the old member list. join(',') gives a stable string key so
+    // the effect only fires when the actual list contents change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin, activeTrip?.id]);
+    }, [isAdmin, activeTrip?.id, activeTrip?.members?.join(',')]);
 
     const handleSquareClick = async (index: number) => {
         if (!appUser || !activeTrip) return;

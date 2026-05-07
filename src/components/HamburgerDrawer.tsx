@@ -59,6 +59,21 @@ export const HamburgerDrawer: React.FC<HamburgerDrawerProps> = ({ open, onClose,
         onUnreadCountChange?.(unreadCount);
     }, [unreadCount, onUnreadCountChange]);
 
+    // Auto-mark as read when the user actually views the notification
+    // panel. Pre-fix the badge stayed at "1" until the user clicked the
+    // follow-back button — even after closing the panel — which is
+    // confusing UX. Marking on view matches every other inbox metaphor.
+    useEffect(() => {
+        if (!showNotifications || !appUser) return;
+        const unread = notifications.filter(n => !n.read);
+        if (unread.length === 0) return;
+        // Optimistic local update so the badge clears instantly; the
+        // network calls fan out in parallel afterwards.
+        setNotifications(prev => prev.map(n => n.read ? n : { ...n, read: true }));
+        Promise.all(unread.map(n => markNotificationRead(appUser.uid, n.id)))
+            .catch(e => console.error('Failed to mark notifications read', e));
+    }, [showNotifications, appUser, notifications]);
+
     const closeAll = () => {
         onClose();
         setShowNotifications(false);

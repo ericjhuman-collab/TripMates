@@ -172,7 +172,12 @@ export const Members: React.FC = () => {
             ) : (
                 <div className={styles.grid}>
                     {members.map(member => {
-                        const isAdmin = member.role === 'admin';
+                        // Per-trip admin (in adminIds[]), NOT the global
+                        // users/{uid}.role — those are intentionally
+                        // separate concepts. Showing global role here made
+                        // every dev-promoted user look like a trip admin
+                        // regardless of who created the trip.
+                        const isAdmin = !!activeTrip?.adminIds?.includes(member.uid);
                         const phone = member.phoneNumber?.replace(/[^0-9+]/g, '');
                         return (
                             <div

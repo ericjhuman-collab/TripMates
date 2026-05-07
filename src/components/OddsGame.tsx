@@ -1,8 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { useOdds } from '../context/useOdds';
 import { useTrip } from '../context/TripContext';
-import { useAuth } from '../context/AuthContext';
+import { useAuth, type AppUser } from '../context/AuthContext';
+import { CustomSelect } from './CustomSelect';
 import styles from './OddsGame.module.css';
 import type { OddsSession } from '../services/odds';
 
@@ -50,13 +53,37 @@ export const OddsGame: React.FC = () => {
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showRules, setShowRules] = useState(false);
 
+    // Hydrate trip member uids into real names. Pre-fix this just stamped
+    // every non-mock uid as the literal string "User", so the dare-target
+    // dropdown was useless. Re-runs when the member list changes (someone
+    // joins via invite mid-game).
+    const [memberDocs, setMemberDocs] = useState<AppUser[]>([]);
+    useEffect(() => {
+        if (!activeTrip) { setMemberDocs([]); return; }
+        const realUids = activeTrip.members.filter(u => !u.startsWith('mock_'));
+        if (realUids.length === 0) { setMemberDocs([]); return; }
+        // Same pattern as Members.tsx / Games.tsx: pull all users and
+        // intersect by uid. Fine at small scale; revisit if the user
+        // table grows.
+        getDocs(collection(db, 'users'))
+            .then(snap => {
+                const all = snap.docs.map(d => d.data() as AppUser);
+                setMemberDocs(all.filter(u => realUids.includes(u.uid)));
+            })
+            .catch(e => console.error('Failed to load OddsGame members', e));
+    }, [activeTrip?.id, activeTrip?.members?.join(',')]);
+
     if (!activeTrip || !appUser) return null;
 
-    const members = activeTrip.members.map(uid => ({
-        uid,
-        name: uid.startsWith('mock_') ? uid.replace('mock_', '').replace('_', ' ') : 'User',
-        isMe: uid === appUser.uid
-    }));
+    const members = activeTrip.members.map(uid => {
+        const real = memberDocs.find(u => u.uid === uid);
+        return {
+            uid,
+            name: real?.fullName || real?.name
+                || (uid.startsWith('mock_') ? uid.replace('mock_', '').replace('_', ' ') : uid),
+            isMe: uid === appUser.uid,
+        };
+    });
 
     const handleIssueDare = async () => {
         if (!dareInput || !targetIdInput) return;
@@ -118,17 +145,14 @@ export const OddsGame: React.FC = () => {
                     <h3 className={styles.cardHeader}>Issue a Dare</h3>
                     <div className={styles.inputGroup}>
                         <label className={styles.label}>Select Target</label>
-                        <select 
-                            className={styles.select} 
-                            value={targetIdInput} 
-                            onChange={e => setTargetIdInput(e.target.value)}
-                            title="Select Target"
-                        >
-                            <option value="">-- Choose Member --</option>
-                            {members.filter(m => !m.isMe).map(m => (
-                                <option key={m.uid} value={m.uid}>{m.name}</option>
-                            ))}
-                        </select>
+                        <CustomSelect
+                            value={targetIdInput}
+                            onChange={setTargetIdInput}
+                            placeholder="Choose member…"
+                            options={members
+                                .filter(m => !m.isMe)
+                                .map(m => ({ value: m.uid, label: m.name }))}
+                        />
                     </div>
                     <div className={styles.inputGroup}>
                         <label className={styles.label}>What's the Dare?</label>
@@ -244,7 +268,6 @@ export const OddsGame: React.FC = () => {
 
 // Sub-component for individual dare cards
 import { ChevronDown } from 'lucide-react';
-import type { AppUser } from '../context/AuthContext';
 
 interface TripMember { uid: string; name: string; isMe: boolean; }
 
