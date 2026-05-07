@@ -152,11 +152,14 @@ export const SpinningWheel: React.FC<Props> = ({ tripId, members, currentUid }) 
                         const start = i * segmentAngle;
                         const end = start + segmentAngle;
                         const mid = start + segmentAngle / 2;
-                        const labelRadius = r * 0.62;
+                        const labelRadius = r * 0.65;
                         const labelPos = polarToCartesian(cx, cy, labelRadius, mid);
                         const colour = SEGMENT_COLOURS[i % SEGMENT_COLOURS.length];
                         const labelText = m.fullName || m.name;
-                        // Rotate label so it's readable along the radial axis.
+                        // Rotate the label by (mid + 90) so each name radiates
+                        // along the slice's radius, reading from the outer
+                        // edge toward the centre. textAnchor='middle' keeps it
+                        // centred on labelPos.
                         return (
                             <g key={m.uid}>
                                 <path d={arcPath(cx, cy, r, start, end)} fill={colour} stroke="rgba(255,255,255,0.6)" strokeWidth={0.5} />
@@ -165,10 +168,10 @@ export const SpinningWheel: React.FC<Props> = ({ tripId, members, currentUid }) 
                                     y={labelPos.y}
                                     textAnchor="middle"
                                     dominantBaseline="middle"
-                                    transform={`rotate(${mid} ${labelPos.x} ${labelPos.y})`}
+                                    transform={`rotate(${mid + 90} ${labelPos.x} ${labelPos.y})`}
                                     className={styles.wheelLabel}
                                 >
-                                    {labelText.length > 10 ? labelText.slice(0, 10) + '…' : labelText}
+                                    {labelText.length > 8 ? labelText.slice(0, 8) + '…' : labelText}
                                 </text>
                             </g>
                         );

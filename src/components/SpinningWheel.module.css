@@ -10,6 +10,13 @@
     position: relative;
     width: min(86vw, 340px);
     aspect-ratio: 1 / 1;
+    /* Drop-shadow lives on the *non-rotating* wrapper. Putting it on the
+       SVG itself made the shadow rotate with the wheel during a spin,
+       which looked like the whole circle was wobbling. Wrapper is
+       circular (border-radius 50 %) so the shadow follows the wheel
+       outline cleanly. */
+    border-radius: 50%;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
 }
 
 /* Pointer at the top (red triangle) — points down at the winning slice */
@@ -31,9 +38,9 @@
     width: 100%;
     height: 100%;
     border-radius: 50%;
-    box-shadow:
-        0 12px 32px rgba(15, 23, 42, 0.18),
-        inset 0 0 0 4px rgba(255, 255, 255, 0.6);
+    /* Inset white ring is symmetric so it reads static even though the
+       SVG itself rotates. */
+    box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
 }
 
 .wheelSpinning {
@@ -47,7 +54,7 @@
 }
 
 .wheelLabel {
-    font-size: 13px;
+    font-size: 10px;
     font-weight: 700;
     fill: var(--color-primary-dark);
     pointer-events: none;
