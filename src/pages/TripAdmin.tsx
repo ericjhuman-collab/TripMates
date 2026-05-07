@@ -4,7 +4,7 @@ import { useTrip, type Trip, type TripDestination } from '../context/TripContext
 import { ArrowLeft, Plus, Edit2, Trash2, Calendar as CalendarIcon, Users, Settings, Share2, CheckSquare, Ghost, X, Camera, Info, MapPin, Phone, BellOff, Tag, Trophy, LogOut, Copy } from 'lucide-react';
 import { getMemberPrefs, updateMemberPrefs, type MemberPrefs, DEFAULT_MEMBER_PREFS } from '../services/memberPrefs';
 import { SUPPORTED_CURRENCIES } from '../utils/currencies';
-import { getAllActivities, type Activity, deleteActivity } from '../services/activities';
+import { subscribeToActivities, type Activity, deleteActivity } from '../services/activities';
 import { getBingoBoard, initBingoBoard, saveBingoBoard, type BingoSquare } from '../services/bingo';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { createPortal } from 'react-dom';
@@ -146,20 +146,22 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     }, [trip.inviteClosed]);
 
     useEffect(() => {
-        const fetchAll = async () => {
-            setLoading(true);
-            try {
-                const acts = await getAllActivities(trip.id);
-                setActivities(acts);
-                const usersSnapshot = await getDocs(collection(db, 'users'));
-                setUsers(usersSnapshot.docs.map(d => ({ ...d.data(), uid: d.id } as AppUser)));
-            } catch (e) {
-                console.error('Failed to load admin data', e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAll();
+        setLoading(true);
+        let usersDone = false;
+        let activitiesDone = false;
+        const maybeFinish = () => { if (usersDone && activitiesDone) setLoading(false); };
+
+        getDocs(collection(db, 'users'))
+            .then(snap => setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as AppUser))))
+            .catch(e => console.error('Failed to load users', e))
+            .finally(() => { usersDone = true; maybeFinish(); });
+
+        const unsub = subscribeToActivities(trip.id, list => {
+            setActivities(list);
+            activitiesDone = true;
+            maybeFinish();
+        });
+        return unsub;
     }, [trip.id]);
 
     const handleSaveTripDetails = async () => {

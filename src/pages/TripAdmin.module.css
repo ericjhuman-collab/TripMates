@@ -402,27 +402,34 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin: -0.5rem -0.5rem 1.25rem;
+  padding: 0.5rem 0.5rem 0.85rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .modalTitle {
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 1.125rem;
+  font-weight: 700;
   margin: 0;
   color: var(--color-primary-dark);
 }
 
 .modalCloseBtn {
-  background: var(--color-bg);
+  background: none;
   border: none;
-  width: 36px;
-  height: 36px;
+  padding: 6px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   color: var(--color-text-muted);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.modalCloseBtn:hover {
+  background-color: rgba(0, 0, 0, 0.04);
+  color: var(--color-primary-dark);
 }
 
 .modalForm {

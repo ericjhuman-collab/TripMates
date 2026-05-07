@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback, useMemo, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
 import { useLocation } from 'react-router-dom';
 import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, Gamepad2, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, Gamepad2, Users, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
-import { getActivitiesByDay, getAllActivities, type Activity } from '../services/activities';
+import { subscribeToActivities, subscribeToActivitiesByDay, type Activity } from '../services/activities';
 import { createPortal } from 'react-dom';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -89,33 +89,6 @@ export const Home: React.FC = () => {
     } as AppUser));
     const allTripUsers = [...validMembers, ...mockUsers];
 
-    const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
-        Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
-
-    const fetchActivities = useCallback(async () => {
-        if (!activeTrip) return;
-        setLoading(true);
-        try {
-            const data = await withTimeout(getActivitiesByDay(activeTrip.id, dayString), 8000);
-            setActivities(data);
-        } catch (e) {
-            console.warn('Activities fetch timed out or failed:', e);
-            setActivities([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [activeTrip, dayString]);
-
-    const fetchAllActivities = useCallback(async () => {
-        if (!activeTrip) return;
-        try {
-            const data = await withTimeout(getAllActivities(activeTrip.id), 8000);
-            setAllActivities(data);
-        } catch (e) {
-            console.warn('All-activities fetch timed out or failed:', e);
-        }
-    }, [activeTrip]);
-
     const fetchUsers = async () => {
         try {
             const usersSnapshot = await getDocs(collection(db, 'users'));
@@ -150,14 +123,23 @@ export const Home: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        fetchAllActivities();
-    }, [fetchAllActivities]);
+        if (!activeTrip) return;
+        return subscribeToActivities(activeTrip.id, setAllActivities);
+        // Only re-subscribe when the trip id changes — full activeTrip reference
+        // churns on every appUser refresh and would thrash the listener.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTrip?.id]);
 
     useEffect(() => {
-        if (viewMode === 'day' || viewMode === 'schedule' || viewMode === '3day') {
-            fetchActivities();
-        }
-    }, [fetchActivities, viewMode]);
+        if (!activeTrip) return;
+        if (viewMode !== 'day' && viewMode !== 'schedule' && viewMode !== '3day') return;
+        const unsub = subscribeToActivitiesByDay(activeTrip.id, dayString, list => {
+            setActivities(list);
+            setLoading(false);
+        });
+        return unsub;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTrip?.id, dayString, viewMode]);
 
     // Close hamburger menu when clicking outside
     useEffect(() => {
@@ -299,10 +281,10 @@ export const Home: React.FC = () => {
         ? userTrips
         : groupedTrips[tripFilter];
 
-    const refreshData = () => {
-        fetchActivities();
-        fetchAllActivities();
-    };
+    // Live subscriptions auto-refresh activity state, so refresh callbacks
+    // forwarded to children are no-ops now. Kept as a stub so we don't have
+    // to thread prop removal through every modal that takes onUpdate.
+    const refreshData = () => {};
 
     const voteCounts: Record<string, number> = {};
     allTripUsers.forEach(u => voteCounts[u.uid] = 0);
@@ -785,7 +767,7 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
             >
                 <div className={styles.modalHeader}>
                     <h2 className={styles.modalTitle}>{activity.voteQuestion || 'Vote for Activity'}</h2>
-                    <button onClick={onClose} className={styles.modalCloseBtn} title="Close">&times;</button>
+                    <button onClick={onClose} className={styles.modalCloseBtn} title="Close"><X size={22} /></button>
                 </div>
 
                 {isPast && !isVotingClosed && isAdmin && (
@@ -805,13 +787,6 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
                     <div className={styles.votingNotOpen}>
                         <p className={styles.votingNotOpenText}>Voting hasn't opened yet!</p>
                         <p className={styles.votingNotOpenDate}>Come back on {activity.day} after {activity.time}</p>
-                        <button
-                            className="btn btn-primary"
-                            style={{ marginTop: '1.25rem' }}
-                            onClick={onClose}
-                        >
-                            Close
-                        </button>
                     </div>
                 ) : isVotingClosed ? (
                     <div>

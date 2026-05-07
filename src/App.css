@@ -15,9 +15,9 @@
 }
 
 .theme-default-trip {
-    --color-bg-primary: #f6f8fb;
+    --color-bg-primary: #f5f5f7;
     --color-bg-card: rgba(255, 255, 255, 0.8);
-    --color-bg-overlay: rgba(246, 248, 251, 0.85);
+    --color-bg-overlay: rgba(245, 245, 247, 0.85);
 
     --color-primary-dark: #111827;
     /* Rich dark slate */
@@ -31,14 +31,14 @@
     /* Very readable dark text */
     --color-text-muted: #9ca3af;
 
-    --color-bg-solid: #f6f8fb;
+    --color-bg-solid: #f5f5f7;
 }
 
 body.theme-default-trip {
-    background-color: #f4f6f8;
+    background-color: #f5f5f7;
     background-image:
         radial-gradient(circle at 20% 20%, #ffffff 0%, transparent 55%),
-        radial-gradient(circle at 80% 80%, #f0f1f3 0%, transparent 55%);
+        radial-gradient(circle at 80% 80%, #ededef 0%, transparent 55%);
     background-attachment: fixed;
     height: 100vh;
     margin: 0;
