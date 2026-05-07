@@ -7,8 +7,7 @@ import { db } from '../services/firebase';
 import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
 import { searchUsersByUsernamePrefix } from '../services/username';
 import { normalizeSearchInput } from '../utils/searchFields';
-import { EmailVerificationBanner } from './EmailVerificationBanner';
-import { PollBanner } from './PollBanner';
+import { BannerStack } from './BannerStack';
 import { HamburgerDrawer } from './HamburgerDrawer';
 import styles from './Layout.module.css';
 
@@ -240,8 +239,7 @@ export const Layout: React.FC = () => {
                 document.body
             )}
 
-            <EmailVerificationBanner />
-            <PollBanner />
+            <BannerStack />
 
             <main className={styles.main}>
                 <Outlet />

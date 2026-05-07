@@ -12,7 +12,6 @@ import { db } from '../services/firebase';
 import type { AppUser } from '../context/AuthContext';
 import styles from './Home.module.css';
 import { useToast } from '../components/useToast';
-import { PendingInvitesBanner } from '../components/PendingInvitesBanner';
 
 // Map view bundles leaflet + Google Maps loader; lazy-load it so the
 // schedule view (the default) doesn't pay that cost.
@@ -396,8 +395,6 @@ export const Home: React.FC = () => {
                 </div>,
                 document.body
             )}
-
-            <PendingInvitesBanner />
 
             <div className={styles.navPill}>
                 {/* Hamburger — opens the calendar view picker */}

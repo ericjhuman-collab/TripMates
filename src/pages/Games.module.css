@@ -4,16 +4,17 @@
    page title + (optionally) game switcher; embedded inside Home skips
    the title and only shows the switcher under Home's navPill. */
 .page {
-  padding-top: 3.75rem;
+  padding-top: calc(3.75rem + var(--banner-stack-height, 0px));
   padding-bottom: 2rem;
 }
 
 .pageWithPills {
-  padding-top: 7.25rem;
+  padding-top: calc(7.25rem + var(--banner-stack-height, 0px));
 }
 
 /* Embedded inside Home: Home's pageWrapper already reserves room for
-   the navPill, so we only need extra space for the optional switcher. */
+   the navPill (and the banner stack), so embedded mode only needs
+   extra space for the optional switcher. */
 .pageEmbedded {
   padding-top: 0;
 }
@@ -24,10 +25,11 @@
 
 /* Pinned area below Layout's fixed header — keeps the page title and
    (when present) game switcher on screen while the bingo board / odds
-   list scrolls underneath. */
+   list scrolls underneath. Banner-stack offset keeps the bar below
+   any visible banners. */
 .fixedTopBar {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);
@@ -38,9 +40,11 @@
 }
 
 /* Embedded mode: drop down below Home's navPill (~54px tall + 8px gap)
-   so the two fixed bars stack instead of overlapping. */
+   so the two fixed bars stack instead of overlapping. The navPill
+   itself has already been pushed down by --banner-stack-height, so
+   this offset chains on top of that. */
 .fixedTopBarEmbedded {
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + 54px + 0.5rem);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + 54px + 0.5rem + var(--banner-stack-height, 0px));
 }
 
 .pageHeader {

@@ -360,8 +360,9 @@
 
 .searchPanel {
   position: absolute;
-  /* Sit below the fixed header (status-bar inset + ~3.25rem of header chrome). */
-  top: calc(env(safe-area-inset-top) + 3.5rem);
+  /* Sit below the fixed header (status-bar inset + ~3.25rem of header chrome).
+     Banner-stack offset keeps the panel below any visible banners. */
+  top: calc(env(safe-area-inset-top) + 3.5rem + var(--banner-stack-height, 0px));
   left: 1rem;
   right: 1rem;
   background: #fff;

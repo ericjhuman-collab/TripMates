@@ -1,9 +1,11 @@
 /* Home.module.css */
 
 /* Top padding reserves space for the fixed .navPill below; bottom padding
-   keeps a breathing gap above the bottom dock. */
+   keeps a breathing gap above the bottom dock. The banner-stack offset
+   is added so visible banners (email verification, polls, invites) push
+   page content down with the chrome instead of overlapping it. */
 .pageWrapper {
-  padding-top: calc(58px + 0.5rem);
+  padding-top: calc(58px + 0.5rem + var(--banner-stack-height, 0px));
   padding-bottom: 2rem;
 }
 
@@ -35,9 +37,10 @@
   /* Pin the nav pill just below the fixed Layout header — fixed (not
      sticky) because sticky is unreliable inside `.app-container`'s
      overflow-x: hidden context on iOS WKWebView (same reason the Layout
-     header is fixed). The map view overrides this with its own rule. */
+     header is fixed). The map view overrides this with its own rule.
+     Banner-stack offset keeps the pill below any visible banners. */
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);
@@ -394,7 +397,7 @@
    chrome on iOS WKWebView. */
 .dayHeaderFixed {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 7.5rem);
+  top: calc(env(safe-area-inset-top) + 7.5rem + var(--banner-stack-height, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);
@@ -409,7 +412,7 @@
 }
 
 .dayViewContent {
-  padding-top: 6rem;
+  padding-top: calc(6rem + var(--banner-stack-height, 0px));
 }
 
 .dayHeader {

@@ -14,7 +14,7 @@
 }
 
 .fullscreenGallery {
-  top: calc(env(safe-area-inset-top) + 4.5rem);
+  top: calc(env(safe-area-inset-top) + 4.5rem + var(--banner-stack-height, 0px));
   background-color: var(--color-bg-primary);
 }
 

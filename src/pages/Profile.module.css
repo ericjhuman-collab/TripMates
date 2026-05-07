@@ -44,16 +44,17 @@
    ~7.5rem covers a typical title-row height plus the pill plus a small
    breathing gap. */
 .adminPage {
-  padding-top: 7.5rem;
+  padding-top: calc(7.5rem + var(--banner-stack-height, 0px));
 }
 
 /* Pinned area below Layout's fixed header — keeps the My Trips title +
    Current/Future/Past/Bucketlist switcher on screen while the trip list
    scrolls. position: fixed (not sticky) for the same iOS WKWebView
-   reason as the rest of the app's fixed top bars. */
+   reason as the rest of the app's fixed top bars. Banner-stack offset
+   keeps the bar below any visible banners. */
 .adminFixedTopBar {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);
@@ -88,7 +89,7 @@
    search input, and Following/Followers pill stay pinned below Layout's
    header while the user list scrolls. */
 .networkPage {
-  padding-top: 11rem;
+  padding-top: calc(11rem + var(--banner-stack-height, 0px));
   padding-left: 1.25rem;
   padding-right: 1.25rem;
   padding-bottom: 2rem;
@@ -96,7 +97,7 @@
 
 .networkFixedTopBar {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);

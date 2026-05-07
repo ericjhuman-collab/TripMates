@@ -1,6 +1,13 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 :root {
+  /* Live height of <BannerStack> in px, written by ResizeObserver in
+     BannerStack.tsx. Every fixed top bar (.navPill, .dayHeaderFixed,
+     each page's .fixedTopBar variant) and every page-wrapper padding-top
+     adds this so banners never sit behind page chrome. Defaults to 0
+     when no banners are visible. */
+  --banner-stack-height: 0px;
+
   /* Alen Slate Palette */
   --color-bg-primary: #f4f7f9;
   --color-bg-card: #ffffff;

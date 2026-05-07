@@ -1,7 +1,7 @@
 .evenContainer {
   /* Top padding reserves space for the fixed .fixedTopBar (title + tab pill).
      Bottom padding clears the floating bottom-nav. */
-  padding: calc(7.25rem) 1.5rem 100px;
+  padding: calc(7.25rem + var(--banner-stack-height, 0px)) 1.5rem 100px;
   max-width: 600px;
   margin: 0 auto;
   position: relative;
@@ -11,10 +11,11 @@
 }
 
 /* Pinned area below Layout's fixed header — keeps the trip title and tab
-   pill on screen while the underlying expense list / insights scroll. */
+   pill on screen while the underlying expense list / insights scroll.
+   Banner-stack offset keeps the bar below any visible banners. */
 .fixedTopBar {
   position: fixed;
-  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem);
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
   left: 50%;
   transform: translateX(-50%);
   width: calc(100% - 3rem);
