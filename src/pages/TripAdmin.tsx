@@ -639,7 +639,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                     <div>
                         <label className={styles.activeGamesLabel}>Active Games</label>
                         <div className={styles.activeGamesBtns}>
-                            {['bingo', 'cheers', 'most-likely', 'odds'].map(gameId => {
+                            {['bingo', 'cheers', 'most-likely', 'odds', 'spinning-wheel'].map(gameId => {
                                 const active = tripForm.activeGames.includes(gameId);
                                 return (
                                     <button

@@ -240,6 +240,23 @@ service cloud.firestore {
           );
         allow delete: if false;
       }
+
+      // ── Subcollection: spinning-wheel history ─────────────────────────
+      // Append-only ledger of who got picked. Any trip member may spin
+      // (and thereby create a record stamped with their own uid). History
+      // is immutable; trip admins may delete entries to clean up.
+      match /spins/{spinId} {
+        allow read: if isTripMember(tripId);
+        allow create: if isTripMember(tripId)
+          && request.resource.data.createdBy == request.auth.uid
+          && request.resource.data.winnerUid is string
+          && request.resource.data.winnerName is string
+          && request.resource.data.participants is list
+          && request.resource.data.participants.size() <= 50
+          && request.resource.data.createdAt == request.time;
+        allow update: if false;
+        allow delete: if isTripAdmin(tripId);
+      }
     }
 
     // ─── activities/{activityId} ──────────────────────────────────────────

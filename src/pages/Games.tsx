@@ -10,6 +10,7 @@ import { X, Trophy, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './Games.module.css';
 import { OddsGame } from '../components/OddsGame';
+import { SpinningWheel } from '../components/SpinningWheel';
 import { useToast } from '../components/useToast';
 
 export const Games: React.FC = () => {
@@ -290,6 +291,14 @@ export const Games: React.FC = () => {
 
             {selectedGame === 'odds' && (
                 <OddsGame />
+            )}
+
+            {selectedGame === 'spinning-wheel' && activeTrip && appUser && (
+                <SpinningWheel
+                    tripId={activeTrip.id}
+                    members={members}
+                    currentUid={appUser.uid}
+                />
             )}
 
             {/* Member Picker Modal */}

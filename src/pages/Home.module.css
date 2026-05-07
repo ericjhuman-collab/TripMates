@@ -392,24 +392,13 @@
 }
 
 /* ── Day View ──────────────────────────────── */
-/* Pin the date row below the fixed .navPill so only the activity list
-   scrolls. Same fixed-not-sticky reason as the rest of the app's pinned
-   chrome on iOS WKWebView. */
+/* Whoop-style: the date row scrolls with the activity list rather
+   than pinning as a separate fixed strip. Only the navPill stays
+   fixed at the top, so content slides cleanly behind it without a
+   bleed-through frosted plate. */
 .dayHeaderFixed {
-  position: fixed;
-  top: calc(env(safe-area-inset-top) + 7.5rem + var(--banner-stack-height, 0px));
-  left: 50%;
-  transform: translateX(-50%);
-  width: calc(100% - 3rem);
-  max-width: 416px;
-  z-index: 39;
-  /* iOS-style ultra-thin material: white-ish frost with high blur +
-     saturate so scrolling activities tint through with their colors
-     boosted, the way Apple's systemUltraThinMaterial reads. Avoids the
-     "blue plate" the cool-tinted page bg used to cause. */
-  background: rgba(255, 255, 255, 0.6);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
-  backdrop-filter: blur(24px) saturate(180%);
+  position: relative;
+  margin: 0 auto 0.75rem;
   padding: 0.25rem 0 0.5rem;
 }
 
@@ -418,7 +407,10 @@
 }
 
 .dayViewContent {
-  padding-top: calc(6rem + var(--banner-stack-height, 0px));
+  /* Clear the fixed .navPill (~3rem tall, sitting just below the Layout
+     header). The pageWrapper above us already pads the Layout header
+     itself, so this is the additional offset for the submenu pill. */
+  padding-top: calc(3rem + var(--banner-stack-height, 0px));
 }
 
 .dayHeader {
