@@ -69,12 +69,35 @@ export function subscribeToPendingInvites(
     });
 }
 
-/** Accept: self-add to trip.members, then delete the invite. */
+/** Accept: self-add to trip.members, then delete the invite.
+ *
+ * Idempotent: if a previous attempt added the user to `trip.members` but
+ * then failed before deleting the invite (e.g., transient network error
+ * on the user-doc write), the next click would otherwise hit the trip
+ * rule's `addedSelfTo` check — which fails because the user is already
+ * in members — and surface "Could not join trip" forever. Detect that
+ * case via the trip read (which succeeds *because* we're already a
+ * member) and skip the redundant trip write. */
 export async function acceptTripInvite(invite: TripInvite, currentUid: string): Promise<void> {
     const tripRef = doc(db, 'trips', invite.tripId);
     const userRef = doc(db, 'users', currentUid);
 
-    await updateDoc(tripRef, { members: arrayUnion(currentUid) });
+    let alreadyMember = false;
+    try {
+        const snap = await getDoc(tripRef);
+        if (snap.exists()) {
+            const data = snap.data() as { members?: string[] };
+            alreadyMember = !!data.members?.includes(currentUid);
+        }
+    } catch {
+        // Read denied — expected on first-time accept (we're not yet a
+        // member, so the trip read rule rejects). Fall through to the
+        // write, which is the correct path for that case.
+    }
+
+    if (!alreadyMember) {
+        await updateDoc(tripRef, { members: arrayUnion(currentUid) });
+    }
     await updateDoc(userRef, { trips: arrayUnion(invite.tripId), activeTripId: invite.tripId });
     await deleteDoc(doc(db, 'tripInvites', invite.id));
 }

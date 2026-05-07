@@ -36,7 +36,13 @@ export const PendingInvitesBanner: React.FC = () => {
             toast.success(`Joined ${inv.tripName}`);
         } catch (e) {
             console.error('Accept invite failed', e);
-            toast.error('Could not join trip');
+            // Surface the underlying error so we have something to debug
+            // when this fails on a real user's device. Firestore errors
+            // come with a `code` (e.g. 'permission-denied') which is far
+            // more useful than a generic "could not join".
+            const err = e as { code?: string; message?: string };
+            const detail = err?.code || err?.message || 'unknown error';
+            toast.error(`Could not join trip (${detail})`);
         } finally {
             setBusyId(null);
         }
