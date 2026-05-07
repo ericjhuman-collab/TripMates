@@ -75,6 +75,15 @@ service cloud.firestore {
           && request.resource.data.fromUid == request.auth.uid;
         allow update: if isMe(uid)
           && onlyChanging(['read']);
+        // Sender may refresh their own follow notification (idempotent
+        // re-follow). Doc id is `follow_<sender>` so there's at most one
+        // per (target, sender) pair — prevents the duplicate-follow-notif
+        // pile-up the addDoc path used to produce.
+        allow update: if isAuthed()
+          && resource.data.type == 'follow'
+          && resource.data.fromUid == request.auth.uid
+          && request.resource.data.type == 'follow'
+          && request.resource.data.fromUid == request.auth.uid;
         allow delete: if isMe(uid);
       }
 
