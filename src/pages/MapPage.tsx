@@ -89,6 +89,53 @@ const createAvatarIcon = (url?: string, name?: string, live: boolean = true) => 
     });
 };
 
+// Distance in meters between two lat/lng pairs (Haversine). Used to
+// cluster co-located members so two people standing on the same street
+// corner don't render as a single overlapping dot.
+const distanceMeters = (
+    a: { lat: number; lng: number },
+    b: { lat: number; lng: number },
+): number => {
+    const R = 6371000;
+    const toRad = (d: number) => (d * Math.PI) / 180;
+    const dLat = toRad(b.lat - a.lat);
+    const dLng = toRad(b.lng - a.lng);
+    const sa =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(sa)));
+};
+
+const SAME_LOCATION_THRESHOLD_M = 25;
+
+// Stacked-avatar marker for clusters of 2+ co-located people. Shows the
+// first member's avatar with a small "+N" badge to signal there are more
+// at this spot. Tooltip + popup list everyone in the cluster.
+const createClusterIcon = (
+    primary: { avatarUrl?: string; name: string; live: boolean },
+    count: number,
+) => {
+    const initials = safeInitials(primary.name);
+    const safeUrl = primary.avatarUrl && isSafeAvatarUrl(primary.avatarUrl) ? primary.avatarUrl : '';
+    const opacity = primary.live ? '1' : '0.55';
+    const grayscale = primary.live ? '0' : '60%';
+    const filter = `opacity(${opacity}) grayscale(${grayscale})`;
+
+    const avatar = safeUrl
+        ? `<div style="background-image: url('${safeUrl}'); background-size: cover; background-position: center; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};"></div>`
+        : `<div style="background-color: var(--color-primary); color: white; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--color-surface); box-shadow: 0 3px 6px rgba(0,0,0,0.4); filter: ${filter};">${initials}</div>`;
+
+    const badge = `<div style="position: absolute; top: -6px; right: -6px; min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: #ef4444; color: white; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; border: 2px solid var(--color-surface); box-shadow: 0 2px 4px rgba(0,0,0,0.3); box-sizing: border-box;">+${count - 1}</div>`;
+
+    return L.divIcon({
+        className: 'custom-cluster-icon',
+        html: `<div style="position: relative; width: 36px; height: 36px;">${avatar}${badge}</div>`,
+        iconSize: [36, 36],
+        iconAnchor: [18, 18],
+        popupAnchor: [0, -18],
+    });
+};
+
 // Google-Maps-style "you are here" blue dot. Pulsing outer ring draws the
 // eye without being distracting — matches the affordance every map app
 // trains users to look for.
@@ -346,6 +393,33 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
         return out;
     }, [activeTrip, showMembers, appUser?.uid, liveEntries, memberMeta]);
 
+    // Group co-located members so two people at the same restaurant don't
+    // render as a single overlapping pin. Each cluster keeps a list of
+    // members sharing that spot; the marker renders as a stacked avatar
+    // with a "+N" badge when count > 1, and the popup lists everyone.
+    const memberClusters: { lat: number; lng: number; members: MemberLocation[] }[] = useMemo(() => {
+        const clusters: { lat: number; lng: number; members: MemberLocation[] }[] = [];
+        for (const ml of memberLocations) {
+            const existing = clusters.find(c => distanceMeters({ lat: c.lat, lng: c.lng }, ml) < SAME_LOCATION_THRESHOLD_M);
+            if (existing) {
+                existing.members.push(ml);
+            } else {
+                clusters.push({ lat: ml.lat, lng: ml.lng, members: [ml] });
+            }
+        }
+        return clusters;
+    }, [memberLocations]);
+
+    // Count of OTHER members co-located with self (within the same
+    // threshold) so the self pin can flag "you're with N people here"
+    // without changing its iconography.
+    const peersAtSelfPosition = useMemo(() => {
+        if (!selfPosition) return [] as MemberLocation[];
+        return memberLocations.filter(ml =>
+            distanceMeters({ lat: selfPosition[0], lng: selfPosition[1] }, ml) < SAME_LOCATION_THRESHOLD_M
+        );
+    }, [memberLocations, selfPosition]);
+
 
     useEffect(() => {
         const fetchGeocode = async (query: string): Promise<[number, number] | null> => {
@@ -510,23 +584,60 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                         ) : null;
                     })}
 
-                    {showMembers && memberLocations.map(ml => (
-                        <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name, ml.live)}>
-                            <Tooltip permanent direction="top" offset={[0, -18]} className="custom-tooltip">
-                                <span className={styles.memberLabel} data-live={ml.live}>
-                                    {(ml.name || '').split(' ')[0] || '?'}
-                                </span>
-                            </Tooltip>
-                            <Popup>
-                                <div style={{ textAlign: 'center' }}>
-                                    <h4 style={{ margin: 0 }}>{ml.name}</h4>
-                                    <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                                        {ml.live ? 'Sharing live' : formatLastSeen(ml.timestamp)}
-                                    </p>
-                                </div>
-                            </Popup>
-                        </Marker>
-                    ))}
+                    {showMembers && memberClusters.map(cluster => {
+                        if (cluster.members.length === 1) {
+                            const ml = cluster.members[0];
+                            return (
+                                <Marker key={ml.uid} position={[ml.lat, ml.lng]} icon={createAvatarIcon(ml.avatarUrl, ml.name, ml.live)}>
+                                    <Tooltip permanent direction="top" offset={[0, -18]} className="custom-tooltip">
+                                        <span className={styles.memberLabel} data-live={ml.live}>
+                                            {(ml.name || '').split(' ')[0] || '?'}
+                                        </span>
+                                    </Tooltip>
+                                    <Popup>
+                                        <div style={{ textAlign: 'center' }}>
+                                            <h4 style={{ margin: 0 }}>{ml.name}</h4>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                {ml.live ? 'Sharing live' : formatLastSeen(ml.timestamp)}
+                                            </p>
+                                        </div>
+                                    </Popup>
+                                </Marker>
+                            );
+                        }
+                        // 2+ members at the same spot — single stacked marker
+                        // listing everyone in the popup.
+                        const primary = cluster.members[0];
+                        const firstNames = cluster.members.map(m => (m.name || '').split(' ')[0]).join(', ');
+                        return (
+                            <Marker
+                                key={cluster.members.map(m => m.uid).join(':')}
+                                position={[cluster.lat, cluster.lng]}
+                                icon={createClusterIcon(primary, cluster.members.length)}
+                            >
+                                <Tooltip permanent direction="top" offset={[0, -18]} className="custom-tooltip">
+                                    <span className={styles.memberLabel} data-live={primary.live}>
+                                        {firstNames}
+                                    </span>
+                                </Tooltip>
+                                <Popup>
+                                    <div style={{ textAlign: 'center' }}>
+                                        <h4 style={{ margin: 0 }}>{cluster.members.length} people here</h4>
+                                        <ul style={{ margin: '0.5rem 0 0', padding: 0, listStyle: 'none', textAlign: 'left' }}>
+                                            {cluster.members.map(m => (
+                                                <li key={m.uid} style={{ fontSize: '0.85rem', padding: '0.15rem 0' }}>
+                                                    <strong>{m.name}</strong>
+                                                    <span style={{ marginLeft: '0.4rem', color: 'var(--color-text-muted)' }}>
+                                                        {m.live ? 'live' : formatLastSeen(m.timestamp)}
+                                                    </span>
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </Popup>
+                            </Marker>
+                        );
+                    })}
 
 
                     {selfPosition && (
@@ -544,6 +655,13 @@ export const MapPage: React.FC<MapPageProps> = ({ currentDate, onPrevDay, onNext
                                                 </p>
                                             )}
                                         </>
+                                    )}
+                                    {peersAtSelfPosition.length > 0 && (
+                                        <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)' }}>
+                                            <p style={{ margin: 0, fontSize: '0.8rem', fontWeight: 600 }}>
+                                                With {peersAtSelfPosition.map(p => (p.name || '').split(' ')[0]).join(', ')}
+                                            </p>
+                                        </div>
                                     )}
                                 </div>
                             </Popup>

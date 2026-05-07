@@ -41,8 +41,14 @@ export const TripAdmin: React.FC = () => {
 const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     const toast = useToast();
     const navigate = useNavigate();
-    const { updateTrip } = useTrip();
+    const { updateTrip, deleteTrip } = useTrip();
     const { currentUser } = useAuth();
+    // Creator-only "Danger zone" delete. Trip is gone from Firestore for
+    // every member once confirmed — gate behind a typed confirmation modal
+    // so a stray tap can't nuke a trip mid-planning.
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const isCreator = !!(currentUser?.uid && trip?.createdBy === currentUser.uid);
     
     // Check permission logic
     const isAdmin = trip.adminIds?.includes(currentUser?.uid || '') ?? false;
@@ -693,6 +699,32 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                     <button className={`btn btn-primary ${styles.saveBtn}`} onClick={handleSaveTripDetails} disabled={savingTrip}>
                         {savingTrip ? 'Saving...' : 'Save Settings & Games'}
                     </button>
+
+                    {/* Danger zone — creator-only. Submanagers can leave
+                        the trip from Members, but only the creator can
+                        delete the whole trip for everyone. */}
+                    {isCreator && (
+                        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
+                            <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', color: 'var(--color-error)' }}>Danger zone</h3>
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                Permanently delete this trip for every member. This can&rsquo;t be undone.
+                            </p>
+                            <button
+                                className="btn"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.7rem',
+                                    background: 'transparent',
+                                    color: 'var(--color-error)',
+                                    border: '1px solid var(--color-error)',
+                                    fontWeight: 600,
+                                }}
+                                onClick={() => setShowDeleteConfirm(true)}
+                            >
+                                Delete Trip
+                            </button>
+                        </div>
+                    )}
                 </div>
                 </>
             )}
@@ -700,6 +732,55 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
             </div>
 
 
+
+            {showDeleteConfirm && createPortal(
+                <div className={`modal-backdrop ${styles.modalBackdrop}`} onClick={() => !deleting && setShowDeleteConfirm(false)}>
+                    <div className={`card animate-fade-in ${styles.modalCard}`} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>Delete &ldquo;{trip.name || 'this trip'}&rdquo;?</h2>
+                            <button onClick={() => !deleting && setShowDeleteConfirm(false)} className={styles.modalCloseBtn} title="Close" disabled={deleting}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.modalForm}>
+                            <p style={{ margin: '0 0 1rem', lineHeight: 1.5 }}>
+                                Every member will lose access to this trip&rsquo;s activities, polls, gallery, and expenses. This can&rsquo;t be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    className="btn"
+                                    style={{ flex: 1, background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={deleting}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn"
+                                    style={{ flex: 1, background: 'var(--color-error)', color: 'white', border: 'none' }}
+                                    disabled={deleting}
+                                    onClick={async () => {
+                                        setDeleting(true);
+                                        try {
+                                            await deleteTrip(trip.id);
+                                            toast.success('Trip deleted');
+                                            navigate('/profile?tab=admin');
+                                        } catch (e) {
+                                            console.error('Delete trip failed', e);
+                                            const err = e as { code?: string; message?: string };
+                                            toast.error(`Could not delete trip (${err.code || err.message || 'unknown'})`);
+                                            setDeleting(false);
+                                        }
+                                    }}
+                                >
+                                    {deleting ? 'Deleting…' : 'Delete trip'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body,
+            )}
 
             {userToKick && createPortal(
                 <div className={`modal-backdrop ${styles.modalBackdrop}`} onClick={() => setUserToKick(null)}>
