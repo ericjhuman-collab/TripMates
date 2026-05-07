@@ -122,29 +122,40 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ];
     })();
 
-    // Fetch all user trips + merge mock data
+    // Subscribe to each user trip live so member joins/leaves on other
+    // devices propagate to TripAdmin, Members tab, etc. without an app
+    // restart. Re-subscribing only when the *set* of trip IDs changes
+    // (not on every appUser refresh).
+    const tripIdsKey = (appUser?.trips || []).join(',');
     useEffect(() => {
-        let cancelled = false;
-        const fetchUserTrips = async () => {
-            let realTrips: Trip[] = [];
-            if (appUser?.trips && appUser.trips.length > 0) {
-                try {
-                    const tripPromises = appUser.trips.map(id => getDoc(doc(db, 'trips', id)));
-                    const tripDocs = await Promise.all(tripPromises);
-                    if (cancelled) return;
-                    realTrips = tripDocs.filter(d => d.exists()).map(d => ({ ...d.data(), id: d.id } as Trip));
-                } catch (e) {
-                    console.error('Failed to fetch user trips', e);
-                }
-            }
-            if (cancelled) return;
-            // Stop merging mock trips so new users see a clean state
-            const merged = [...realTrips];
+        const ids = tripIdsKey ? tripIdsKey.split(',') : [];
+        if (ids.length === 0) {
+            setUserTrips([]);
+            return;
+        }
+        const cache = new Map<string, Trip>();
+        const flush = () => {
+            const merged = ids
+                .map(id => cache.get(id))
+                .filter((t): t is Trip => !!t);
             setUserTrips(merged);
         };
-        fetchUserTrips();
-        return () => { cancelled = true; };
-    }, [appUser?.trips]);
+        const unsubs = ids.map(id =>
+            onSnapshot(
+                doc(db, 'trips', id),
+                (snap) => {
+                    if (snap.exists()) {
+                        cache.set(id, { ...snap.data(), id: snap.id } as Trip);
+                    } else {
+                        cache.delete(id);
+                    }
+                    flush();
+                },
+                (e) => console.error('Failed to subscribe to trip', id, e),
+            ),
+        );
+        return () => { unsubs.forEach(u => u()); };
+    }, [tripIdsKey]);
 
     useEffect(() => {
         let cancelled = false;

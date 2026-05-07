@@ -844,37 +844,30 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         </div>
                         <div className={styles.modalForm} style={{ overflowY: 'auto', paddingRight: '0.5rem', flex: 1 }}>
                             <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-                                Tap a task to edit it. Changes are saved one task at a time and update the board for all players immediately.
+                                Tap a square to edit it. Changes are saved one task at a time and update the board for all players immediately.
                             </p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
                                 {bingoSquares.map((sq, i) => (
                                     <button
                                         key={sq.id}
                                         type="button"
+                                        className="bingo-square"
                                         onClick={() => {
                                             setEditingBingoIndex(i);
                                             setEditingBingoDraft(sq.task);
                                         }}
                                         style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: '0.5rem',
-                                            background: 'var(--color-bg-primary)',
-                                            padding: '0.65rem 0.75rem',
-                                            borderRadius: 8,
-                                            border: '1px solid var(--color-border)',
-                                            textAlign: 'left',
-                                            cursor: 'pointer',
                                             font: 'inherit',
                                             color: 'inherit',
-                                            width: '100%',
+                                            padding: '0.4rem 0.3rem',
+                                            position: 'relative',
                                         }}
                                     >
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', width: '20px', textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
-                                        <span style={{ flex: 1, fontSize: '0.9rem', color: sq.task ? 'var(--color-text)' : 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                            {sq.task || 'Tap to add task'}
+                                        <span style={{ position: 'absolute', top: 4, left: 6, fontSize: '0.6rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>{i + 1}</span>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1.2, wordBreak: 'break-word', color: sq.task ? 'var(--color-text-main)' : 'var(--color-text-muted)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {sq.task || '+ Add'}
                                         </span>
-                                        <Edit2 size={14} style={{ color: 'var(--color-text-muted)', flexShrink: 0 }} />
+                                        <Edit2 size={10} style={{ position: 'absolute', bottom: 4, right: 6, color: 'var(--color-text-muted)' }} />
                                     </button>
                                 ))}
                             </div>
