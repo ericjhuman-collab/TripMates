@@ -95,11 +95,30 @@ export async function acceptTripInvite(invite: TripInvite, currentUid: string): 
         // write, which is the correct path for that case.
     }
 
+    // Step-tag each write so the toast surfaces *which* step failed —
+    // permission-denied on the trip update means the invitee-join rule;
+    // on the user doc means the owner-update rule; on the invite means
+    // the invitee-delete rule. Saves a guessing game next time.
     if (!alreadyMember) {
-        await updateDoc(tripRef, { members: arrayUnion(currentUid) });
+        try {
+            await updateDoc(tripRef, { members: arrayUnion(currentUid) });
+        } catch (e) {
+            const err = e as { code?: string; message?: string };
+            throw new Error(`trip-update: ${err.code || err.message || 'unknown'}`);
+        }
     }
-    await updateDoc(userRef, { trips: arrayUnion(invite.tripId), activeTripId: invite.tripId });
-    await deleteDoc(doc(db, 'tripInvites', invite.id));
+    try {
+        await updateDoc(userRef, { trips: arrayUnion(invite.tripId), activeTripId: invite.tripId });
+    } catch (e) {
+        const err = e as { code?: string; message?: string };
+        throw new Error(`user-update: ${err.code || err.message || 'unknown'}`);
+    }
+    try {
+        await deleteDoc(doc(db, 'tripInvites', invite.id));
+    } catch (e) {
+        const err = e as { code?: string; message?: string };
+        throw new Error(`invite-delete: ${err.code || err.message || 'unknown'}`);
+    }
 }
 
 export async function declineTripInvite(invite: TripInvite): Promise<void> {

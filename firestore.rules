@@ -141,10 +141,13 @@ service cloud.firestore {
              .hasAny(['createdBy', 'adminIds', 'members']);
 
       // (2) Invitee joins: only adds self to members, invite not closed.
+      // Use .get() with defaults so the rule still passes for trips that
+      // predate the inviteClosed field — direct dot-access on a missing
+      // field can short-circuit the rule to deny.
       allow update: if isAuthed()
-        && resource.data.inviteClosed != true
+        && resource.data.get('inviteClosed', false) != true
         && onlyChanging(['members'])
-        && addedSelfTo(resource.data.members, request.resource.data.members);
+        && addedSelfTo(resource.data.get('members', []), request.resource.data.get('members', []));
 
       // (3) Member leaves: only removes self from members.
       allow update: if isAuthed()
