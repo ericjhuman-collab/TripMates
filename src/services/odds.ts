@@ -1,5 +1,5 @@
 import { db } from './firebase';
-import { doc, setDoc, updateDoc, collection, serverTimestamp, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, collection, serverTimestamp, getDocs, query, where, onSnapshot, type Unsubscribe } from 'firebase/firestore';
 
 export type OddsState = 'pending_target' | 'pending_challenger' | 'resolved' | 'expired';
 
@@ -74,6 +74,21 @@ export const getOddsForTrip = async (tripId: string): Promise<OddsSession[]> => 
         console.error("Failed to fetch odds:", err);
         return [];
     }
+};
+
+/** Live subscription — fires immediately with current state and again on every
+ *  remote change. Use this in OddsContext so dares + responses propagate
+ *  between phones without an app restart. */
+export const subscribeToOddsForTrip = (
+    tripId: string,
+    callback: (sessions: OddsSession[]) => void,
+): Unsubscribe => {
+    const q = query(collection(db, 'odds'), where('tripId', '==', tripId));
+    return onSnapshot(
+        q,
+        snap => callback(snap.docs.map(d => d.data() as OddsSession)),
+        err => console.error('Odds subscription error:', err),
+    );
 };
 
 export const markOddsCompleted = async (sessionId: string) => {
