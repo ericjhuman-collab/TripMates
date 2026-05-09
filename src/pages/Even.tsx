@@ -170,7 +170,14 @@ export const Even: React.FC = () => {
                                     )}
                                 </div>
                                 <div className={styles.expenseDetails}>
-                                    <h4 className={styles.expenseTitle}>{expense.merchantName || expense.description}</h4>
+                                    <h4 className={styles.expenseTitle}>
+                                        {/* Prefer the user-entered title (description) over the OCR
+                                            merchant guess; fall back to merchant only when the
+                                            description is the legacy generic placeholder. */}
+                                        {expense.description && expense.description !== 'Shared Expense'
+                                            ? expense.description
+                                            : (expense.merchantName || expense.description || 'Expense')}
+                                    </h4>
                                     <p className={styles.expenseDate}>
                                         {isItemized
                                             ? (myClaimedSomething ? 'Mina poster valda — tryck för att ändra' : 'Välj dina poster')
