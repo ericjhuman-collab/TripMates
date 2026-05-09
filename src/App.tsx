@@ -13,6 +13,7 @@ import { ToastProvider } from './components/Toast';
 import { EnvBanner } from './components/EnvBanner';
 import { LiveLocationDaemon } from './components/LiveLocationDaemon';
 import { PushNotificationDaemon } from './components/PushNotificationDaemon';
+import { ChangelogModal } from './components/ChangelogModal';
 import './App.css';
 
 // Route-level code splitting — keeps the initial JS bundle small. Home is
@@ -49,6 +50,7 @@ function App() {
             <TripProvider>
               <LiveLocationDaemon />
               <PushNotificationDaemon />
+              <ChangelogModal />
               <EvenProvider>
                 <OddsProvider>
                 <div className="app-container">
