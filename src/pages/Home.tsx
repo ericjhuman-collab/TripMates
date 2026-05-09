@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'rea
 import { useLocation } from 'react-router-dom';
 import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, Gamepad2, Users, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, Gamepad2, Users, X, Navigation } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { subscribeToActivities, subscribeToActivitiesByDay, type Activity } from '../services/activities';
@@ -22,6 +22,50 @@ const Games = lazy(() => import('./Games').then(m => ({ default: m.Games })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
 type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members' | 'games';
+
+// Build a Google Maps URL — coords win when present (most precise), otherwise
+// fall back to the activity's address or location name. Returns null when the
+// activity has no resolvable destination so callers can hide the button.
+function buildMapsUrlForActivity(act: Activity): string | null {
+    if (act.location && typeof act.location.lat === 'number' && typeof act.location.lng === 'number') {
+        return `https://www.google.com/maps/search/?api=1&query=${act.location.lat},${act.location.lng}`;
+    }
+    const fallback = act.address || act.locationName;
+    if (!fallback) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallback)}`;
+}
+
+const OpenInMapsButton: React.FC<{ activity: Activity; compact?: boolean }> = ({ activity, compact }) => {
+    const url = buildMapsUrlForActivity(activity);
+    if (!url) return null;
+    return (
+        <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            aria-label={`Open ${activity.locationName || activity.title} in Google Maps`}
+            title="Open in Google Maps"
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                padding: compact ? '4px 8px' : '6px 12px',
+                borderRadius: 999,
+                background: 'rgba(59, 130, 246, 0.12)',
+                color: '#1d4ed8',
+                fontSize: compact ? 12 : 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+            }}
+        >
+            <Navigation size={compact ? 12 : 14} />
+            {!compact && <span>Maps</span>}
+        </a>
+    );
+};
 
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
@@ -472,6 +516,7 @@ export const Home: React.FC = () => {
                                                 </div>
                                             )}
                                         </div>
+                                        <OpenInMapsButton activity={act} compact />
                                     </div>
                                 ))}
                             </div>
@@ -520,6 +565,9 @@ export const Home: React.FC = () => {
                                                     <span>{act.locationName}</span>
                                                 </div>
                                             )}
+                                            <div style={{ marginTop: 6 }}>
+                                                <OpenInMapsButton activity={act} compact />
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -715,6 +763,9 @@ const ActivityCard: React.FC<{ activity: Activity, isAdmin: boolean, users: AppU
                         <MapPin size={16} />
                         <span>{activity.locationName || 'Unknown Location'}</span>
                     </div>
+                </div>
+                <div style={{ marginTop: 8 }}>
+                    <OpenInMapsButton activity={activity} />
                 </div>
             </div>
 
