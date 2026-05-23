@@ -330,7 +330,25 @@ service cloud.firestore {
         && isTripMember(request.resource.data.tripId)
         && request.resource.data.creatorId == request.auth.uid;
 
-      allow update, delete: if isAuthed() && (
+      // Full update — creator, payer, or trip admin only.
+      // Any-trip-member update is allowed IF the request only touches `items`,
+      // so participants can claim their portions of an ITEMIZED receipt without
+      // being granted permission to mutate amount/payer/participants/etc.
+      // Same posture as gallery's "tag-people-only" rule layered on top of the
+      // uploader/admin rule.
+      allow update: if isAuthed() && (
+        resource.data.creatorId == request.auth.uid
+        || resource.data.payerId == request.auth.uid
+        || isTripAdmin(resource.data.tripId)
+        || (
+          isTripMember(resource.data.tripId)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['items'])
+        )
+      );
+
+      // Delete remains restricted — trip members must NOT be able to wipe
+      // a receipt while claiming.
+      allow delete: if isAuthed() && (
         resource.data.creatorId == request.auth.uid
         || resource.data.payerId == request.auth.uid
         || isTripAdmin(resource.data.tripId)

@@ -323,6 +323,41 @@ describe('expenses/{expenseId}', () => {
     // CAROL outsider: blocked
     await assertFails(updateDoc(doc(asUser(CAROL), 'expenses', 'exp1'), { amount: 1300 }));
   });
+
+  // ITEMIZED-receipt claim path — participants need to write back the items
+  // array (with their own uid added to per-item allocations). They are NOT
+  // the payer/creator/admin, so the full-update rule denies them; a
+  // dedicated trip-member rule limited to the `items` field opens that path.
+  describe('items-only updates for itemized claims', () => {
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'expenses', 'expIt'), {
+          tripId: TRIP_ID, creatorId: ALICE, payerId: ALICE, amount: 1000, currency: 'SEK',
+          description: 'Dinner', date: '2026-04-26', participants: [], splitType: 'ITEMIZED',
+          items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: {} }],
+        });
+      });
+    });
+
+    it('trip member can update only the items field', async () => {
+      await assertSucceeds(updateDoc(doc(asUser(BOB), 'expenses', 'expIt'), {
+        items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: { [BOB]: 1 } }],
+      }));
+    });
+
+    it('trip member cannot piggyback other field changes', async () => {
+      await assertFails(updateDoc(doc(asUser(BOB), 'expenses', 'expIt'), {
+        items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: { [BOB]: 1 } }],
+        amount: 9999,
+      }));
+    });
+
+    it('non-member cannot update items', async () => {
+      await assertFails(updateDoc(doc(asUser(CAROL), 'expenses', 'expIt'), {
+        items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: { [CAROL]: 1 } }],
+      }));
+    });
+  });
 });
 
 describe('payments/{paymentId}', () => {
