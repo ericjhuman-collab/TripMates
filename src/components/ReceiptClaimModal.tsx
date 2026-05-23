@@ -27,10 +27,38 @@ export const ReceiptClaimModal: React.FC<ReceiptClaimModalProps> = ({ expense, o
     const [items, setItems] = useState<ReceiptItem[]>(() =>
         (expense.items || []).map(it => ({ ...it, allocations: { ...it.allocations } }))
     );
-    // Re-sync local items when the underlying expense (live snapshot) changes — e.g. after Edit save
+    // Re-sync local items when the underlying expense (live snapshot) changes — e.g.
+    // after a remote Edit save or another trip member claiming their own items.
+    //
+    // We MUST NOT blow away the current user's in-progress selections here: the
+    // parent (Even.tsx) hands us a fresh `expense` object on every onSnapshot tick
+    // (because EvenContext rebuilds the whole expenses array on any trip update),
+    // so this effect fires whenever *anyone* edits *any* expense in the trip.
+    // Wholesale-resetting would silently wipe the user's claims, and the Save
+    // button would then short-circuit via hasChanges() → onClose() with no write.
+    //
+    // Merge strategy: keep this user's local allocation for each item, take every
+    // other user's allocations from upstream so remote claims become visible live,
+    // and fall back to a full reset only when the item set itself changed
+    // structurally (different ids/length — e.g. the receipt was edited).
     useEffect(() => {
-        setItems((expense.items || []).map(it => ({ ...it, allocations: { ...it.allocations } })));
-    }, [expense.items]);
+        setItems(prevLocal => {
+            const upstream = expense.items || [];
+            const sameStructure = prevLocal.length === upstream.length &&
+                prevLocal.every((p, i) => p.id === upstream[i].id);
+            if (!sameStructure) {
+                return upstream.map(it => ({ ...it, allocations: { ...it.allocations } }));
+            }
+            return upstream.map((upItem, idx) => {
+                const localItem = prevLocal[idx];
+                const merged: Record<string, number> = { ...upItem.allocations };
+                delete merged[myUid];
+                const myLocalParts = localItem.allocations[myUid] || 0;
+                if (myLocalParts > 0) merged[myUid] = myLocalParts;
+                return { ...upItem, allocations: merged };
+            });
+        });
+    }, [expense.items, myUid]);
     const [isSaving, setIsSaving] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [showEdit, setShowEdit] = useState(false);
@@ -159,6 +187,7 @@ export const ReceiptClaimModal: React.FC<ReceiptClaimModalProps> = ({ expense, o
         setIsSaving(true);
         try {
             await updateExpense(expense.id, { items });
+            toast.success('Dina val är sparade.');
             onClose();
         } catch (e) {
             console.error('Failed to save claims', e);
