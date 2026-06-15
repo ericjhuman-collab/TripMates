@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useToast } from '../components/useToast';
 import { db } from '../services/firebase';
-import { doc, getDoc, setDoc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot, setDoc, updateDoc, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 export interface TripDestination {
@@ -42,11 +42,22 @@ export interface Trip {
     invitedGroups?: string[]; // Groups specifically invited to this trip
     bingoReward?: string; // Configurable text for bingo reward banner
     allowMemberActivities?: boolean; // If true, regular members can add activities
+    // User-chosen phase. 'upcoming' resolves to current/future based on dates.
+    // Legacy trips without this field fall back to date-based categorization.
+    phase?: 'bucketlist' | 'upcoming' | 'past';
+    // Timestamp of the most recent successful Settle Up. Drives the
+    // "ny utgift sedan settle-up" banner and the ready-to-settle expiry.
+    settledAt?: number;
 }
 
 export type TripCategory = 'current' | 'future' | 'past' | 'bucketlist';
+export type TripPhase = 'bucketlist' | 'upcoming' | 'past';
 
 export const categorizeTrip = (trip: Trip): TripCategory => {
+    // Explicit phase wins over date-derived categorization.
+    if (trip.phase === 'bucketlist') return 'bucketlist';
+    if (trip.phase === 'past') return 'past';
+
     const now = new Date();
     now.setHours(0, 0, 0, 0);
     const start = trip.startDate ? new Date(trip.startDate) : null;
@@ -114,32 +125,44 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ];
     })();
 
-    // Fetch all user trips + merge mock data
+    // Subscribe to each user trip live so member joins/leaves on other
+    // devices propagate to TripAdmin, Members tab, etc. without an app
+    // restart. Re-subscribing only when the *set* of trip IDs changes
+    // (not on every appUser refresh).
+    const tripIdsKey = (appUser?.trips || []).join(',');
     useEffect(() => {
-        let cancelled = false;
-        const fetchUserTrips = async () => {
-            let realTrips: Trip[] = [];
-            if (appUser?.trips && appUser.trips.length > 0) {
-                try {
-                    const tripPromises = appUser.trips.map(id => getDoc(doc(db, 'trips', id)));
-                    const tripDocs = await Promise.all(tripPromises);
-                    if (cancelled) return;
-                    realTrips = tripDocs.filter(d => d.exists()).map(d => ({ ...d.data(), id: d.id } as Trip));
-                } catch (e) {
-                    console.error('Failed to fetch user trips', e);
-                }
-            }
-            if (cancelled) return;
-            // Stop merging mock trips so new users see a clean state
-            const merged = [...realTrips];
+        const ids = tripIdsKey ? tripIdsKey.split(',') : [];
+        if (ids.length === 0) {
+            setUserTrips([]);
+            return;
+        }
+        const cache = new Map<string, Trip>();
+        const flush = () => {
+            const merged = ids
+                .map(id => cache.get(id))
+                .filter((t): t is Trip => !!t);
             setUserTrips(merged);
         };
-        fetchUserTrips();
-        return () => { cancelled = true; };
-    }, [appUser?.trips]);
+        const unsubs = ids.map(id =>
+            onSnapshot(
+                doc(db, 'trips', id),
+                (snap) => {
+                    if (snap.exists()) {
+                        cache.set(id, { ...snap.data(), id: snap.id } as Trip);
+                    } else {
+                        cache.delete(id);
+                    }
+                    flush();
+                },
+                (e) => console.error('Failed to subscribe to trip', id, e),
+            ),
+        );
+        return () => { unsubs.forEach(u => u()); };
+    }, [tripIdsKey]);
 
     useEffect(() => {
         let cancelled = false;
+        let unsubscribeActiveTrip: (() => void) | null = null;
         const loadTrip = async () => {
             if (!appUser || !currentUser) {
                 setActiveTrip(null);
@@ -156,20 +179,31 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return;
                 }
 
+                // Subscribe (not getDoc) so the rest of the app sees member
+                // joins/leaves live — Bingo's member picker, Members tab,
+                // OddsGame target list etc. all rely on activeTrip.members
+                // being current.
                 try {
-                    const snap = await getDoc(doc(db, 'trips', appUser.activeTripId));
-                    if (cancelled) return;
-                    if (snap.exists()) {
-                        setActiveTrip({ ...snap.data(), id: snap.id } as Trip);
-                    } else {
-                        setActiveTrip(null);
-                        await updateDoc(doc(db, 'users', currentUser.uid), { activeTripId: null });
-                        if (cancelled) return;
-                        await refreshAppUser();
-                    }
+                    unsubscribeActiveTrip = onSnapshot(
+                        doc(db, 'trips', appUser.activeTripId),
+                        async (snap) => {
+                            if (cancelled) return;
+                            if (snap.exists()) {
+                                setActiveTrip({ ...snap.data(), id: snap.id } as Trip);
+                                setLoading(false);
+                            } else {
+                                setActiveTrip(null);
+                                await updateDoc(doc(db, 'users', currentUser.uid), { activeTripId: null });
+                                if (cancelled) return;
+                                await refreshAppUser();
+                            }
+                        },
+                        (e) => console.error("Failed to subscribe to active trip", e),
+                    );
                 } catch (e) {
-                    console.error("Failed to load active trip", e);
+                    console.error("Failed to subscribe to active trip", e);
                 }
+                return;
             } else if (userTrips.length > 0) {
                 // Auto-default: pick best trip by priority Current → Future → Past → Bucketlist
                 const grouped = categorizeTrips(userTrips);
@@ -196,7 +230,10 @@ export const TripProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         loadTrip();
-        return () => { cancelled = true; };
+        return () => {
+            cancelled = true;
+            unsubscribeActiveTrip?.();
+        };
         // appUser / currentUser are intentionally omitted — only .activeTripId and .uid are
         // read (both included above). Adding them would cause re-runs on unrelated profile fields.
         // MOCK_TRIPS is a module-level constant and cannot change.

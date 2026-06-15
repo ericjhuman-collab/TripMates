@@ -40,17 +40,74 @@
 }
 
 /* ── Admin section ──────────────────────── */
+/* Reserve top space for the fixed .adminFixedTopBar (title row + sub-pill).
+   ~7.5rem covers a typical title-row height plus the pill plus a small
+   breathing gap. */
+.adminPage {
+  padding-top: calc(7.5rem + var(--banner-stack-height, 0px));
+}
+
+/* Pinned area below Layout's fixed header — keeps the My Trips title +
+   Current/Future/Past/Bucketlist switcher on screen while the trip list
+   scrolls. position: fixed (not sticky) for the same iOS WKWebView
+   reason as the rest of the app's fixed top bars. Banner-stack offset
+   keeps the bar below any visible banners. */
+.adminFixedTopBar {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 416px;
+  z-index: 40;
+  background: var(--color-bg-primary);
+  padding-bottom: 0.25rem;
+}
+
 .adminHeader {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 1.5rem;
+  margin: 0 0 0.75rem;
+}
+
+/* When the sub-pill lives inside the fixed top bar, drop the default
+   margins so it sits flush under the title row. */
+.adminFixedTopBar .subNavPill,
+.networkFixedTopBar .subNavPill {
+  margin: 0;
 }
 
 .adminTitle {
   margin: 0;
   font-size: 1.5rem;
   color: var(--color-text);
+}
+
+/* ── Network page (sub-tab in Profile) ──────
+   Same fixed-top-bar pattern as .adminFixedTopBar so the page header,
+   search input, and Following/Followers pill stay pinned below Layout's
+   header while the user list scrolls. */
+.networkPage {
+  padding-top: calc(11rem + var(--banner-stack-height, 0px));
+  padding-left: 1.25rem;
+  padding-right: 1.25rem;
+  padding-bottom: 2rem;
+}
+
+.networkFixedTopBar {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem + 0.25rem + var(--banner-stack-height, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - 3rem);
+  max-width: 416px;
+  z-index: 40;
+  background: var(--color-bg-primary);
+  padding-bottom: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 
 /* ── Sub nav pills (shared style) ────────── */
@@ -1230,22 +1287,26 @@
 
 .topBarBtn {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  border: none;
-  background: var(--color-surface, rgba(255,255,255,0.7));
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: none;
   cursor: pointer;
-  color: var(--color-text-main);
-  box-shadow: var(--shadow-sm);
-  transition: background 0.2s;
+  background: var(--color-primary-dark, #1e293b);
+  color: #fff;
+  font-family: var(--font-family);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
 }
 
 .topBarBtn:hover {
-  background: rgba(255,255,255,0.95);
+  opacity: 0.85;
+}
+
+.topBarBtn:active {
+  transform: scale(0.97);
 }
 
 .notifBadge {
@@ -1321,6 +1382,13 @@
   font-size: 0.82rem;
   color: var(--color-text-muted);
   margin: 0;
+}
+
+/* Lighter styling when no trip is in progress — keeps the slot from
+   shouting "Currently in" when the user isn't actually traveling. */
+.heroLocationIdle {
+  opacity: 0.7;
+  font-style: italic;
 }
 
 /* Stats row */
@@ -1402,23 +1470,32 @@
   width: 100%;
   max-width: 480px;
   margin: 0 auto;
-  background: rgba(0,0,0,0.4);
+  background: rgba(15, 23, 42, 0.4);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  z-index: 300;
+  z-index: 1000;
   display: flex;
   justify-content: flex-end;
+  animation: fadeIn 0.2s ease;
 }
 
 .drawer {
-  width: min(320px, 85vw);
+  position: relative;
+  width: 280px;
+  max-width: 80vw;
   height: 100%;
-  background: var(--color-bg-card, #fff);
+  background: rgba(255, 255, 255, 0.85);
+  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(20px);
+  border-left: 1px solid rgba(255, 255, 255, 0.3);
+  box-shadow:
+    -4px 0 30px rgba(0, 0, 0, 0.08),
+    0 0 60px rgba(51, 65, 85, 0.06);
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   display: flex;
   flex-direction: column;
-  padding: 1.5rem 1.25rem;
-  animation: slideInRight 0.22s ease-out;
   overflow-y: auto;
+  padding: env(safe-area-inset-top) 0.75rem env(safe-area-inset-bottom);
 }
 
 @keyframes slideInRight {
@@ -1426,18 +1503,25 @@
   to   { transform: translateX(0); }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
 .drawerHeader {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 1.5rem;
+  padding: 1.5rem 0.75rem 1rem;
 }
 
 .drawerTitle {
   margin: 0;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: var(--color-text-main);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-muted);
 }
 
 .drawerCloseBtn {
@@ -1448,12 +1532,20 @@
   display: flex;
   align-items: center;
   padding: 0.25rem;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawerCloseBtn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--color-text-main);
 }
 
 .drawerList {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  padding: 0.25rem 0;
 }
 
 .drawerItem {
@@ -1463,29 +1555,78 @@
   width: 100%;
   border: none;
   background: transparent;
-  padding: 0.9rem 0.75rem;
-  border-radius: 12px;
-  font-size: 1rem;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
   font-weight: 600;
-  color: var(--color-text-main);
+  color: var(--color-text-muted);
   font-family: var(--font-family);
   cursor: pointer;
   text-align: left;
-  transition: background 0.15s;
+  transition: all 0.2s ease;
+  -webkit-user-select: none;
+  user-select: none;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .drawerItem:hover {
-  background: rgba(0,0,0,0.05);
+  color: var(--color-text-main);
+}
+
+.drawerItem:active {
+  transform: scale(0.98);
+}
+
+.drawerItemActive {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+.drawerItemActive:hover,
+.drawerItemActive:focus {
+  background: var(--color-primary-dark);
+  color: #fff;
+}
+
+.drawerItemIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  color: inherit;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.drawerItemActive .drawerItemIcon {
+  opacity: 1;
+}
+
+.drawerItemLabel {
+  flex: 1;
 }
 
 .drawerItemDanger {
+  color: rgba(239, 68, 68, 0.7);
+}
+
+.drawerItemDanger:hover {
   color: #ef4444;
+}
+
+.drawerItemDanger .drawerItemIcon {
+  opacity: 0.7;
+}
+
+.drawerItemDanger:hover .drawerItemIcon {
+  opacity: 1;
 }
 
 .drawerDivider {
   height: 1px;
-  background: var(--color-border);
-  margin: 0.5rem 0;
+  background: rgba(0, 0, 0, 0.06);
+  margin: 0.5rem 0.75rem;
 }
 
 /* Notification items */

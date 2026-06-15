@@ -1,0 +1,21 @@
+/* Pinned just under the Layout header. z-index 45 sits between the
+   header (50) and any page-level fixed top bar (40). Each child banner
+   keeps its own padding/margins; the stack only handles positioning. */
+.stack {
+  position: fixed;
+  top: calc(env(safe-area-inset-top) + 3.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  z-index: 45;
+  pointer-events: none;
+}
+
+.stack > * {
+  pointer-events: auto;
+}
+
+.stack:empty {
+  display: none;
+}

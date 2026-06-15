@@ -1,0 +1,261 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.25rem;
+    padding: 0.5rem 0 1rem;
+}
+
+.wheelOuter {
+    position: relative;
+    width: min(86vw, 340px);
+    aspect-ratio: 1 / 1;
+    /* Drop-shadow lives on the *non-rotating* wrapper. Putting it on the
+       SVG itself made the shadow rotate with the wheel during a spin,
+       which looked like the whole circle was wobbling. Wrapper is
+       circular (border-radius 50 %) so the shadow follows the wheel
+       outline cleanly. */
+    border-radius: 50%;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.18);
+}
+
+/* Pointer at the top (red triangle) — points down at the winning slice */
+.pointer {
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-top: 22px solid var(--color-primary-dark);
+    z-index: 2;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.18));
+}
+
+.wheelSvg {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    /* Inset white ring is symmetric so it reads static even though the
+       SVG itself rotates. */
+    box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.6);
+}
+
+.wheelSpinning {
+    transition: transform 4.2s cubic-bezier(0.17, 0.67, 0.11, 0.99);
+}
+
+.wheelHub {
+    fill: var(--color-bg-card);
+    stroke: rgba(15, 23, 42, 0.08);
+    stroke-width: 1;
+}
+
+.wheelLabel {
+    font-size: 10px;
+    font-weight: 700;
+    fill: var(--color-primary-dark);
+    pointer-events: none;
+    letter-spacing: 0.2px;
+}
+
+.spinBtn {
+    width: 100%;
+    max-width: 320px;
+    padding: 0.85rem 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+
+.spinBtn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.winnerBanner {
+    width: 100%;
+    max-width: 320px;
+    text-align: center;
+    padding: 0.75rem 1rem;
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid rgba(15, 23, 42, 0.06);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    color: var(--color-primary-dark);
+    font-weight: 600;
+}
+
+.winnerName {
+    font-size: 1.25rem;
+    font-weight: 800;
+    margin-top: 0.15rem;
+}
+
+/* ── Participant chips ─────────────────────── */
+
+.participantsBlock {
+    width: 100%;
+}
+
+.participantsHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+}
+
+.participantsTitle {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.participantsAction {
+    background: none;
+    border: none;
+    color: var(--color-primary-dark);
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: 8px;
+}
+
+.participantsAction:hover {
+    background-color: rgba(0, 0, 0, 0.04);
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.65rem 0.4rem 0.4rem;
+    border-radius: 999px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    background: var(--color-bg-card);
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-text-main);
+    transition: opacity 0.15s, transform 0.1s, border-color 0.15s;
+}
+
+.chipExcluded {
+    opacity: 0.4;
+    border-style: dashed;
+}
+
+.chip:active {
+    transform: scale(0.97);
+}
+
+.chipAvatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.chipAvatarFallback {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+/* ── History ──────────────────────────────── */
+
+.historyBlock {
+    width: 100%;
+}
+
+.historyHeader {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.5rem;
+    padding: 0 0.25rem;
+}
+
+.historyList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.historyRow {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    border-radius: 14px;
+    background: var(--color-bg-card);
+    border: 1px solid rgba(15, 23, 42, 0.05);
+}
+
+.historyAvatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.historyAvatarFallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.historyName {
+    flex: 1;
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--color-primary-dark);
+}
+
+.historyTime {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    font-weight: 500;
+}
+
+.emptyHint {
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    padding: 1rem 0.5rem;
+}

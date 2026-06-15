@@ -6,7 +6,9 @@
 }
 
 .appContainerWithNav {
-  padding-bottom: 80px;
+  /* Clear the fixed header (status-bar inset + ~3.25rem of header chrome). */
+  padding-top: calc(env(safe-area-inset-top) + 3.25rem);
+  padding-bottom: calc(80px + env(safe-area-inset-bottom));
 }
 
 .appContainerNoNav {
@@ -14,14 +16,25 @@
 }
 
 /* ── Header ─────────────────────────────── */
+/* position: fixed (not sticky) — sticky was unreliable on iOS WKWebView
+   inside an `overflow-x: hidden` parent, causing the header to drift
+   with rubber-band scroll. Fixed pins it to the viewport unconditionally. */
 .header {
-  padding: 1rem 1.5rem;
+  padding: calc(env(safe-area-inset-top) + 0.25rem) 1.5rem 0.5rem;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  min-height: 4.5rem;
-  position: relative;
+  position: fixed;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 480px;
+  box-sizing: border-box;
   z-index: 50;
+  background: var(--color-bg-overlay);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .backBtn {
@@ -37,7 +50,7 @@
 .profileHeaderRow {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   width: 100%;
 }
 
@@ -308,12 +321,32 @@
   font-family: var(--font-family);
   transition: opacity 0.15s ease, transform 0.15s ease;
   flex-shrink: 0;
+  position: relative;
 }
 .searchIconBtn:hover {
   opacity: 0.85;
 }
 .searchIconBtn:active {
   transform: scale(0.97);
+}
+
+/* Unread-notifications badge anchored to the hamburger button. */
+.menuUnreadBadge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
 
@@ -327,7 +360,9 @@
 
 .searchPanel {
   position: absolute;
-  top: 4.5rem;     /* just below header */
+  /* Sit below the fixed header (status-bar inset + ~3.25rem of header chrome).
+     Banner-stack offset keeps the panel below any visible banners. */
+  top: calc(env(safe-area-inset-top) + 3.5rem + var(--banner-stack-height, 0px));
   left: 1rem;
   right: 1rem;
   background: #fff;

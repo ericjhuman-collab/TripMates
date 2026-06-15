@@ -8,9 +8,13 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test:rules": "firebase emulators:exec --only firestore,auth --project tripmates-rules-test \"vitest run tests/firestore.rules.test.ts\""
+    "test:rules": "firebase emulators:exec --only firestore,auth --project tripmates-rules-test \"vitest run tests/firestore.rules.test.ts\"",
+    "test:rules:database": "firebase emulators:exec --only database --project tripmates-rules-test \"vitest run tests/database.rules.test.ts\""
   },
   "dependencies": {
+    "@capacitor-community/background-geolocation": "^1.2.26",
+    "@capacitor-firebase/app": "^8.2.0",
+    "@capacitor-firebase/messaging": "^8.2.0",
     "@capacitor/android": "^8.3.1",
     "@capacitor/cli": "^8.3.1",
     "@capacitor/core": "^8.3.1",
@@ -25,6 +29,7 @@
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "react-easy-crop": "^5.5.7",
     "react-error-boundary": "^6.1.1",
     "react-globe.gl": "^2.37.1",
     "react-leaflet": "^5.0.0",
@@ -33,6 +38,7 @@
     "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
     "@eslint/js": "^9.39.4",
     "@firebase/rules-unit-testing": "^5.0.0",
     "@types/google.maps": "^3.58.1",

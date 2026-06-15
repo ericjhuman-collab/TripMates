@@ -1,0 +1,274 @@
+.card {
+    background: white;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.cardClosed {
+    opacity: 0.85;
+    background: #f9fafb;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.creator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    object-fit: cover;
+}
+
+.avatarFallback {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-primary);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+}
+
+.creatorMeta {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.creatorName {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--color-primary-dark);
+}
+
+.creatorTime {
+    font-size: 0.7rem;
+    color: var(--color-text-muted);
+}
+
+.headerBadges {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.closedBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #f3f4f6;
+    color: #6b7280;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.anonBadge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: #ede9fe;
+    color: #6d28d9;
+    padding: 0.2rem 0.6rem;
+    border-radius: 9999px;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.voteCount {
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.question {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0;
+    color: var(--color-primary-dark);
+    line-height: 1.3;
+}
+
+.hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin: -0.25rem 0 0;
+}
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.option {
+    position: relative;
+    background: #f3f4f6;
+    border: 2px solid transparent;
+    border-radius: 10px;
+    padding: 0.65rem 0.85rem;
+    text-align: left;
+    cursor: pointer;
+    overflow: hidden;
+    transition: border-color 0.15s ease;
+}
+
+.option:not(.optionDisabled):hover {
+    border-color: rgba(0, 0, 0, 0.08);
+}
+
+.optionSelected {
+    border-color: var(--color-primary);
+    background: #e0e7ff;
+}
+
+.optionDisabled {
+    cursor: default;
+}
+
+/* Animated fill bar showing vote percentage. */
+.optionFill {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    background: rgba(99, 102, 241, 0.15);
+    transition: width 0.3s ease;
+    pointer-events: none;
+}
+
+.optionSelected .optionFill {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+.optionContent {
+    position: relative;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 1;
+}
+
+.optionLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.9rem;
+    color: var(--color-primary-dark);
+    font-weight: 500;
+}
+
+.checkIcon {
+    color: var(--color-primary);
+}
+
+.optionCount {
+    font-size: 0.8rem;
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+
+.footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.25rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    margin-top: 0.25rem;
+}
+
+.toggleVoters {
+    background: transparent;
+    border: none;
+    padding: 0.4rem 0;
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+}
+
+.toggleVoters:hover {
+    color: var(--color-primary-dark);
+}
+
+.adminRow {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.closeBtn {
+    background: transparent;
+    border: 1px solid var(--color-border, #d1d5db);
+    color: var(--color-primary-dark);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.closeBtn:hover {
+    background: #f9fafb;
+}
+
+.deleteBtn {
+    background: transparent;
+    border: none;
+    color: #b91c1c;
+    cursor: pointer;
+    padding: 0.3rem;
+    border-radius: 6px;
+}
+
+.deleteBtn:hover {
+    background: #fee2e2;
+}
+
+.votersList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.voterGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+}
+
+.voterGroupLabel {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--color-primary-dark);
+}
+
+.voterNames {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}

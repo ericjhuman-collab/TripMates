@@ -1,60 +1,88 @@
 /* MapPage.module.css */
 
 .page {
-  height: calc(100vh - 150px);
+  position: relative;
+  /* Fill the entire viewport. body.map-fullscreen drops both top and
+     bottom padding from .app-container, and Home's .pageWrapperMap kills
+     its own. The Layout header is transparent above; the bottom nav is
+     position:fixed with its own translucent pill. The map renders behind
+     both — Google-Maps style true fullscreen. */
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
+/* Floating glass-pill header that overlays the map. Sits below the
+   app header (transparent in map-fullscreen mode) and below the nav-pill. */
 .header {
-  margin-bottom: 1rem;
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 8rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 0.15rem;
+  padding: 0.2rem 0.3rem;
+  background: rgba(255, 255, 255, 0.9);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 9999px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  max-width: calc(100% - 24px);
 }
 
-.title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0;
-  color: var(--color-primary-dark);
+/* Compact chevron buttons inside the day-nav pill — overrides the global
+   .btn-icon (44px) which is too big for an inline pill. */
+.header :global(.btn-icon) {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  box-shadow: none;
 }
 
+.header :global(.btn-icon):hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.title,
 .subtitle {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  margin: 0;
+  display: none;
 }
 
 /* ── Day navigator ──────────────────────── */
 .dayNav {
   display: flex;
   align-items: center;
+  gap: 0.25rem;
 }
 
 .dayLabel {
   text-align: center;
-  min-width: 90px;
+  min-width: 70px;
+  padding: 0 0.15rem;
 }
 
 .dayName {
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 0.8rem;
+  font-weight: 700;
   margin: 0;
+  color: var(--color-primary-dark);
+  line-height: 1.05;
 }
 
 .dayDate {
-  font-size: 0.75rem;
+  font-size: 0.62rem;
   color: var(--color-text-muted);
   margin: 0;
+  line-height: 1.05;
 }
 
 /* ── Map container ──────────────────────── */
 .mapWrapper {
   flex: 1;
-  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
 }
 
 .map {
@@ -66,6 +94,18 @@
 .tooltipTime {
   font-weight: 600;
   font-size: 0.85rem;
+}
+
+.memberLabel {
+  font-weight: 600;
+  font-size: 0.8rem;
+  color: var(--color-primary-dark);
+}
+
+.memberLabel[data-live="false"] {
+  color: var(--color-text-muted);
+  font-weight: 500;
+  font-style: italic;
 }
 
 .popupCenter {
@@ -80,31 +120,74 @@
 .mapWrapper {
   position: relative;
   flex: 1;
-  border-radius: var(--radius-lg);
   overflow: hidden;
-  box-shadow: var(--shadow-md);
 }
 
+/* Right-side vertical control stack — all icon buttons share one size
+   and one style for visual consistency (Google-Maps style). Sits above
+   the floating bottom-nav pill (which is bottom:1.5rem + ~3rem tall + safe). */
 .mapControls {
   position: absolute;
-  top: 15px;
-  right: 15px;
+  bottom: calc(env(safe-area-inset-bottom) + 6rem);
+  right: 12px;
   z-index: 1000; /* Leaflet maps sit at z-index 400 */
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: center;
 }
 
-.mapBtn {
-  background: rgba(255, 255, 255, 0.75);
+.iconBtn {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.4);
+  border: 1px solid rgba(0, 0, 0, 0.06);
   color: var(--color-primary-dark);
-  font-weight: 600;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  box-shadow: 0 4px 10px rgba(0,0,0,0.15);
-  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  cursor: pointer;
 }
 
-.mapBtn:active {
+.iconBtn:hover {
+  background: rgba(255, 255, 255, 1);
+  transform: translateY(-1px);
+}
+
+.iconBtn:active {
   transform: scale(0.95);
+}
+
+.iconBtn[disabled] {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.iconBtnOff {
+  color: var(--color-text-muted);
+  background: rgba(255, 255, 255, 0.75);
+}
+
+/* Bottom-left corner — live location sharing pill. Same vertical anchor
+   as .mapControls so it sits above the floating bottom-nav pill too. */
+.liveLocationCorner {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom) + 6rem);
+  left: 12px;
+  z-index: 1000;
+}
+
+.locateSpinning {
+  animation: locateSpin 1s linear infinite;
+}
+
+@keyframes locateSpin {
+  to { transform: rotate(360deg); }
 }

@@ -6,7 +6,7 @@ import { currencyService } from '../services/currencyService';
 import { uploadReceiptImage } from '../services/receipts';
 import { scanReceipt, ScanError, type ParsedLineItem } from '../services/ocrService';
 import { SUPPORTED_CURRENCIES } from '../utils/currencies';
-import { X, Camera } from 'lucide-react';
+import { X, Camera, Trash2 } from 'lucide-react';
 import { useEven } from '../context/useEven';
 import { type SplitType, type ExpenseParticipant, type Expense, type ReceiptItem } from '../services/even';
 import { EXPENSE_CATEGORIES } from '../utils/categories';
@@ -46,15 +46,23 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
     const toast = useToast();
     const { activeTrip } = useTrip();
     const { appUser } = useAuth();
-    const { participants, addExpense, updateExpense, expenses } = useEven();
+    const { participants, addExpense, updateExpense, deleteExpense, expenses } = useEven();
     
     const targetCurrency = activeTrip?.baseCurrency || 'SEK';
     
-    // Default Payer to first participant or logged-in user if available
-    const defaultPayerId = initialExpense?.payerId || (participants.length > 0 ? participants[0].uid : '');
+    // For a new expense, default the payer to the logged-in user — they're
+    // almost always the one who actually paid. Falls back to the first
+    // participant only if the current user isn't a trip member (shouldn't
+    // happen in practice but keeps the form usable). When editing, preserve
+    // whatever payer was saved.
+    const defaultPayerId = initialExpense?.payerId
+        || (appUser && participants.some(p => p.uid === appUser.uid) ? appUser.uid : '')
+        || (participants.length > 0 ? participants[0].uid : '');
 
-    // default description if needed elsewhere
-    const description = initialExpense?.description || 'Shared Expense';
+    // User-entered title (e.g. "Bella Italia", "Taxi to airport"). Falls back to scanned
+    // merchant name, then a generic label, when persisted. Kept editable so users can
+    // override the OCR guess.
+    const [title, setTitle] = useState<string>(initialExpense?.description ?? '');
     const [amountStr, setAmountStr] = useState(initialExpense ? (initialExpense.amount / 100).toString() : '');
     const [selectedCurrency, setSelectedCurrency] = useState(initialExpense?.currency || targetCurrency);
     const [selectedCategory, setSelectedCategory] = useState(initialExpense?.category || '');
@@ -168,6 +176,27 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
     }, [totalAmountCents, splitMode, allocations, participants, selectedCurrency, useItemizedSplit, parsedLineItems]);
 
     const [showSplitWarning, setShowSplitWarning] = useState(false);
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const canDelete = !!initialExpense && (
+        appUser?.uid === initialExpense.creatorId ||
+        appUser?.uid === initialExpense.payerId
+    );
+
+    const handleDelete = async () => {
+        if (!initialExpense) return;
+        setIsDeleting(true);
+        try {
+            await deleteExpense(initialExpense.id);
+            setShowDeleteConfirm(false);
+            onClose();
+        } catch (e) {
+            console.error('Failed to delete expense', e);
+            toast.error('Could not delete expense.');
+            setIsDeleting(false);
+        }
+    };
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (!e.target.files || e.target.files.length === 0) return;
@@ -224,6 +253,11 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
             setParsedTax(scanResult.tax ?? null);
             setParsedMerchantName(scanResult.merchantName ?? null);
             setParsedTransactionDate(scanResult.transactionDate ?? null);
+            // Pre-fill the title from the scanned merchant name only if the user hasn't
+            // already typed something — never overwrite their input.
+            if (scanResult.merchantName && !title.trim()) {
+                setTitle(scanResult.merchantName);
+            }
             // Auto-enable itemized split when we get usable line items so the user sees the option immediately
             if (scanResult.lineItems && scanResult.lineItems.length > 0) {
                 setUseItemizedSplit(true);
@@ -343,9 +377,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
                 ? convertedTotalCents
                 : finalParticipants.reduce((acc, p) => acc + p.amount, 0);
 
+            // Title precedence: user-typed > scanned merchant > generic fallback. We
+            // never write an empty description because list rendering uses it as the
+            // card heading.
+            const finalTitle = title.trim() || parsedMerchantName || 'Shared Expense';
+
             const expenseData: Omit<Expense, 'id' | 'createdAt'> = {
                 tripId: activeTrip?.id || 't1',
-                description: parsedMerchantName || description,
+                description: finalTitle,
                 amount: finalTotalCents, // saved in base currency
                 currency: targetCurrency, // always the trip's internal currency
                 creatorId: initialExpense?.creatorId || appUser?.uid || '',
@@ -427,19 +466,30 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
                 </div>
 
                 <div className={styles.modalBody}>
+                    <div className={styles.formGroup}>
+                        <label className={styles.inputLabel}>Title</label>
+                        <input
+                            type="text"
+                            className="input-field"
+                            placeholder="e.g. Bella Italia, Taxi to airport"
+                            value={title}
+                            onChange={e => setTitle(e.target.value)}
+                            maxLength={80}
+                        />
+                    </div>
+
                     <div className={styles.amountGroup}>
                         <div className={styles.amountInputWrapper}>
-                            <input 
-                                type="number" 
-                                className={styles.mainAmountInput} 
-                                placeholder="0" 
+                            <input
+                                type="number"
+                                className={styles.mainAmountInput}
+                                placeholder="0"
                                 value={amountStr}
                                 onChange={e => setAmountStr(e.target.value)}
                                 min="0" step="0.01"
-                                autoFocus
                             />
                             <div className={styles.currencySelectWrapper}>
-                                <CustomSelect 
+                                <CustomSelect
                                     className={styles.currencySelectField}
                                     value={selectedCurrency}
                                     onChange={setSelectedCurrency}
@@ -604,14 +654,78 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
                     {!blockingError && warningMessage && (
                         <p className={styles.validationError} style={{ color: '#a16207' }}>{warningMessage}</p>
                     )}
-                    <button
-                        className={styles.submitBtn}
-                        disabled={!!blockingError || isSaving}
-                        onClick={() => handleSubmit(false)}
-                    >
-                        {isSaving ? 'Calculating...' : 'Save Expense'}
-                    </button>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'stretch' }}>
+                        {canDelete && (
+                            <button
+                                type="button"
+                                onClick={() => setShowDeleteConfirm(true)}
+                                disabled={isSaving || isDeleting}
+                                aria-label="Delete expense"
+                                style={{
+                                    background: '#fee2e2',
+                                    color: '#b91c1c',
+                                    border: 'none',
+                                    borderRadius: 12,
+                                    padding: '0 1rem',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
+                            >
+                                <Trash2 size={20} />
+                            </button>
+                        )}
+                        <button
+                            className={styles.submitBtn}
+                            disabled={!!blockingError || isSaving || isDeleting}
+                            onClick={() => handleSubmit(false)}
+                            style={{ flex: 1 }}
+                        >
+                            {isSaving ? 'Calculating...' : 'Save Expense'}
+                        </button>
+                    </div>
                 </div>
+
+                {showDeleteConfirm && (
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="Confirm delete expense"
+                        style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1100 }}
+                        onClick={() => !isDeleting && setShowDeleteConfirm(false)}
+                    >
+                        <div
+                            onClick={(e) => e.stopPropagation()}
+                            style={{ background: '#fff', borderRadius: 16, padding: '1.5rem', maxWidth: 420, width: '92%', boxShadow: '0 24px 64px rgba(0,0,0,0.25)' }}
+                        >
+                            <h3 style={{ margin: '0 0 0.75rem', color: '#b91c1c' }}>Delete expense?</h3>
+                            <p style={{ color: '#374151', fontSize: '0.9rem', lineHeight: 1.5, margin: '0 0 1.25rem' }}>
+                                This will permanently remove "{initialExpense?.description}" and update all balances. This cannot be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={isDeleting}
+                                    style={{ background: '#e5e7eb', color: '#1f2937' }}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    className="btn"
+                                    onClick={handleDelete}
+                                    disabled={isDeleting}
+                                    style={{ background: '#dc2626', color: '#fff' }}
+                                >
+                                    {isDeleting ? 'Deleting…' : 'Delete'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {showSplitWarning && warningMessage && (
                     <div

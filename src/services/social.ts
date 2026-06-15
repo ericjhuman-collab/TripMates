@@ -6,6 +6,7 @@ import {
     arrayRemove,
     collection,
     addDoc,
+    setDoc,
     getDocs,
     query,
     orderBy,
@@ -19,7 +20,8 @@ export type NotificationType =
     | 'trip:new_expense'
     | 'trip:settled_up'
     | 'trip:photo_tag'
-    | 'trip:invite';
+    | 'trip:invite'
+    | 'trip:new_poll';
 
 export interface SocialNotification {
     id: string;
@@ -68,8 +70,11 @@ export async function followUser(
 
     await batch.commit();
 
-    // Add a notification for the target user
-    await addDoc(collection(db, 'users', targetUid, 'notifications'), {
+    // Deterministic doc id `follow_<sender>` ensures re-follow (after an
+    // unfollow, or a stale-state double-tap) overwrites the existing
+    // notification instead of spamming duplicates. Read receipts on the
+    // single doc reset because a re-follow is genuinely a new event.
+    await setDoc(doc(db, 'users', targetUid, 'notifications', `follow_${currentUid}`), {
         type: 'follow',
         fromUid: currentUid,
         fromName: currentName,

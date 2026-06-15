@@ -1,0 +1,195 @@
+.chat {
+  display: flex;
+  flex-direction: column;
+  /* Fit between the fixed header (top safe-area + ~3.25rem chrome),
+     the trip nav-pill above (~5.5rem incl. margins), and the floating
+     bottom nav (~5rem + bottom safe-area). dvh tracks iOS keyboard
+     state better than vh. The page wrapper drops its bottom padding
+     while on the chat tab (see Home.module.css .pageWrapperChat) so
+     the chat extends right up to the dock-reserved area. */
+  height: calc(
+    100dvh
+    - env(safe-area-inset-top)
+    - env(safe-area-inset-bottom)
+    - 14rem
+  );
+  min-height: 300px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-md);
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem 0.75rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--color-bg-primary);
+}
+
+.empty {
+  margin: auto;
+  text-align: center;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  max-width: 85%;
+}
+
+.rowOwn {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  margin-bottom: 2px;
+}
+
+.avatarSpacer {
+  width: 28px;
+  flex-shrink: 0;
+}
+
+.bubbleColumn {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.senderName {
+  font-size: 0.7rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+  margin: 0 0 0.15rem 0.6rem;
+}
+
+.bubble {
+  padding: 0.5rem 0.75rem;
+  border-radius: 1.1rem;
+  position: relative;
+  max-width: 100%;
+  word-wrap: break-word;
+}
+
+.bubbleOther {
+  background: var(--color-bg-card);
+  color: var(--color-text-main);
+  border-bottom-left-radius: 0.35rem;
+  box-shadow: var(--shadow-sm);
+}
+
+.bubbleOwn {
+  background: var(--color-secondary);
+  color: #fff;
+  border-bottom-right-radius: 0.35rem;
+}
+
+.text {
+  font-size: 0.95rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+}
+
+.stamp {
+  font-size: 0.65rem;
+  opacity: 0.65;
+  margin-top: 0.2rem;
+  text-align: right;
+}
+
+.bubbleOther .stamp {
+  color: var(--color-text-muted);
+}
+
+.inputRow {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  /* Bottom safe-area is already reserved by .appContainerWithNav for the
+     floating bottom dock — don't add it again here or we get double padding. */
+  padding: 0.6rem 0.75rem;
+  background: var(--color-bg-card);
+  border-top: 1px solid var(--color-border);
+}
+
+.input {
+  flex: 1;
+  resize: none;
+  border: 1px solid var(--color-border);
+  border-radius: 1.2rem;
+  padding: 0.55rem 0.9rem;
+  font-family: inherit;
+  font-size: 0.95rem;
+  color: var(--color-text-main);
+  background: var(--color-bg-primary);
+  max-height: 120px;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--color-secondary);
+}
+
+.sendBtn {
+  background: var(--color-secondary);
+  color: #fff;
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.sendBtn:active { transform: scale(0.92); }
+.sendBtn:disabled { opacity: 0.5; cursor: default; }
+
+.likeBtn {
+  position: absolute;
+  bottom: -10px;
+  background: var(--color-bg-card);
+  border: 1px solid var(--color-border);
+  border-radius: 9999px;
+  padding: 0.15rem 0.4rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  cursor: pointer;
+  color: var(--color-text-muted);
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.12s ease, color 0.12s ease;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.likeBtn:active { transform: scale(0.9); }
+
+.likeBtnOther { right: 8px; }
+.likeBtnOwn { left: 8px; }
+
+.likeBtnActive {
+  color: #ef4444;
+  border-color: rgba(239, 68, 68, 0.4);
+}
+
+.likeCount {
+  font-size: 0.7rem;
+}

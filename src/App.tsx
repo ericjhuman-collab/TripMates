@@ -11,6 +11,9 @@ import { OddsProvider } from './context/OddsContext';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { EnvBanner } from './components/EnvBanner';
+import { LiveLocationDaemon } from './components/LiveLocationDaemon';
+import { PushNotificationDaemon } from './components/PushNotificationDaemon';
+import { ChangelogModal } from './components/ChangelogModal';
 import './App.css';
 
 // Route-level code splitting — keeps the initial JS bundle small. Home is
@@ -25,6 +28,7 @@ const DrunkLeaderboard = lazy(() => import('./pages/DrunkLeaderboard').then(m =>
 const Profile = lazy(() => import('./pages/Profile').then(m => ({ default: m.Profile })));
 const GalleryCamera = lazy(() => import('./pages/GalleryCamera').then(m => ({ default: m.GalleryCamera })));
 const Even = lazy(() => import('./pages/Even').then(m => ({ default: m.Even })));
+const ChatPage = lazy(() => import('./pages/ChatPage').then(m => ({ default: m.ChatPage })));
 const TripAdmin = lazy(() => import('./pages/TripAdmin').then(m => ({ default: m.TripAdmin })));
 const ActivityEditorPage = lazy(() => import('./pages/ActivityEditorPage').then(m => ({ default: m.ActivityEditorPage })));
 
@@ -44,6 +48,9 @@ function App() {
           <EnvBanner />
           <AuthProvider>
             <TripProvider>
+              <LiveLocationDaemon />
+              <PushNotificationDaemon />
+              <ChangelogModal />
               <EvenProvider>
                 <OddsProvider>
                 <div className="app-container">
@@ -62,6 +69,7 @@ function App() {
                     <Route path="/members" element={<Members />} />
                     <Route path="/leaderboard" element={<DrunkLeaderboard />} />
                     <Route path="/even" element={<Even />} />
+                    <Route path="/chat" element={<ChatPage />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/profile/:uid" element={<Profile />} />
                     <Route path="/gallery" element={<GalleryCamera />} />

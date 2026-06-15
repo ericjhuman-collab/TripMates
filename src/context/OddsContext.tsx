@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { createOddsChallenge, setTargetOdds, submitChallengerGuess, getOddsForTrip, markOddsCompleted } from '../services/odds';
+import { createOddsChallenge, setTargetOdds, submitChallengerGuess, subscribeToOddsForTrip, markOddsCompleted } from '../services/odds';
 import type { OddsSession } from '../services/odds';
 import { useTrip } from './TripContext';
 import { useAuth } from './AuthContext';
@@ -28,7 +28,10 @@ export const OddsProvider: React.FC<{ children: React.ReactNode }> = ({ children
           createdAt: new Date(), updatedAt: new Date() }
     ]);
 
-    const refreshOdds = async () => {
+    // Live listener — keeps activeOdds in sync across devices in real time.
+    // Mock trips stay on the local snapshot; only real Firestore-backed
+    // trips get the subscription.
+    useEffect(() => {
         if (!activeTrip) {
             setActiveOdds([]);
             setLoading(false);
@@ -39,40 +42,23 @@ export const OddsProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setLoading(false);
             return;
         }
-        const fetched = await getOddsForTrip(activeTrip.id);
-        setActiveOdds(fetched);
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            if (!activeTrip) {
-                await Promise.resolve();
-                if (cancelled) return;
-                setActiveOdds([]);
-                setLoading(false);
-                return;
-            }
-            if (isMock) {
-                await Promise.resolve();
-                if (cancelled) return;
-                if (appUser) setActiveOdds(prev => prev.length === 0 ? buildMockOdds(activeTrip.id, appUser.uid) : prev);
-                setLoading(false);
-                return;
-            }
-            const fetched = await getOddsForTrip(activeTrip.id);
-            if (cancelled) return;
-            setActiveOdds(fetched);
+        setLoading(true);
+        const unsub = subscribeToOddsForTrip(activeTrip.id, sessions => {
+            setActiveOdds(sessions);
             setLoading(false);
-        })();
-        return () => { cancelled = true; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTrip?.id, isMock, appUser?.uid]);
+        });
+        return () => unsub();
+    }, [activeTrip, isMock, appUser]);
+
+    // Kept for API compatibility — the live listener is the source of truth, so
+    // this is a no-op for real trips. Mock-mode callers may still rely on it.
+    const refreshOdds = async () => {
+        if (!activeTrip || isMock) return;
+    };
 
     const issueDare = async (targetId: string, dare: string) => {
         if (!activeTrip || !appUser) return;
-        
+
         const newSession: OddsSession = {
             id: `ODDS_${Math.random().toString(36).substring(2, 10)}`,
             tripId: activeTrip.id,
@@ -94,20 +80,18 @@ export const OddsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         await createOddsChallenge(activeTrip.id, appUser.uid, targetId, dare);
-        await refreshOdds();
     };
 
     const respondRange = async (sessionId: string, range: number, targetSecret: number) => {
         if (isMock) {
-            setActiveOdds(prev => prev.map(s => 
-                s.id === sessionId 
+            setActiveOdds(prev => prev.map(s =>
+                s.id === sessionId
                     ? { ...s, oddsRange: range, targetNumber: targetSecret, state: 'pending_challenger', updatedAt: new Date() }
                     : s
             ));
             return;
         }
         await setTargetOdds(sessionId, range, targetSecret);
-        await refreshOdds();
     };
 
     const submitGuess = async (sessionId: string, guess: number): Promise<boolean> => {
@@ -117,8 +101,8 @@ export const OddsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isMatch = guess === session.targetNumber;
 
         if (isMock) {
-            setActiveOdds(prev => prev.map(s => 
-                s.id === sessionId 
+            setActiveOdds(prev => prev.map(s =>
+                s.id === sessionId
                     ? { ...s, challengerNumber: guess, isMatch, state: 'resolved', updatedAt: new Date() }
                     : s
             ));
@@ -126,14 +110,13 @@ export const OddsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         await submitChallengerGuess(sessionId, guess, isMatch);
-        await refreshOdds();
         return isMatch;
     };
 
     const markCompleted = async (sessionId: string) => {
         if (isMock) {
-            setActiveOdds(prev => prev.map(s => 
-                s.id === sessionId 
+            setActiveOdds(prev => prev.map(s =>
+                s.id === sessionId
                     ? { ...s, isCompleted: true, updatedAt: new Date() }
                     : s
             ));
@@ -141,7 +124,6 @@ export const OddsProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         await markOddsCompleted(sessionId);
-        await refreshOdds();
     };
 
     return (

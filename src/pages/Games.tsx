@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import { type BingoSquare, getBingoBoard, initBingoBoard, saveBingoBoard } from '../services/bingo';
@@ -9,12 +10,19 @@ import { X, Trophy, ChevronRight } from 'lucide-react';
 import { createPortal } from 'react-dom';
 import styles from './Games.module.css';
 import { OddsGame } from '../components/OddsGame';
+import { SpinningWheel } from '../components/SpinningWheel';
 import { useToast } from '../components/useToast';
 
 export const Games: React.FC = () => {
     const toast = useToast();
+    const location = useLocation();
     const { appUser, effectiveRole } = useAuth();
     const { activeTrip } = useTrip();
+    // When rendered inside Home (top-tab `viewMode === 'games'`), Home's
+    // own navPill already labels the page. Skip the redundant title and
+    // sit the game-switcher pill directly under that navPill instead of
+    // colliding with it. Standalone `/games` keeps the full top bar.
+    const embeddedInHome = location.pathname === '/';
     const isAdmin = effectiveRole === 'admin';
     const [squares, setSquares] = useState<BingoSquare[]>([]);
     const [loading, setLoading] = useState(true);
@@ -91,10 +99,26 @@ export const Games: React.FC = () => {
     };
 
     const fetchMembers = async () => {
+        if (!activeTrip) { setMembers([]); return; }
         try {
             const snapshot = await getDocs(collection(db, 'users'));
             const usersData = snapshot.docs.map(doc => doc.data() as AppUser);
-            setMembers(usersData.filter(m => m.hasAgreed));
+
+            // Only members of the active trip — Bingo's leaderboard and the
+            // member picker must show people on this specific trip, not the
+            // whole user table. Mirrors the filter in Members.tsx.
+            const validMembers = usersData.filter(m => m.hasAgreed && activeTrip.members.includes(m.uid));
+
+            const mockUids = activeTrip.members.filter(m => m.startsWith('mock_'));
+            const mockUsers: AppUser[] = mockUids.map(uid => ({
+                uid,
+                name: uid.replace('mock_', ''),
+                fullName: uid.replace('mock_', ''),
+                role: 'user',
+                hasAgreed: true,
+            }));
+
+            setMembers([...validMembers, ...mockUsers]);
         } catch (err) {
             console.error('Failed to fetch members', err);
         }
@@ -103,8 +127,12 @@ export const Games: React.FC = () => {
     useEffect(() => {
         fetchBoard();
         fetchMembers();
+    // Re-run when members change (e.g. someone joins via invite while
+    // we're on the Bingo screen) — without this the picker would still
+    // show the old member list. join(',') gives a stable string key so
+    // the effect only fires when the actual list contents change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin]);
+    }, [isAdmin, activeTrip?.id, activeTrip?.members?.join(',')]);
 
     const handleSquareClick = async (index: number) => {
         if (!appUser || !activeTrip) return;
@@ -136,26 +164,42 @@ export const Games: React.FC = () => {
         setSelectedSquareIndex(null);
     };
 
-    return (
-        <div className={`animate-fade-in ${styles.page}`}>
-            <div className={styles.pageHeader}>
-                <h2 className={styles.pageTitle}>Trip Games</h2>
-            </div>
+    const showSwitcher = activeGamesList.length > 1;
+    const pageClass = embeddedInHome
+        ? `${styles.page} ${styles.pageEmbedded} ${showSwitcher ? styles.pageEmbeddedWithPills : ''}`
+        : `${styles.page} ${showSwitcher ? styles.pageWithPills : ''}`;
 
-            {/* Game switcher pill tabs — only shown when multiple games are active */}
-            {activeGamesList.length > 1 && (
-                <div className={styles.gamePills}>
-                    {activeGamesList.map(g => (
-                        <button
-                            key={g}
-                            onClick={() => setSelectedGame(g)}
-                            className={`${styles.gamePill} ${selectedGame === g ? styles.gamePillActive : ''}`}
-                        >
-                            {g.charAt(0).toUpperCase() + g.slice(1).replace('-', ' ')}
-                        </button>
-                    ))}
-                </div>
-            )}
+    return (
+        // No `animate-fade-in` on this wrapper: it would add a `transform`
+        // and turn .page into a containing block for `.fixedTopBar`
+        // (position: fixed), making the Bingo/Odds switcher render shifted
+        // down and overlap the cards. See feedback_tripmates_fixed_tab_bar.
+        <div className={pageClass}>
+            {/* Fixed top bar — pinned below Layout's header (and below
+                Home's navPill when embedded). Standalone /games shows
+                the page title; embedded mode skips it because Home's
+                navPill already does the labelling. */}
+            <div className={`${styles.fixedTopBar} ${embeddedInHome ? styles.fixedTopBarEmbedded : ''}`}>
+                {!embeddedInHome && (
+                    <div className={styles.pageHeader}>
+                        <h2 className={styles.pageTitle}>Trip Games</h2>
+                    </div>
+                )}
+
+                {showSwitcher && (
+                    <div className={styles.gamePills}>
+                        {activeGamesList.map(g => (
+                            <button
+                                key={g}
+                                onClick={() => setSelectedGame(g)}
+                                className={`${styles.gamePill} ${selectedGame === g ? styles.gamePillActive : ''}`}
+                            >
+                                {g.charAt(0).toUpperCase() + g.slice(1).replace('-', ' ')}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
 
             {selectedGame === 'bingo' && (
                 <>
@@ -247,6 +291,14 @@ export const Games: React.FC = () => {
 
             {selectedGame === 'odds' && (
                 <OddsGame />
+            )}
+
+            {selectedGame === 'spinning-wheel' && activeTrip && appUser && (
+                <SpinningWheel
+                    tripId={activeTrip.id}
+                    members={members}
+                    currentUid={appUser.uid}
+                />
             )}
 
             {/* Member Picker Modal */}

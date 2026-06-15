@@ -4,7 +4,7 @@ import { useTrip, type Trip, type TripDestination } from '../context/TripContext
 import { ArrowLeft, Plus, Edit2, Trash2, Calendar as CalendarIcon, Users, Settings, Share2, CheckSquare, Ghost, X, Camera, Info, MapPin, Phone, BellOff, Tag, Trophy, LogOut, Copy } from 'lucide-react';
 import { getMemberPrefs, updateMemberPrefs, type MemberPrefs, DEFAULT_MEMBER_PREFS } from '../services/memberPrefs';
 import { SUPPORTED_CURRENCIES } from '../utils/currencies';
-import { getAllActivities, type Activity, deleteActivity } from '../services/activities';
+import { subscribeToActivities, type Activity, deleteActivity } from '../services/activities';
 import { getBingoBoard, initBingoBoard, saveBingoBoard, type BingoSquare } from '../services/bingo';
 import { useAuth, type AppUser } from '../context/AuthContext';
 import { createPortal } from 'react-dom';
@@ -13,6 +13,10 @@ import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { db, storage } from '../services/firebase';
 import { CustomSelect } from '../components/CustomSelect';
 import { getDefaultCover } from '../utils/defaultCovers';
+import { InviteModal } from '../components/InviteModal';
+import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { ImageCropperModal } from '../components/ImageCropperModal';
+import { UserPlus } from 'lucide-react';
 import styles from './TripAdmin.module.css';
 import { useToast } from '../components/useToast';
 
@@ -37,8 +41,14 @@ export const TripAdmin: React.FC = () => {
 const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     const toast = useToast();
     const navigate = useNavigate();
-    const { updateTrip } = useTrip();
+    const { updateTrip, deleteTrip } = useTrip();
     const { currentUser } = useAuth();
+    // Creator-only "Danger zone" delete. Trip is gone from Firestore for
+    // every member once confirmed — gate behind a typed confirmation modal
+    // so a stray tap can't nuke a trip mid-planning.
+    const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const isCreator = !!(currentUser?.uid && trip?.createdBy === currentUser.uid);
     
     // Check permission logic
     const isAdmin = trip.adminIds?.includes(currentUser?.uid || '') ?? false;
@@ -58,6 +68,8 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
         name: trip.name || '',
         destination: trip.destination || '',
         accommodation: trip.accommodation || '',
+        accommodationAddress: trip.accommodationAddress || '',
+        accommodationLocation: trip.accommodationLocation || null as { lat: number; lng: number } | null,
         startDate: trip.startDate || '',
         endDate: trip.endDate || '',
         type: trip.type || 'Default Trip',
@@ -76,9 +88,17 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     const [bingoSquares, setBingoSquares] = useState<BingoSquare[]>([]);
     const [showEditBingoModal, setShowEditBingoModal] = useState(false);
     const [savingBingo, setSavingBingo] = useState(false);
+    // Per-task edit modal: instead of 30 inline inputs editable at once
+    // (overwhelming + easy to lose unsaved changes), the overview shows
+    // read-only rows. Tapping a row opens this nested modal with a single
+    // input that persists on Save and closes back to the overview.
+    const [editingBingoIndex, setEditingBingoIndex] = useState<number | null>(null);
+    const [editingBingoDraft, setEditingBingoDraft] = useState('');
     const [coverPreview, setCoverPreview] = useState(trip.imageUrl || '');
     const [imageUploading, setImageUploading] = useState(false);
     const coverFileRef = useRef<File | null>(null);
+    const [inviteModalOpen, setInviteModalOpen] = useState(false);
+    const [pendingCropFile, setPendingCropFile] = useState<File | null>(null);
     
     const handledAddDestination = () => {
         const newDest: TripDestination = {
@@ -126,20 +146,22 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
     }, [trip.inviteClosed]);
 
     useEffect(() => {
-        const fetchAll = async () => {
-            setLoading(true);
-            try {
-                const acts = await getAllActivities(trip.id);
-                setActivities(acts);
-                const usersSnapshot = await getDocs(collection(db, 'users'));
-                setUsers(usersSnapshot.docs.map(d => ({ ...d.data(), uid: d.id } as AppUser)));
-            } catch (e) {
-                console.error('Failed to load admin data', e);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchAll();
+        setLoading(true);
+        let usersDone = false;
+        let activitiesDone = false;
+        const maybeFinish = () => { if (usersDone && activitiesDone) setLoading(false); };
+
+        getDocs(collection(db, 'users'))
+            .then(snap => setUsers(snap.docs.map(d => ({ ...d.data(), uid: d.id } as AppUser))))
+            .catch(e => console.error('Failed to load users', e))
+            .finally(() => { usersDone = true; maybeFinish(); });
+
+        const unsub = subscribeToActivities(trip.id, list => {
+            setActivities(list);
+            activitiesDone = true;
+            maybeFinish();
+        });
+        return unsub;
     }, [trip.id]);
 
     const handleSaveTripDetails = async () => {
@@ -244,9 +266,8 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                         onChange={(e) => {
                                             const file = e.target.files?.[0];
                                             if (!file) return;
-                                            coverFileRef.current = file;
-                                            setCoverFile(file);
-                                            setCoverPreview(URL.createObjectURL(file));
+                                            setPendingCropFile(file);
+                                            e.target.value = '';
                                         }}
                                     />
                                 </label>
@@ -314,11 +335,41 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         </div>
                         <div>
                             <label className={styles.fieldLabel}>Destination</label>
-                            <input placeholder="E.g. Milano, Italy" className="input-field" title="Destination" value={tripForm.destination} onChange={e => setTripForm({ ...tripForm, destination: e.target.value })} />
+                            <ModernPlaceAutocomplete
+                                defaultValue={tripForm.destination}
+                                placeholder="E.g. Milano, Italy"
+                                className="input-field"
+                                onPlaceSelected={(place) => {
+                                    setTripForm(prev => ({ ...prev, destination: place.name }));
+                                }}
+                                onInputChange={(val) => {
+                                    setTripForm(prev => ({ ...prev, destination: val }));
+                                }}
+                            />
                         </div>
                         <div>
                             <label className={styles.fieldLabel}>Accommodation</label>
-                            <input placeholder="Hotel / Airbnb name or address" className="input-field" title="Accommodation" value={tripForm.accommodation} onChange={e => setTripForm({ ...tripForm, accommodation: e.target.value })} />
+                            <ModernPlaceAutocomplete
+                                defaultValue={tripForm.accommodation}
+                                placeholder="Hotel / Airbnb name or address"
+                                className="input-field"
+                                onPlaceSelected={(place) => {
+                                    setTripForm(prev => ({
+                                        ...prev,
+                                        accommodation: place.name,
+                                        accommodationAddress: place.formatted_address,
+                                        accommodationLocation: place.location,
+                                    }));
+                                }}
+                                onInputChange={(val) => {
+                                    setTripForm(prev => ({
+                                        ...prev,
+                                        accommodation: val,
+                                        accommodationAddress: '',
+                                        accommodationLocation: null,
+                                    }));
+                                }}
+                            />
                         </div>
                         <label className={styles.fieldLabel} style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', cursor: 'pointer', margin: '0.5rem 0' }}>
                             <input
@@ -343,16 +394,20 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                 </div>
                                 <div className={styles.destinationInputGroup}>
                                     <label className={styles.fieldLabel}>Destination</label>
-                                    <input 
-                                        placeholder="E.g. Rome, Italy" 
-                                        className="input-field" 
-                                        title={`Destination ${idx + 2}`}
-                                        value={dest.destination} 
-                                        onChange={e => {
+                                    <ModernPlaceAutocomplete
+                                        defaultValue={dest.destination}
+                                        placeholder="E.g. Rome, Italy"
+                                        className="input-field"
+                                        onPlaceSelected={(place) => {
                                             const newArray = [...tripForm.destinations];
-                                            newArray[idx].destination = e.target.value;
+                                            newArray[idx].destination = place.name;
                                             setTripForm({ ...tripForm, destinations: newArray });
-                                        }} 
+                                        }}
+                                        onInputChange={(val) => {
+                                            const newArray = [...tripForm.destinations];
+                                            newArray[idx].destination = val;
+                                            setTripForm({ ...tripForm, destinations: newArray });
+                                        }}
                                     />
                                 </div>
                                 <div className={`${styles.dateRow} ${styles.destinationInputGroup}`}>
@@ -387,16 +442,20 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                                 </div>
                                 <div>
                                     <label className={styles.fieldLabel}>Accommodation</label>
-                                    <input 
-                                        placeholder="Hotel / Airbnb" 
-                                        className="input-field" 
-                                        title={`Accommodation ${idx + 2}`} 
-                                        value={dest.accommodation} 
-                                        onChange={e => {
+                                    <ModernPlaceAutocomplete
+                                        defaultValue={dest.accommodation || ''}
+                                        placeholder="Hotel / Airbnb"
+                                        className="input-field"
+                                        onPlaceSelected={(place) => {
                                             const newArray = [...tripForm.destinations];
-                                            newArray[idx].accommodation = e.target.value;
+                                            newArray[idx].accommodation = place.name;
                                             setTripForm({ ...tripForm, destinations: newArray });
-                                        }} 
+                                        }}
+                                        onInputChange={(val) => {
+                                            const newArray = [...tripForm.destinations];
+                                            newArray[idx].accommodation = val;
+                                            setTripForm({ ...tripForm, destinations: newArray });
+                                        }}
                                     />
                                 </div>
                             </div>
@@ -484,10 +543,24 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         <div className={`glass-panel ${styles.panel}`}>
                     <h3 className={styles.sectionTitleDark}><Users size={18} /> Members ({localMembers.length})</h3>
                     <div className={styles.codeRow}>
-                        <div className={styles.codeLabel}>Code: <span className={styles.codeValue}>{trip.id}</span></div>
-                        <button onClick={handleShare} className={`btn ${styles.inviteBtn}`} disabled={localInviteClosed}>
-                            <Share2 size={14} /> Invite
+                        <button
+                            onClick={() => setInviteModalOpen(true)}
+                            className={`btn btn-primary ${styles.inviteBtn}`}
+                            disabled={localInviteClosed}
+                        >
+                            <UserPlus size={14} /> Invite people
                         </button>
+                        <button
+                            onClick={handleShare}
+                            className={`btn ${styles.inviteBtn}`}
+                            disabled={localInviteClosed}
+                            style={{ background: 'transparent', border: '1px solid var(--color-border, #ddd)', color: 'var(--color-text-muted)' }}
+                        >
+                            <Share2 size={14} /> Share code
+                        </button>
+                    </div>
+                    <div className={styles.codeLabel}>
+                        Code:<span className={styles.codeValue}>{trip.id}</span>
                     </div>
                     {currentUser?.uid === trip.createdBy && (
                         <label className={styles.closeInviteToggle}>
@@ -566,7 +639,7 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                     <div>
                         <label className={styles.activeGamesLabel}>Active Games</label>
                         <div className={styles.activeGamesBtns}>
-                            {['bingo', 'cheers', 'most-likely', 'odds'].map(gameId => {
+                            {['bingo', 'cheers', 'most-likely', 'odds', 'spinning-wheel'].map(gameId => {
                                 const active = tripForm.activeGames.includes(gameId);
                                 return (
                                     <button
@@ -628,6 +701,32 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                     <button className={`btn btn-primary ${styles.saveBtn}`} onClick={handleSaveTripDetails} disabled={savingTrip}>
                         {savingTrip ? 'Saving...' : 'Save Settings & Games'}
                     </button>
+
+                    {/* Danger zone — creator-only. Submanagers can leave
+                        the trip from Members, but only the creator can
+                        delete the whole trip for everyone. */}
+                    {isCreator && (
+                        <div style={{ marginTop: '2rem', paddingTop: '1.5rem', borderTop: '1px solid var(--color-border)' }}>
+                            <h3 style={{ margin: '0 0 0.5rem', fontSize: '0.95rem', color: 'var(--color-error)' }}>Danger zone</h3>
+                            <p style={{ margin: '0 0 0.75rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                Permanently delete this trip for every member. This can&rsquo;t be undone.
+                            </p>
+                            <button
+                                className="btn"
+                                style={{
+                                    width: '100%',
+                                    padding: '0.7rem',
+                                    background: 'transparent',
+                                    color: 'var(--color-error)',
+                                    border: '1px solid var(--color-error)',
+                                    fontWeight: 600,
+                                }}
+                                onClick={() => setShowDeleteConfirm(true)}
+                            >
+                                Delete Trip
+                            </button>
+                        </div>
+                    )}
                 </div>
                 </>
             )}
@@ -635,6 +734,55 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
             </div>
 
 
+
+            {showDeleteConfirm && createPortal(
+                <div className={`modal-backdrop ${styles.modalBackdrop}`} onClick={() => !deleting && setShowDeleteConfirm(false)}>
+                    <div className={`card animate-fade-in ${styles.modalCard}`} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>Delete &ldquo;{trip.name || 'this trip'}&rdquo;?</h2>
+                            <button onClick={() => !deleting && setShowDeleteConfirm(false)} className={styles.modalCloseBtn} title="Close" disabled={deleting}>
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.modalForm}>
+                            <p style={{ margin: '0 0 1rem', lineHeight: 1.5 }}>
+                                Every member will lose access to this trip&rsquo;s activities, polls, gallery, and expenses. This can&rsquo;t be undone.
+                            </p>
+                            <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                <button
+                                    className="btn"
+                                    style={{ flex: 1, background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
+                                    onClick={() => setShowDeleteConfirm(false)}
+                                    disabled={deleting}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    className="btn"
+                                    style={{ flex: 1, background: 'var(--color-error)', color: 'white', border: 'none' }}
+                                    disabled={deleting}
+                                    onClick={async () => {
+                                        setDeleting(true);
+                                        try {
+                                            await deleteTrip(trip.id);
+                                            toast.success('Trip deleted');
+                                            navigate('/profile?tab=admin');
+                                        } catch (e) {
+                                            console.error('Delete trip failed', e);
+                                            const err = e as { code?: string; message?: string };
+                                            toast.error(`Could not delete trip (${err.code || err.message || 'unknown'})`);
+                                            setDeleting(false);
+                                        }
+                                    }}
+                                >
+                                    {deleting ? 'Deleting…' : 'Delete trip'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+                document.body,
+            )}
 
             {userToKick && createPortal(
                 <div className={`modal-backdrop ${styles.modalBackdrop}`} onClick={() => setUserToKick(null)}>
@@ -698,47 +846,87 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                         </div>
                         <div className={styles.modalForm} style={{ overflowY: 'auto', paddingRight: '0.5rem', flex: 1 }}>
                             <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-                                Modify the 30 tasks for your Bingo game. Changes here will update the board for all players immediately upon saving.
+                                Tap a square to edit it. Changes are saved one task at a time and update the board for all players immediately.
                             </p>
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '0.5rem' }}>
                                 {bingoSquares.map((sq, i) => (
-                                    <div key={sq.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--color-bg-primary)', padding: '0.5rem', borderRadius: 8, border: '1px solid var(--color-border)' }}>
-                                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', width: '20px', textAlign: 'center' }}>{i + 1}</span>
-                                        <input 
-                                            className="input-field"
-                                            style={{ flex: 1, padding: '0.4rem 0.75rem', fontSize: '0.9rem' }}
-                                            value={sq.task}
-                                            onChange={e => {
-                                                const newSquares = [...bingoSquares];
-                                                newSquares[i] = { ...sq, task: e.target.value };
-                                                setBingoSquares(newSquares);
-                                            }}
-                                        />
-                                    </div>
+                                    <button
+                                        key={sq.id}
+                                        type="button"
+                                        className="bingo-square"
+                                        onClick={() => {
+                                            setEditingBingoIndex(i);
+                                            setEditingBingoDraft(sq.task);
+                                        }}
+                                        style={{
+                                            font: 'inherit',
+                                            color: 'inherit',
+                                            padding: '0.4rem 0.3rem',
+                                            position: 'relative',
+                                        }}
+                                    >
+                                        <span style={{ position: 'absolute', top: 4, left: 6, fontSize: '0.6rem', fontWeight: 700, color: 'var(--color-text-muted)' }}>{i + 1}</span>
+                                        <span style={{ fontSize: '0.65rem', fontWeight: 600, lineHeight: 1.2, wordBreak: 'break-word', color: sq.task ? 'var(--color-text-main)' : 'var(--color-text-muted)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                            {sq.task || '+ Add'}
+                                        </span>
+                                        <Edit2 size={10} style={{ position: 'absolute', bottom: 4, right: 6, color: 'var(--color-text-muted)' }} />
+                                    </button>
                                 ))}
                             </div>
                         </div>
-                        <div style={{ flexShrink: 0, marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--color-border)' }}>
-                            <button 
-                                className="btn btn-primary" 
-                                style={{ width: '100%' }}
+                    </div>
+                </div>,
+                document.body
+            )}
+
+            {/* Per-task edit modal — opens on top of the overview modal.
+                Saves the single task to Firestore on confirm and returns
+                to the overview without dismissing it. */}
+            {editingBingoIndex !== null && createPortal(
+                <div
+                    className={`modal-backdrop ${styles.modalBackdrop}`}
+                    style={{ zIndex: 1100 }}
+                    onClick={() => setEditingBingoIndex(null)}
+                >
+                    <div className={`card animate-fade-in ${styles.modalCard}`} style={{ width: '90%', maxWidth: '420px' }} onClick={e => e.stopPropagation()}>
+                        <div className={styles.modalHeader}>
+                            <h2 className={styles.modalTitle}>Edit task #{editingBingoIndex + 1}</h2>
+                            <button onClick={() => setEditingBingoIndex(null)} className={styles.modalCloseBtn} title="Close">
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className={styles.modalForm}>
+                            <input
+                                autoFocus
+                                className="input-field"
+                                style={{ width: '100%', padding: '0.75rem 1rem' }}
+                                value={editingBingoDraft}
+                                onChange={e => setEditingBingoDraft(e.target.value)}
+                                placeholder="What needs to be done?"
+                            />
+                            <button
+                                className="btn btn-primary"
+                                style={{ width: '100%', marginTop: '1rem' }}
                                 disabled={savingBingo}
                                 onClick={async () => {
-                                    if(trip.id) {
-                                        setSavingBingo(true);
-                                        try {
-                                            await saveBingoBoard(trip.id, bingoSquares);
-                                            setShowEditBingoModal(false);
-                                        } catch(e) {
-                                            console.error(e);
-                                            toast.error("Failed to save Bingo Board.");
-                                        } finally {
-                                            setSavingBingo(false);
-                                        }
+                                    if (editingBingoIndex === null || !trip.id) return;
+                                    const newSquares = bingoSquares.map((sq, i) =>
+                                        i === editingBingoIndex ? { ...sq, task: editingBingoDraft } : sq
+                                    );
+                                    setSavingBingo(true);
+                                    try {
+                                        await saveBingoBoard(trip.id, newSquares);
+                                        setBingoSquares(newSquares);
+                                        setEditingBingoIndex(null);
+                                    } catch (e) {
+                                        console.error(e);
+                                        toast.error('Failed to save task.');
+                                    } finally {
+                                        setSavingBingo(false);
                                     }
                                 }}
                             >
-                                {savingBingo ? 'Saving...' : 'Save Bingo Board'}
+                                {savingBingo ? 'Saving…' : 'Save'}
                             </button>
                         </div>
                     </div>
@@ -810,6 +998,26 @@ const TripAdminInner: React.FC<{ trip: Trip }> = ({ trip }) => {
                 </div>,
                 document.body
             )}
+            <InviteModal
+                open={inviteModalOpen}
+                onClose={() => setInviteModalOpen(false)}
+                tripId={trip.id}
+                tripName={trip.name}
+                tripDestination={trip.destination}
+                members={localMembers}
+            />
+            <ImageCropperModal
+                file={pendingCropFile}
+                aspect={16 / 9}
+                title="Crop trip cover"
+                onCropped={(cropped) => {
+                    coverFileRef.current = cropped;
+                    setCoverFile(cropped);
+                    setCoverPreview(URL.createObjectURL(cropped));
+                    setPendingCropFile(null);
+                }}
+                onCancel={() => setPendingCropFile(null)}
+            />
         </div>
     );
 };

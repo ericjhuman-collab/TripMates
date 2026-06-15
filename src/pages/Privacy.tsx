@@ -36,7 +36,7 @@ export const Privacy: React.FC = () => (
                 <li><strong>Trip data:</strong> trips you create or join, members, destinations, dates, accommodations, activities.</li>
                 <li><strong>Expense data:</strong> amounts, currencies, who paid, who participated, receipt images.</li>
                 <li><strong>Photos:</strong> images you upload to a trip gallery.</li>
-                <li><strong>Location data (only if you opt in):</strong> approximate location shared with trip members.</li>
+                <li><strong>Location data (only if you opt in):</strong> latitude, longitude, accuracy, and direction of travel — shared in real time with the members of the specific trip you turn sharing on for. Sharing is per-trip and time-bounded; see Section 9 below.</li>
                 <li><strong>Technical data:</strong> IP address, device type, browser, basic analytics.</li>
             </ul>
         </section>
@@ -113,7 +113,44 @@ export const Privacy: React.FC = () => (
         </section>
 
         <section className={styles.section}>
-            <h2>9. Cookies</h2>
+            <h2>9. Live location sharing</h2>
+            <p>
+                Live location sharing is fully opt-in and per trip. By default, no location data leaves
+                your device. When you turn it on for a specific trip, you choose how long to share:
+                <strong> 3 hours, 24 hours, until the trip ends,</strong> or <strong>always on</strong> (until you stop manually).
+            </p>
+            <p>
+                <strong>What is collected:</strong> latitude, longitude, accuracy radius, and direction of
+                travel. Updates are sent at most every 30 seconds, or when you've moved at least 50 metres,
+                to limit battery and data use.
+            </p>
+            <p>
+                <strong>Background processing:</strong> on mobile, sharing continues while the app is in
+                the background until your chosen duration ends or you stop sharing. Your operating system
+                will display an indicator (e.g. iOS's blue location pill) whenever the app is using
+                location in the background.
+            </p>
+            <p>
+                <strong>Who sees it:</strong> only members of the specific trip you turned sharing on for.
+                A trip you haven't enabled sharing on does not see your live position. A master "Allow live
+                location sharing" switch in Profile → Settings disables broadcasting on all trips at once.
+            </p>
+            <p>
+                <strong>Retention and auto-deletion:</strong> when your chosen duration ends (or you tap
+                Stop), live data is deleted from our real-time database within ~10 minutes by an automated
+                cleanup job. Your last known position is kept on your profile so other members see a
+                "last seen at HH:MM" pin instead of you suddenly disappearing — you can clear this at any
+                time from Profile → Settings, or by deleting your account.
+            </p>
+            <p>
+                <strong>Withdrawal:</strong> you can stop sharing at any time from the Map page or Profile
+                → Settings. Stopping is immediate; the entry is removed from our real-time database the
+                next time the cleanup job runs.
+            </p>
+        </section>
+
+        <section className={styles.section}>
+            <h2>10. Cookies</h2>
             <p>
                 We use essential cookies and local storage to keep you signed in and to remember your
                 preferences. We do not use third-party advertising or tracking cookies.
@@ -121,7 +158,7 @@ export const Privacy: React.FC = () => (
         </section>
 
         <section className={styles.section}>
-            <h2>10. Children</h2>
+            <h2>11. Children</h2>
             <p>
                 The Service is not intended for users under 16. If you become aware that a child under 16
                 has provided us with personal data, please contact us so we can delete it.
@@ -129,7 +166,7 @@ export const Privacy: React.FC = () => (
         </section>
 
         <section className={styles.section}>
-            <h2>11. Changes</h2>
+            <h2>12. Changes</h2>
             <p>
                 We may update this Privacy Policy from time to time. Material changes will be communicated
                 through the app or by email.
@@ -137,7 +174,7 @@ export const Privacy: React.FC = () => (
         </section>
 
         <section className={styles.section}>
-            <h2>12. Contact</h2>
+            <h2>13. Contact</h2>
             <p>
                 Questions about this Privacy Policy or how we handle your data? Contact us at{' '}
                 <a href="mailto:privacy@tripmates.app">privacy@tripmates.app</a>.

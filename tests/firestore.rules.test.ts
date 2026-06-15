@@ -160,6 +160,13 @@ describe('trips/{tripId}', () => {
     await assertFails(getDoc(doc(asUser(CAROL), 'trips', TRIP_ID)));
   });
 
+  it('any authed user can read a non-existent trip (collision-check probe)', async () => {
+    // createTrip generates a random short-code and probes /trips/{code} to
+    // detect ID collisions before writing. The probe must succeed (returning
+    // exists: false) for any authed user, otherwise trip creation breaks.
+    await assertSucceeds(getDoc(doc(asUser(CAROL), 'trips', 'NOPE99')));
+  });
+
   it('admin can update trip', async () => {
     await assertSucceeds(
       updateDoc(doc(asUser(ALICE), 'trips', TRIP_ID), { name: 'New Name' })
@@ -315,6 +322,41 @@ describe('expenses/{expenseId}', () => {
     await assertFails(updateDoc(doc(asUser(BOB), 'expenses', 'exp1'), { amount: 1200 }));
     // CAROL outsider: blocked
     await assertFails(updateDoc(doc(asUser(CAROL), 'expenses', 'exp1'), { amount: 1300 }));
+  });
+
+  // ITEMIZED-receipt claim path — participants need to write back the items
+  // array (with their own uid added to per-item allocations). They are NOT
+  // the payer/creator/admin, so the full-update rule denies them; a
+  // dedicated trip-member rule limited to the `items` field opens that path.
+  describe('items-only updates for itemized claims', () => {
+    beforeEach(async () => {
+      await testEnv.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'expenses', 'expIt'), {
+          tripId: TRIP_ID, creatorId: ALICE, payerId: ALICE, amount: 1000, currency: 'SEK',
+          description: 'Dinner', date: '2026-04-26', participants: [], splitType: 'ITEMIZED',
+          items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: {} }],
+        });
+      });
+    });
+
+    it('trip member can update only the items field', async () => {
+      await assertSucceeds(updateDoc(doc(asUser(BOB), 'expenses', 'expIt'), {
+        items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: { [BOB]: 1 } }],
+      }));
+    });
+
+    it('trip member cannot piggyback other field changes', async () => {
+      await assertFails(updateDoc(doc(asUser(BOB), 'expenses', 'expIt'), {
+        items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: { [BOB]: 1 } }],
+        amount: 9999,
+      }));
+    });
+
+    it('non-member cannot update items', async () => {
+      await assertFails(updateDoc(doc(asUser(CAROL), 'expenses', 'expIt'), {
+        items: [{ id: 'i1', description: 'Pasta', price: 1000, quantity: 1, allocations: { [CAROL]: 1 } }],
+      }));
+    });
   });
 });
 
@@ -681,6 +723,71 @@ describe('users/{uid}/private/{contactId}', () => {
     await assertFails(
       setDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'contact'),
         { phoneNumber: '+46711111111' })
+    );
+  });
+});
+
+describe('users/{uid}/private/notifications', () => {
+  beforeEach(async () => {
+    await seedTrip();
+  });
+
+  it('owner can read and write own notification prefs', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(ALICE), 'users', ALICE, 'private', 'notifications'),
+        { chat: false })
+    );
+    await assertSucceeds(
+      getDoc(doc(asUser(ALICE), 'users', ALICE, 'private', 'notifications'))
+    );
+  });
+
+  it('other authed user CANNOT read notification prefs even with sharePhoneNumber=true', async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users', ALICE), {
+        uid: ALICE, role: 'user', name: 'Alice',
+        sharePhoneNumber: true,
+        followers: [], following: [],
+      });
+      await setDoc(doc(db, 'users', ALICE, 'private', 'notifications'),
+        { chat: false });
+    });
+    await assertFails(
+      getDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'notifications'))
+    );
+  });
+
+  it('non-owner cannot write notification prefs', async () => {
+    await assertFails(
+      setDoc(doc(asUser(BOB), 'users', ALICE, 'private', 'notifications'),
+        { chat: false })
+    );
+  });
+});
+
+describe('users/{uid}/fcmTokens/{tokenId}', () => {
+  beforeEach(async () => {
+    await seedTrip();
+  });
+
+  it('owner can write and read own fcm tokens', async () => {
+    await assertSucceeds(
+      setDoc(doc(asUser(ALICE), 'users', ALICE, 'fcmTokens', 'tok-abc'),
+        { platform: 'ios' })
+    );
+    await assertSucceeds(
+      getDoc(doc(asUser(ALICE), 'users', ALICE, 'fcmTokens', 'tok-abc'))
+    );
+  });
+
+  it('non-owner cannot read or write another user fcm tokens', async () => {
+    await assertFails(
+      setDoc(doc(asUser(BOB), 'users', ALICE, 'fcmTokens', 'tok-abc'),
+        { platform: 'ios' })
+    );
+    await assertFails(
+      getDoc(doc(asUser(BOB), 'users', ALICE, 'fcmTokens', 'tok-abc'))
     );
   });
 });

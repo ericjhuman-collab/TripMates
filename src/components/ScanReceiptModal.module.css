@@ -30,7 +30,7 @@
     display: grid;
     grid-template-columns: 44px 1fr 44px;
     align-items: center;
-    padding: 18px 16px 12px;
+    padding: calc(env(safe-area-inset-top) + 18px) 16px 12px;
 }
 
 .title {

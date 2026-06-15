@@ -1,7 +1,7 @@
 .container {
   max-width: 720px;
   margin: 0 auto;
-  padding: 2rem 1.5rem 4rem;
+  padding: calc(env(safe-area-inset-top) + 2rem) 1.5rem calc(env(safe-area-inset-bottom) + 4rem);
   color: var(--color-text);
   font-size: 0.95rem;
   line-height: 1.6;

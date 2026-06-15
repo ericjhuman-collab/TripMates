@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useParams, useSearchParams, useLocation } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { createPortal } from 'react-dom';
-import { X, MapPin, Plus, Map as MapIcon, CheckSquare, Settings, Camera, Images, Bell, Menu, LogOut, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon, Users, Building2 } from 'lucide-react';
+import { X, MapPin, Plus, CheckSquare, Camera, Images, UserPlus, UserCheck, ArrowLeft, Globe as GlobeIcon } from 'lucide-react';
 import { useAuth, type AppUser } from '../context/AuthContext';
-import { useTrip, type Trip } from '../context/TripContext';
+import { useTrip, type Trip, type TripPhase, categorizeTrip } from '../context/TripContext';
 import { auth, db, storage } from '../services/firebase';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { doc, getDoc } from 'firebase/firestore';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { getAllActivities, type Activity } from '../services/activities';
 import { getActivityGallery, getTripGallery, type GalleryImage } from '../services/gallery';
-import { followUser, unfollowUser, getNotifications, markNotificationRead, type SocialNotification } from '../services/social';
+import { followUser, unfollowUser } from '../services/social';
 import { changeUsername, isUsernameAvailable, normalizeUsername, validateUsername } from '../services/username';
 import { cityToCountry } from '../utils/cityToCountry';
 import { CountriesGlobe } from '../components/CountriesGlobe';
@@ -22,6 +22,10 @@ import { SUPPORTED_CURRENCIES } from '../utils/currencies';
 import { getDefaultCover } from '../utils/defaultCovers';
 import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { ImageCropperModal } from '../components/ImageCropperModal';
+import { Modal } from '../components/Modal';
+import { LiveLocationProfileSection } from '../components/LiveLocationProfileSection';
+import NotificationSettings from '../components/NotificationSettings';
 import styles from './Profile.module.css';
 import adminStyles from './TripAdmin.module.css';
 import { useToast } from '../components/useToast';
@@ -74,8 +78,8 @@ ActivitySlide.displayName = 'ActivitySlide';
 
 export const Profile: React.FC = () => {
     const toast = useToast();
-    const { logoutMock, appUser, updateProfile } = useAuth();
-    const { activeTrip, createTrip, joinTrip, userTrips: contextUserTrips, updateTrip } = useTrip();
+    const { appUser, updateProfile, refreshAppUser } = useAuth();
+    const { createTrip, joinTrip, userTrips: contextUserTrips, updateTrip } = useTrip();
 
     const navigate = useNavigate();
     const { uid } = useParams();
@@ -99,10 +103,8 @@ export const Profile: React.FC = () => {
     const [joiningTrip, setJoiningTrip] = useState(false);
 
     // ── UI drawers ─────────────────────────────
-    const location = useLocation();
-    const [showHamburger, setShowHamburger] = useState(
-        Boolean((location.state as { openMenu?: boolean } | null)?.openMenu)
-    );
+    // Hamburger drawer + notifications now live in Layout's HamburgerDrawer
+    // component — no per-page state needed here.
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [deleteConfirmText, setDeleteConfirmText] = useState('');
     const [deleteInProgress, setDeleteInProgress] = useState(false);
@@ -110,17 +112,14 @@ export const Profile: React.FC = () => {
     const [exportInProgress, setExportInProgress] = useState(false);
     const [exportError, setExportError] = useState('');
 
-    useEffect(() => {
-        const state = location.state as { openMenu?: boolean } | null;
-        if (state?.openMenu) {
-            setShowHamburger(true);
-            window.history.replaceState({}, '');
-        }
-    }, [location.state]);
-
-    const [showNotifications, setShowNotifications] = useState(false);
-    const [notifications, setNotifications] = useState<SocialNotification[]>([]);
-    const unreadCount = notifications.filter(n => !n.read).length;
+    type CropPending = {
+        file: File;
+        aspect?: number;
+        cropShape?: 'rect' | 'round';
+        title: string;
+        onApply: (cropped: File) => void;
+    };
+    const [cropPending, setCropPending] = useState<CropPending | null>(null);
 
     // ── Follow state ──────────────────────────
     const [isFollowing, setIsFollowing] = useState(false);
@@ -136,6 +135,7 @@ export const Profile: React.FC = () => {
 
     const [createTripForm, setCreateTripForm] = useState({
         name: '', destination: '', type: 'Default Trip',
+        phase: 'upcoming' as TripPhase,
         startDate: '', endDate: '', accommodation: '',
         accommodationAddress: '', accommodationLocation: null as { lat: number; lng: number } | null,
         activeGames: ['bingo', 'cheers'] as string[],
@@ -354,17 +354,7 @@ export const Profile: React.FC = () => {
 
     const now = new Date();
     const tripsToAnalyze = isOwner ? contextUserTrips : targetTrips;
-    const adminFilteredTrips = contextUserTrips.filter(t => {
-        const start = t.startDate ? new Date(t.startDate) : null;
-        const end = t.endDate ? new Date(t.endDate) : null;
-        switch (adminSubTab) {
-            case 'current': return start && end && start <= now && end >= now;
-            case 'future': return start && start > now;
-            case 'past': return end && end < now;
-            case 'bucketlist': return !start;
-            default: return false;
-        }
-    });
+    const adminFilteredTrips = contextUserTrips.filter(t => categorizeTrip(t) === adminSubTab);
 
     // ── Travel stats (derived client-side) ───
     const tripsCompleted = tripsToAnalyze.filter(t => t.endDate && new Date(t.endDate) < now).length;
@@ -419,8 +409,6 @@ export const Profile: React.FC = () => {
         setAvatarUploading(false);
     };
 
-    const handleLogout = () => { logoutMock(); auth.signOut(); navigate('/login'); };
-
     const handlePasswordReset = async () => {
         const email = auth.currentUser?.email;
         if (!email) return;
@@ -467,11 +455,6 @@ export const Profile: React.FC = () => {
         setIsFollowing((appUser.following || []).includes(uid));
     }, [uid, isOwner, appUser]);
 
-    useEffect(() => {
-        if (!appUser || !isOwner) return;
-        getNotifications(appUser.uid).then(setNotifications).catch(console.error);
-    }, [appUser, isOwner]);
-
     const handleFollow = async () => {
         if (!appUser || !targetUser || followLoading) return;
         setFollowLoading(true);
@@ -483,18 +466,13 @@ export const Profile: React.FC = () => {
                 await followUser(appUser.uid, targetUser.uid, appUser.name, appUser.avatarUrl);
                 setIsFollowing(true);
             }
+            await refreshAppUser();
         } catch (e) {
             console.error('Follow action failed', e);
         }
         setFollowLoading(false);
     };
 
-    const handleFollowBack = async (fromUid: string, notifId: string) => {
-        if (!appUser) return;
-        await followUser(appUser.uid, fromUid, appUser.name, appUser.avatarUrl);
-        await markNotificationRead(appUser.uid, notifId);
-        setNotifications(prev => prev.map(n => n.id === notifId ? { ...n, read: true } : n));
-    };
 
     // ── Globe toggle country ───────────────
     const handleToggleCountry = async (country: string, add: boolean) => {
@@ -528,30 +506,14 @@ export const Profile: React.FC = () => {
     }
 
     return (
-        <div className={`animate-fade-in ${styles.page}`}>
+        <div className={styles.page}>
 
-            {/* ── Header icons portalled into Layout's header slot ── */}
-            {isOwner && (() => {
-                const slot = document.getElementById('profile-header-slot');
-                if (!slot) return null;
-                
-                // Hide hamburger menu entirely if we are deep linked so we don't have overlapping buttons
-                if (mainTab !== 'profile') {
-                    return null;
-                }
-
-                return createPortal(
-                    <button
-                        className={styles.topBarBtn}
-                        onClick={() => setShowHamburger(true)}
-                        title="Menu"
-                    >
-                        <Menu size={22} />
-                        {unreadCount > 0 && <span className={styles.notifBadge}>{unreadCount}</span>}
-                    </button>,
-                    slot
-                );
-            })()}
+            {/* The Layout header now owns both the hamburger button (with
+                its own drawer) and the back-arrow on Profile sub-pages —
+                no portal needed here anymore. The fade-in lives on each
+                mainTab branch's inner wrapper instead, since putting it
+                here would create a `transform`-based containing block
+                that breaks the fixed top bar inside .adminPage. */}
 
             {/* ── Profile hero ─────────────────────── */}
             {mainTab === 'profile' && (
@@ -610,29 +572,50 @@ export const Profile: React.FC = () => {
                             </button>
                         )}
 
-                        {/* Current location */}
-                        {(isOwner ? activeTrip : targetTrips.find(t => t.id === displayUser?.activeTripId)) && (
-                            <p className={styles.heroLocation}>
-                                <MapPin size={13} />
-                                Currently in {(isOwner ? activeTrip?.destination : targetTrips.find(t => t.id === displayUser?.activeTripId)?.destination) || 'Active Trip'}
-                            </p>
-                        )}
+                        {/* Current location — driven purely by trip dates
+                            (categorizeTrip === 'current' means start ≤ today ≤ end).
+                            The user's selected `activeTrip` is intentionally
+                            ignored here: a trip can stay set as "active" long
+                            after it ended, but the profile pill should reflect
+                            real travel state, not UI selection. */}
+                        {(() => {
+                            const currentTrip = tripsToAnalyze.find(t => categorizeTrip(t) === 'current');
+                            if (currentTrip) {
+                                return (
+                                    <p className={styles.heroLocation}>
+                                        <MapPin size={13} />
+                                        Currently in {currentTrip.destination || currentTrip.name || 'Active Trip'}
+                                    </p>
+                                );
+                            }
+                            return (
+                                <p className={`${styles.heroLocation} ${styles.heroLocationIdle}`}>
+                                    <MapPin size={13} />
+                                    {isOwner ? 'Dreaming of the next adventure' : 'Between trips'}
+                                </p>
+                            );
+                        })()}
                     </div>
 
                     {/* Trips grid */}
+                    {(() => {
+                        const bucketlistTrips = tripsToAnalyze.filter(t => categorizeTrip(t) === 'bucketlist');
+                        const plannedTrips = tripsToAnalyze.filter(t => categorizeTrip(t) !== 'bucketlist');
+                        return (
+                    <>
                     <div className={styles.subNavPill}>
                         <button onClick={() => setGridTab('posts')} className={`${styles.subNavBtn} ${gridTab === 'posts' ? styles.subNavBtnActive : ''}`}>
-                            Trips ({tripsToAnalyze.length})
+                            Trips ({plannedTrips.length})
                         </button>
                         <button onClick={() => setGridTab('bucketlist')} className={`${styles.subNavBtn} ${gridTab === 'bucketlist' ? styles.subNavBtnActive : ''}`}>
-                            Bucketlist ({displayUser?.bucketlist?.length || 0})
+                            Bucketlist ({bucketlistTrips.length})
                         </button>
                     </div>
 
                     {gridTab === 'posts' && (
                         <div className={styles.tripsGridSection}>
                             <div className={styles.grid}>
-                                {tripsToAnalyze.map(trip => (
+                                {plannedTrips.map(trip => (
                                     <div
                                         key={trip.id}
                                         onClick={() => setViewTripDetails(trip)}
@@ -645,7 +628,7 @@ export const Profile: React.FC = () => {
                                         </span>
                                     </div>
                                 ))}
-                                {tripsToAnalyze.length === 0 && (
+                                {plannedTrips.length === 0 && (
                                     <p className={styles.tripEmptyText} style={{ gridColumn: '1 / -1' }}>No trips yet.</p>
                                 )}
                             </div>
@@ -654,72 +637,73 @@ export const Profile: React.FC = () => {
 
                     {gridTab === 'bucketlist' && (
                         <div className={styles.grid}>
-                            {displayUser?.bucketlist?.map(destination => (
-                                <div key={destination} className={styles.bucketlistItem}>
-                                    <span className={styles.bucketlistItemText}>{destination}</span>
-                                    {isOwner && (
-                                        <button
-                                            onClick={async (e) => {
-                                                e.stopPropagation();
-                                                if (!appUser) return;
-                                                const currentList = appUser.bucketlist || [];
-                                                await updateProfile({ bucketlist: currentList.filter(d => d !== destination) });
-                                            }}
-                                            className={styles.bucketlistRemoveBtn}
-                                            title="Remove from bucketlist"
-                                        >
-                                            <X size={12} />
-                                        </button>
-                                    )}
+                            {bucketlistTrips.map(trip => (
+                                <div
+                                    key={trip.id}
+                                    onClick={() => setViewTripDetails(trip)}
+                                    className={styles.gridItem}
+                                    style={trip.imageUrl ? { backgroundImage: `url(${trip.imageUrl})` } : {}}
+                                >
+                                    {trip.imageUrl && <div className={styles.gridItemScrim} />}
+                                    <span className={`${styles.gridItemLabel} ${trip.imageUrl ? styles.gridItemLabelOnImage : styles.gridItemLabelNoImage}`}>
+                                        {trip.name}
+                                    </span>
                                 </div>
                             ))}
                             {isOwner && (
                                 <div
-                                    onClick={async () => {
-                                        const item = prompt('Add to bucketlist:');
-                                        if (item && appUser) {
-                                            const currentList = appUser.bucketlist || [];
-                                            if (!currentList.includes(item.trim())) {
-                                                await updateProfile({ bucketlist: [...currentList, item.trim()] });
-                                            }
-                                        }
+                                    onClick={() => {
+                                        setCreateTripForm(prev => ({ ...prev, phase: 'bucketlist' }));
+                                        setShowCreateTrip(true);
                                     }}
                                     className={styles.addGridItem}
+                                    title="Create a bucketlist trip"
                                 >
                                     <Plus size={24} />
                                     <span className={styles.addGridLabel}>Add</span>
                                 </div>
                             )}
+                            {!isOwner && bucketlistTrips.length === 0 && (
+                                <p className={styles.tripEmptyText} style={{ gridColumn: '1 / -1' }}>No bucketlist trips yet.</p>
+                            )}
                         </div>
                     )}
+                    </>
+                        );
+                    })()}
                 </div>
             )}
 
             {/* ── My Trips tab (from hamburger) ── */}
             {mainTab === 'admin' && (
-                <div className="animate-fade-in">
-                        <div className={styles.adminHeader}>
-                            <h2 className={styles.adminTitle}>My Trips</h2>
-                            <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowJoinTrip(true)}>
-                                    Join
-                                </button>
-                                <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowCreateTrip(true)}>
-                                    <Plus size={16} /> Create
-                                </button>
+                <div className={styles.adminPage}>
+                        {/* Fixed header — title row + Current/Future/Past/Bucketlist
+                            pill stay pinned below Layout's header while the trip
+                            list scrolls. */}
+                        <div className={styles.adminFixedTopBar}>
+                            <div className={styles.adminHeader}>
+                                <h2 className={styles.adminTitle}>My Trips</h2>
+                                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                    <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowJoinTrip(true)}>
+                                        Join
+                                    </button>
+                                    <button className={`btn btn-primary ${styles.createBtn}`} onClick={() => setShowCreateTrip(true)}>
+                                        <Plus size={16} /> Create
+                                    </button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div className={styles.subNavPill}>
-                            {(['current', 'future', 'past', 'bucketlist'] as const).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setAdminSubTab(tab)}
-                                    className={`${styles.subNavBtn} ${adminSubTab === tab ? styles.subNavBtnActive : ''}`}
-                                >
-                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                                </button>
-                            ))}
+                            <div className={styles.subNavPill}>
+                                {(['current', 'future', 'past', 'bucketlist'] as const).map(tab => (
+                                    <button
+                                        key={tab}
+                                        onClick={() => setAdminSubTab(tab)}
+                                        className={`${styles.subNavBtn} ${adminSubTab === tab ? styles.subNavBtnActive : ''}`}
+                                    >
+                                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <div className={styles.tripList}>
@@ -752,7 +736,7 @@ export const Profile: React.FC = () => {
             {/* ── Network tab (from hamburger) ── */}
             {mainTab === 'network' && (
                 <div style={{ height: '100%', overflow: 'hidden' }}>
-                    <Network />
+                    <Network onBack={() => setMainTab('profile')} />
                 </div>
             )}
             {/* ── My Locations tab (from hamburger) ── */}
@@ -799,7 +783,18 @@ export const Profile: React.FC = () => {
                                 type="file"
                                 accept="image/*"
                                 style={{ display: 'none' }}
-                                onChange={e => { if (e.target.files?.[0]) handleAvatarUpload(e.target.files[0]); }}
+                                onChange={e => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    setCropPending({
+                                        file: f,
+                                        aspect: 1,
+                                        cropShape: 'round',
+                                        title: 'Crop avatar',
+                                        onApply: (cropped) => handleAvatarUpload(cropped),
+                                    });
+                                    e.target.value = '';
+                                }}
                             />
                             {editForm.avatarUrl && (
                                 <button
@@ -891,8 +886,11 @@ export const Profile: React.FC = () => {
                                         checked={editForm.shareLocation}
                                         onChange={e => setEditForm(prev => ({ ...prev, shareLocation: e.target.checked }))}
                                     />
-                                    <span>Share live location on trips</span>
+                                    <span>Allow live location sharing</span>
                                 </label>
+                                <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                                    Master switch — when off, no broadcasting happens on any trip.
+                                </p>
                             </div>
                             <div>
                                 <label className={styles.settingsLabel}>Email Address</label>
@@ -910,6 +908,27 @@ export const Profile: React.FC = () => {
                                 </p>
                             </div>
                             <button className={`btn btn-primary ${styles.saveBtn}`} onClick={handleSaveProfile}>Save Changes</button>
+                        </div>
+                        <hr className={styles.divider} />
+                        <div>
+                            <h4 className={styles.sectionSubtitle}>Live location</h4>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0 0 0.75rem' }}>
+                                Pick a duration per trip. Sharing automatically stops when the timer ends; tap Stop to end early.
+                            </p>
+                            {editForm.shareLocation
+                                ? <LiveLocationProfileSection />
+                                : <p style={{ fontSize: '0.85rem', color: '#b91c1c', margin: 0 }}>
+                                      Live location is disabled by the master switch above. Turn it back on to share.
+                                  </p>
+                            }
+                        </div>
+                        <hr className={styles.divider} />
+                        <div>
+                            <h4 className={styles.sectionSubtitle}>Notifications</h4>
+                            <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0 0 0.75rem' }}>
+                                Pick which push notifications you want to receive on this device.
+                            </p>
+                            <NotificationSettings />
                         </div>
                         <hr className={styles.divider} />
                         <div>
@@ -991,102 +1010,8 @@ export const Profile: React.FC = () => {
                 document.body
             )}
 
-            {/* ── Hamburger side drawer (with notifications sub-view) ── */}
-            {showHamburger && createPortal(
-                <div className={styles.drawerOverlay} onClick={() => { setShowHamburger(false); setShowNotifications(false); }}>
-                    <div className={styles.drawer} onClick={e => e.stopPropagation()}>
-                        {!showNotifications ? (
-                            /* ── Main menu view ── */
-                            <>
-                                <div className={styles.drawerHeader}>
-                                    <h3 className={styles.drawerTitle}>Menu</h3>
-                                    <button className={styles.drawerCloseBtn} onClick={() => setShowHamburger(false)}><X size={20} /></button>
-                                </div>
-                                <div className={styles.drawerList}>
-                                    <button className={styles.drawerItem} onClick={() => setShowNotifications(true)}>
-                                        <Bell size={20} />
-                                        Notifications
-                                        {unreadCount > 0 && <span className={styles.drawerItemBadge}>{unreadCount}</span>}
-                                    </button>
-                                    <div className={styles.drawerDivider} />
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('admin'); setShowHamburger(false); }}>
-                                        <MapIcon size={20} /> My Trips
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('groups'); setShowHamburger(false); }}>
-                                        <Users size={20} /> Groups
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('myActivities'); setShowHamburger(false); }}>
-                                        <CheckSquare size={20} /> My Locations
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('network'); setShowHamburger(false); }}>
-                                        <UserPlus size={20} /> Network
-                                    </button>
-                                    <button className={styles.drawerItem} onClick={() => { setMainTab('settings'); setShowHamburger(false); }}>
-                                        <Settings size={20} /> Settings
-                                    </button>
-                                    
-                                    <div className={styles.drawerDivider} />
-                                    {appUser?.managedBusinessIds?.length ? (
-                                        <button className={styles.drawerItem} onClick={() => { setMainTab('businessDashboard'); setShowHamburger(false); }}>
-                                            <Building2 size={20} /> Business Partner HQ
-                                        </button>
-                                    ) : (
-                                        <button className={styles.drawerItem} onClick={() => { setMainTab('businessDashboard'); setShowHamburger(false); }}>
-                                            <Building2 size={20} /> Register as Business Partner
-                                        </button>
-                                    )}
-
-                                    <div className={styles.drawerDivider} />
-                                    <button className={`${styles.drawerItem} ${styles.drawerItemDanger}`} onClick={handleLogout}>
-                                        <LogOut size={20} /> Log Out
-                                    </button>
-                                </div>
-                            </>
-                        ) : (
-                            /* ── Notifications sub-view ── */
-                            <>
-                                <div className={styles.drawerHeader}>
-                                    <button
-                                        className={styles.drawerBackBtn}
-                                        onClick={() => setShowNotifications(false)}
-                                        title="Back to menu"
-                                    >
-                                        <ArrowLeft size={20} />
-                                    </button>
-                                    <h3 className={styles.drawerTitle}>Notifications</h3>
-                                    <button className={styles.drawerCloseBtn} onClick={() => { setShowHamburger(false); setShowNotifications(false); }} aria-label="Close menu"><X size={20} /></button>
-                                </div>
-                                <div className={styles.drawerList}>
-                                    {notifications.length === 0 && (
-                                        <p className={styles.notifEmpty}>No notifications yet.</p>
-                                    )}
-                                    {notifications.map(n => (
-                                        <div key={n.id} className={`${styles.notifItem} ${!n.read ? styles.notifItemUnread : ''}`}>
-                                            {n.fromAvatarUrl
-                                                ? <img src={n.fromAvatarUrl} className={styles.notifAvatar} alt={n.fromName} loading="lazy" />
-                                                : <div className={styles.notifAvatarPlaceholder}>{n.fromName.charAt(0).toUpperCase()}</div>
-                                            }
-                                            <div className={styles.notifMeta}>
-                                                <span className={styles.notifText}><strong>{n.fromName}</strong> started following you</span>
-                                                <span className={styles.notifTime}>{new Date(n.createdAt).toLocaleDateString()}</span>
-                                            </div>
-                                            {!((appUser?.following || []).includes(n.fromUid)) && (
-                                                <button
-                                                    className={styles.followBackBtn}
-                                                    onClick={() => handleFollowBack(n.fromUid, n.id)}
-                                                >
-                                                    Follow back
-                                                </button>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                </div>,
-                document.body
-            )}
+            {/* Hamburger drawer + notifications sub-view live in
+                src/components/HamburgerDrawer.tsx, mounted by Layout. */}
 
             {/* Countries Globe — portalled to body so it covers full screen */}
             {showGlobe && createPortal(
@@ -1102,19 +1027,47 @@ export const Profile: React.FC = () => {
                 document.body
             )}
 
-            {/* Create Trip Modal */}
+            {/* Create Trip — full-screen page */}
             {showCreateTrip && createPortal(
-                <div className={styles.createModal} onClick={() => setShowCreateTrip(false)}>
-                    <div className={styles.createModalBody} onClick={e => e.stopPropagation()}>
-                        {/* Title row — scrolls with content */}
+                <div className={styles.createModal}>
+                    <div className={styles.createModalBody}>
+                        {/* Page header — back arrow + centered title */}
                         <div className={styles.createModalTitleRow}>
-                            <h2 className={styles.tripModalTitle}>Create New Trip</h2>
-                            <button onClick={() => setShowCreateTrip(false)} className={styles.tripModalCloseBtn} title="Close">
-                                <X size={24} />
+                            <button
+                                onClick={() => setShowCreateTrip(false)}
+                                className={adminStyles.backBtn}
+                                title="Go back"
+                                aria-label="Go back"
+                            >
+                                <ArrowLeft size={20} color="var(--color-primary-dark)" />
                             </button>
+                            <h2 className={styles.tripModalTitle} style={{ flex: 1, textAlign: 'center' }}>Create New Trip</h2>
+                            {/* Spacer keeps the title visually centered against the back button */}
+                            <div style={{ width: 40, flexShrink: 0 }} />
                         </div>
 
                         <div className={styles.fieldsStack}>
+                            {/* Trip Phase — controls where the trip lands (Bucketlist / Upcoming / Past) */}
+                            <div>
+                                <label className={styles.settingsLabel}>Trip Phase</label>
+                                <div className={styles.subNavPill} style={{ marginTop: 0 }}>
+                                    {(['bucketlist', 'upcoming', 'past'] as TripPhase[]).map(p => (
+                                        <button
+                                            key={p}
+                                            type="button"
+                                            onClick={() => setCreateTripForm(prev => ({ ...prev, phase: p }))}
+                                            className={`${styles.subNavBtn} ${createTripForm.phase === p ? styles.subNavBtnActive : ''}`}
+                                        >
+                                            {p === 'bucketlist' ? 'Bucketlist' : p === 'upcoming' ? 'Upcoming' : 'Past'}
+                                        </button>
+                                    ))}
+                                </div>
+                                <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', margin: '0.4rem 0 0' }}>
+                                    {createTripForm.phase === 'bucketlist' && 'Dream trip — dates optional.'}
+                                    {createTripForm.phase === 'upcoming' && 'Planned or in-progress — pick start and end date.'}
+                                    {createTripForm.phase === 'past' && 'Diary entry — pick the dates the trip happened.'}
+                                </p>
+                            </div>
                             {/* Cover Photo */}
                             <div>
                                 <label className={styles.settingsLabel}>Cover Photo</label>
@@ -1136,8 +1089,17 @@ export const Profile: React.FC = () => {
                                             onChange={(e) => {
                                                 const file = e.target.files?.[0];
                                                 if (!file) return;
-                                                createTripCoverRef.current = file;
-                                                setCreateTripCoverPreview(URL.createObjectURL(file));
+                                                setCropPending({
+                                                    file,
+                                                    aspect: 16 / 9,
+                                                    cropShape: 'rect',
+                                                    title: 'Crop trip cover',
+                                                    onApply: (cropped) => {
+                                                        createTripCoverRef.current = cropped;
+                                                        setCreateTripCoverPreview(URL.createObjectURL(cropped));
+                                                    },
+                                                });
+                                                e.target.value = '';
                                             }}
                                         />
                                     </label>
@@ -1154,11 +1116,16 @@ export const Profile: React.FC = () => {
                             </div>
                             <div>
                                 <label className={styles.settingsLabel}>Destination</label>
-                                <input
-                                    className="input-field"
+                                <ModernPlaceAutocomplete
+                                    defaultValue={createTripForm.destination}
                                     placeholder="E.g. Milano, Italy"
-                                    value={createTripForm.destination}
-                                    onChange={e => setCreateTripForm(prev => ({ ...prev, destination: e.target.value }))}
+                                    className="input-field"
+                                    onPlaceSelected={(place) => {
+                                        setCreateTripForm(prev => ({ ...prev, destination: place.name }));
+                                    }}
+                                    onInputChange={(val) => {
+                                        setCreateTripForm(prev => ({ ...prev, destination: val }));
+                                    }}
                                 />
                             </div>
                             <div>
@@ -1286,12 +1253,28 @@ export const Profile: React.FC = () => {
                                 className={`btn btn-primary ${styles.goTripBtn}`}
                                 disabled={creatingTrip || !createTripForm.name.trim()}
                                 onClick={async () => {
+                                    // Phase-aware validation
+                                    if (createTripForm.phase !== 'bucketlist') {
+                                        if (!createTripForm.startDate || !createTripForm.endDate) {
+                                            toast.error('Pick start and end date, or switch the phase to Bucketlist.');
+                                            return;
+                                        }
+                                        if (createTripForm.phase === 'past') {
+                                            const todayStart = new Date();
+                                            todayStart.setHours(0, 0, 0, 0);
+                                            if (new Date(createTripForm.endDate) >= todayStart) {
+                                                toast.error('A past trip needs an end date in the past.');
+                                                return;
+                                            }
+                                        }
+                                    }
                                     setCreatingTrip(true);
                                     try {
                                         const newTripId = await createTrip({
                                             name: createTripForm.name.trim(),
                                             destination: createTripForm.destination.trim(),
                                             type: createTripForm.type,
+                                            phase: createTripForm.phase,
                                             startDate: createTripForm.startDate || '',
                                             endDate: createTripForm.endDate || '',
                                             accommodation: createTripForm.accommodation.trim() || '',
@@ -1313,7 +1296,7 @@ export const Profile: React.FC = () => {
                                             createTripCoverRef.current = null;
                                         }
                                         setShowCreateTrip(false);
-                                        setCreateTripForm({ name: '', destination: '', type: 'Default Trip', startDate: '', endDate: '', accommodation: '', accommodationAddress: '', accommodationLocation: null, activeGames: ['bingo', 'cheers'], defaultGame: 'bingo', baseCurrency: 'SEK' });
+                                        setCreateTripForm({ name: '', destination: '', type: 'Default Trip', phase: 'upcoming', startDate: '', endDate: '', accommodation: '', accommodationAddress: '', accommodationLocation: null, activeGames: ['bingo', 'cheers'], defaultGame: 'bingo', baseCurrency: 'SEK' });
                                         setCreateTripCoverPreview('');
                                         navigate('/');
                                     } catch (err: unknown) {
@@ -1333,55 +1316,44 @@ export const Profile: React.FC = () => {
             )}
 
             {/* Join Trip Modal */}
-
-            {showJoinTrip && createPortal(
-                <div className={`modal-backdrop ${adminStyles.modalBackdrop}`} onClick={() => { setShowJoinTrip(false); setJoinTripCode(''); }}>
-                    <div className={`card animate-fade-in ${adminStyles.modalCard}`} onClick={e => e.stopPropagation()}>
-                        <div className={adminStyles.modalHeader}>
-                            <h2 className={adminStyles.modalTitle}>Join Trip</h2>
-                            <button onClick={() => { setShowJoinTrip(false); setJoinTripCode(''); }} className={adminStyles.modalCloseBtn} title="Close">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className={adminStyles.modalForm}>
-                            <label className={adminStyles.modalFieldLabel}>Trip Code</label>
-                            <input
-                                className="input-field"
-                                placeholder="Enter trip code"
-                                value={joinTripCode}
-                                onChange={e => setJoinTripCode(e.target.value)}
-                            />
-
-                            <button
-                                className="btn btn-primary"
-                                style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
-                                disabled={joiningTrip || !joinTripCode.trim()}
-                                onClick={async () => {
-                                    setJoiningTrip(true);
-                                    try {
-                                        const success = await joinTrip(joinTripCode.trim());
-                                        if (success) {
-                                            setShowJoinTrip(false);
-                                            setJoinTripCode('');
-                                            navigate('/');
-                                        } else {
-                                            toast.error('Invalid trip code or trip not found.');
-                                        }
-                                    } catch (err: unknown) {
-                                        console.error('Failed to join trip', err);
-                                        toast.error('Failed to join trip: ' + ((err as Error).message || 'Unknown error'));
-                                    } finally {
-                                        setJoiningTrip(false);
-                                    }
-                                }}
-                            >
-                                {joiningTrip ? 'Joining...' : 'Join Trip'}
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            <Modal
+                open={showJoinTrip}
+                onClose={() => { setShowJoinTrip(false); setJoinTripCode(''); }}
+                title="Join Trip"
+            >
+                <label className={adminStyles.modalFieldLabel}>Trip Code</label>
+                <input
+                    className="input-field"
+                    placeholder="Enter trip code"
+                    value={joinTripCode}
+                    onChange={e => setJoinTripCode(e.target.value)}
+                />
+                <button
+                    className="btn btn-primary"
+                    style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
+                    disabled={joiningTrip || !joinTripCode.trim()}
+                    onClick={async () => {
+                        setJoiningTrip(true);
+                        try {
+                            const success = await joinTrip(joinTripCode.trim());
+                            if (success) {
+                                setShowJoinTrip(false);
+                                setJoinTripCode('');
+                                navigate('/');
+                            } else {
+                                toast.error('Invalid trip code or trip not found.');
+                            }
+                        } catch (err: unknown) {
+                            console.error('Failed to join trip', err);
+                            toast.error('Failed to join trip: ' + ((err as Error).message || 'Unknown error'));
+                        } finally {
+                            setJoiningTrip(false);
+                        }
+                    }}
+                >
+                    {joiningTrip ? 'Joining...' : 'Join Trip'}
+                </button>
+            </Modal>
 
             {/* Trip Details Modal — rendered via portal so it sits above the Layout's bottom nav */}
             {viewTripDetails && createPortal(
@@ -1533,6 +1505,17 @@ export const Profile: React.FC = () => {
                 </div>,
                 document.body
             )}
+            <ImageCropperModal
+                file={cropPending?.file ?? null}
+                aspect={cropPending?.aspect}
+                cropShape={cropPending?.cropShape}
+                title={cropPending?.title ?? 'Crop image'}
+                onCropped={(cropped) => {
+                    cropPending?.onApply(cropped);
+                    setCropPending(null);
+                }}
+                onCancel={() => setCropPending(null)}
+            />
         </div>
     );
 };

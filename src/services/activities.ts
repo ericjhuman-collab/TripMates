@@ -1,4 +1,4 @@
-import { collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, doc, updateDoc, deleteDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from './firebase';
 
 export interface Activity {
@@ -7,9 +7,9 @@ export interface Activity {
     title: string;
     description: string;
     time?: string; // Optional for saved templates
-    endTime?: string; 
+    endTime?: string;
     locationName: string;
-    address: string; 
+    address: string;
     location: { lat: number; lng: number } | null;
     votes?: Record<string, string>;
     enableVoting?: boolean;
@@ -18,16 +18,33 @@ export interface Activity {
     /** UIDs that have RSVP'd as 'going'. Pre-populated for members with autoJoinActivities=true. */
     attendees?: string[];
     mapIcon?: string;
-    imageUrl?: string;  
+    imageUrl?: string;
     tripId?: string; // Optional for saved templates
     category?: 'Restaurant' | 'Cafe' | 'Bar' | 'Museum' | 'Activity' | 'Other';
     createdBy?: string;
+    /** Derived from `day` + `time` at write time. Used by the 1h-before reminder
+     *  Cloud Function. Interpreted as the writer's local timezone. */
+    scheduledStartAt?: Timestamp;
 
     // Attributes for the Saved Library
     isSavedActivity?: boolean;
-    ownerId?: string;     
+    ownerId?: string;
     savedListId?: string; // Mapped to a specific library list folder
-    usedInTrips?: string[]; 
+    usedInTrips?: string[];
+}
+
+/**
+ * Derive a Timestamp from `day` (YYYY-MM-DD) + `time` (HH:MM). Returns
+ * undefined if either is missing or unparseable. Treated as the writer's
+ * local timezone — fine for v1 since trips are usually planned in one TZ.
+ */
+function deriveScheduledStartAt(day: string | undefined, time: string | undefined): Timestamp | undefined {
+    if (!day || !time) return undefined;
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return undefined;
+    if (!/^\d{1,2}:\d{2}$/.test(time)) return undefined;
+    const d = new Date(`${day}T${time.padStart(5, '0')}:00`);
+    if (Number.isNaN(d.getTime())) return undefined;
+    return Timestamp.fromDate(d);
 }
 
 export const getActivitiesByDay = async (tripId: string, dayString: string): Promise<Activity[]> => {
@@ -74,6 +91,73 @@ export const getAllActivities = async (tripId: string): Promise<Activity[]> => {
             return (a.day ?? '').localeCompare(b.day ?? '');
         });
     }
+};
+
+const sortByDayThenTime = (list: Activity[]) =>
+    list.slice().sort((a, b) => {
+        if (a.day === b.day) return (a.time ?? '').localeCompare(b.time ?? '');
+        return (a.day ?? '').localeCompare(b.day ?? '');
+    });
+
+const sortByTime = (list: Activity[]) =>
+    list.slice().sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+
+const isMockTrip = (tripId: string) =>
+    ['BCNTRP', 'PRSTPR', 'TKYRTR', 'LNDNTR', 'AMSTRD', 'BLITRP', 'NYCTRP'].includes(tripId);
+
+/**
+ * Live subscription to all activities for a trip. Returns the unsubscribe
+ * function. Mock trip ids resolve from the mock fixtures and never hit
+ * Firestore — the callback fires once synchronously-ish via setTimeout 0
+ * so callers can treat both paths uniformly.
+ */
+export const subscribeToActivities = (
+    tripId: string,
+    callback: (activities: Activity[]) => void,
+): (() => void) => {
+    if (isMockTrip(tripId)) {
+        const mockData = getMockActivities().filter(a => a.tripId === tripId);
+        const t = setTimeout(() => callback(sortByDayThenTime(mockData)), 0);
+        return () => clearTimeout(t);
+    }
+    const q = query(collection(db, 'activities'), where('tripId', '==', tripId));
+    return onSnapshot(
+        q,
+        snapshot => {
+            const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Activity));
+            callback(sortByDayThenTime(docs));
+        },
+        e => console.warn('Activities subscription error', e),
+    );
+};
+
+/**
+ * Live subscription to a single day's activities for a trip. Same shape
+ * as subscribeToActivities.
+ */
+export const subscribeToActivitiesByDay = (
+    tripId: string,
+    dayString: string,
+    callback: (activities: Activity[]) => void,
+): (() => void) => {
+    if (isMockTrip(tripId)) {
+        const mockData = getMockActivities().filter(a => a.tripId === tripId && a.day === dayString);
+        const t = setTimeout(() => callback(sortByTime(mockData)), 0);
+        return () => clearTimeout(t);
+    }
+    const q = query(
+        collection(db, 'activities'),
+        where('tripId', '==', tripId),
+        where('day', '==', dayString),
+    );
+    return onSnapshot(
+        q,
+        snapshot => {
+            const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Activity));
+            callback(sortByTime(docs));
+        },
+        e => console.warn('Activities-by-day subscription error', e),
+    );
 };
 
 const getMockActivities = (): Activity[] => {
@@ -126,7 +210,9 @@ const getMockActivities = (): Activity[] => {
 };
 
 export const addActivity = async (activity: Omit<Activity, 'id'>) => {
-    const docRef = await addDoc(collection(db, 'activities'), activity);
+    const scheduledStartAt = deriveScheduledStartAt(activity.day, activity.time);
+    const payload = scheduledStartAt ? { ...activity, scheduledStartAt } : activity;
+    const docRef = await addDoc(collection(db, 'activities'), payload);
     return docRef.id;
 };
 
@@ -163,7 +249,11 @@ export const addTripActivityWithPrefs = async (
         ...autoAttendees,
     ]));
 
-    const docRef = await addDoc(collection(db, 'activities'), { ...activity, attendees });
+    const scheduledStartAt = deriveScheduledStartAt(activity.day, activity.time);
+    const payload: Omit<Activity, 'id'> = scheduledStartAt
+        ? { ...activity, attendees, scheduledStartAt }
+        : { ...activity, attendees };
+    const docRef = await addDoc(collection(db, 'activities'), payload);
 
     // Fan-out notifications (respects muteNotifications per member).
     notifyTripMembers(
@@ -184,7 +274,15 @@ export const addTripActivityWithPrefs = async (
 
 export const updateActivity = async (id: string, updates: Partial<Activity>) => {
     const ref = doc(db, 'activities', id);
-    return await updateDoc(ref, updates);
+    // Re-derive scheduledStartAt if the time fields change. We only set it
+    // when both day+time end up populated; clearing isn't supported here
+    // because Partial<Activity> can't carry a deleteField sentinel.
+    const next: Partial<Activity> = { ...updates };
+    if ('day' in updates || 'time' in updates) {
+        const derived = deriveScheduledStartAt(updates.day, updates.time);
+        if (derived) next.scheduledStartAt = derived;
+    }
+    return await updateDoc(ref, next);
 };
 
 export const deleteActivity = async (id: string) => {

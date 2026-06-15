@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, indexedDBLocalPersistence, type Auth } from 'firebase/auth';
+import { Capacitor } from '@capacitor/core';
 import { getFirestore } from 'firebase/firestore';
 import { getDatabase } from 'firebase/database';
 import { getStorage } from 'firebase/storage';
@@ -58,7 +59,13 @@ if (useStaging && firebaseConfig.apiKey.startsWith('REPLACE_WITH_')) {
 }
 
 export const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+
+// On native (Capacitor iOS/Android), the default `getAuth` triggers gapi.iframes
+// loading from apis.google.com which fails CORS on the `capacitor://localhost`
+// origin and breaks app startup. Use IndexedDB persistence to skip that path.
+export const auth: Auth = Capacitor.isNativePlatform()
+    ? initializeAuth(app, { persistence: indexedDBLocalPersistence })
+    : getAuth(app);
 export const db = getFirestore(app);
 export const rtdb = getDatabase(app);
 export const storage = getStorage(app);

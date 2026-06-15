@@ -1,9 +1,11 @@
-import React, { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useRef, useMemo, lazy, Suspense } from 'react';
+import { useLocation } from 'react-router-dom';
+import { OPEN_POLLS_EVENT, type OpenPollsEventDetail } from '../utils/pollEvents';
 import { format, addDays, subDays, differenceInDays, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, subMonths, isSameDay, startOfWeek, endOfWeek, subWeeks, addWeeks } from 'date-fns';
-import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, MapPin, Clock, Calendar, List, CalendarDays, CalendarRange, Grid3X3, Check, BarChart3, Gamepad2, Users, X, Navigation } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
-import { getActivitiesByDay, getAllActivities, type Activity } from '../services/activities';
+import { subscribeToActivities, subscribeToActivitiesByDay, type Activity } from '../services/activities';
 import { createPortal } from 'react-dom';
 import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -15,14 +17,91 @@ import { useToast } from '../components/useToast';
 // schedule view (the default) doesn't pay that cost.
 const MapPage = lazy(() => import('./MapPage').then(m => ({ default: m.MapPage })));
 const Members = lazy(() => import('./Members').then(m => ({ default: m.Members })));
+const Polls = lazy(() => import('./Polls').then(m => ({ default: m.Polls })));
+const Games = lazy(() => import('./Games').then(m => ({ default: m.Games })));
 
 type CalendarViewMode = 'schedule' | 'day' | '3day' | 'week' | 'month';
-type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'members';
+type ViewMode = CalendarViewMode | 'map' | 'leaderboard' | 'polls' | 'members' | 'games';
+
+// Build a Google Maps URL — coords win when present (most precise), otherwise
+// fall back to the activity's address or location name. Returns null when the
+// activity has no resolvable destination so callers can hide the button.
+function buildMapsUrlForActivity(act: Activity): string | null {
+    if (act.location && typeof act.location.lat === 'number' && typeof act.location.lng === 'number') {
+        return `https://www.google.com/maps/search/?api=1&query=${act.location.lat},${act.location.lng}`;
+    }
+    const fallback = act.address || act.locationName;
+    if (!fallback) return null;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(fallback)}`;
+}
+
+const OpenInMapsButton: React.FC<{ activity: Activity; compact?: boolean }> = ({ activity, compact }) => {
+    const url = buildMapsUrlForActivity(activity);
+    if (!url) return null;
+    return (
+        <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={e => e.stopPropagation()}
+            aria-label={`Open ${activity.locationName || activity.title} in Google Maps`}
+            title="Open in Google Maps"
+            style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 6,
+                padding: compact ? '4px 8px' : '6px 12px',
+                borderRadius: 999,
+                background: 'rgba(59, 130, 246, 0.12)',
+                color: '#1d4ed8',
+                fontSize: compact ? 12 : 13,
+                fontWeight: 600,
+                textDecoration: 'none',
+                whiteSpace: 'nowrap',
+            }}
+        >
+            <Navigation size={compact ? 12 : 14} />
+            {!compact && <span>Maps</span>}
+        </a>
+    );
+};
 
 export const Home: React.FC = () => {
     const { effectiveRole, currentUser } = useAuth();
     const { activeTrip, userTrips, switchTrip } = useTrip();
+    const location = useLocation();
     const [viewMode, setViewMode] = useState<ViewMode>('day');
+    const [eventFocusedPollId, setEventFocusedPollId] = useState<string | undefined>();
+
+    // Deep-link support: `/?tab=polls` (optionally with `&pollId=...`) opens
+    // the Polls tab on initial navigation from another route. For
+    // banner clicks while already on Home we use a CustomEvent (below)
+    // because router updates inside the same route don't always re-fire
+    // dependents reliably across react-router-dom versions.
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const tab = params.get('tab');
+        if (tab === 'polls') {
+            setViewMode('polls');
+        }
+    }, [location.search]);
+
+    // Banner-click handler when already on Home — see PollBanner.
+    useEffect(() => {
+        const handler = (e: Event) => {
+            const detail = (e as CustomEvent<OpenPollsEventDetail>).detail;
+            setViewMode('polls');
+            if (detail?.pollId) setEventFocusedPollId(detail.pollId);
+        };
+        window.addEventListener(OPEN_POLLS_EVENT, handler);
+        return () => window.removeEventListener(OPEN_POLLS_EVENT, handler);
+    }, []);
+
+    const focusedPollId = useMemo(() => {
+        if (eventFocusedPollId) return eventFocusedPollId;
+        return new URLSearchParams(location.search).get('pollId') ?? undefined;
+    }, [eventFocusedPollId, location.search]);
     const [calendarViewMode, setCalendarViewMode] = useState<CalendarViewMode>('day');
     const [showViewMenu, setShowViewMenu] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
@@ -53,33 +132,6 @@ export const Home: React.FC = () => {
         sharePhoneNumber: true
     } as AppUser));
     const allTripUsers = [...validMembers, ...mockUsers];
-
-    const withTimeout = <T,>(p: Promise<T>, ms: number): Promise<T> =>
-        Promise.race([p, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('timeout')), ms))]);
-
-    const fetchActivities = useCallback(async () => {
-        if (!activeTrip) return;
-        setLoading(true);
-        try {
-            const data = await withTimeout(getActivitiesByDay(activeTrip.id, dayString), 8000);
-            setActivities(data);
-        } catch (e) {
-            console.warn('Activities fetch timed out or failed:', e);
-            setActivities([]);
-        } finally {
-            setLoading(false);
-        }
-    }, [activeTrip, dayString]);
-
-    const fetchAllActivities = useCallback(async () => {
-        if (!activeTrip) return;
-        try {
-            const data = await withTimeout(getAllActivities(activeTrip.id), 8000);
-            setAllActivities(data);
-        } catch (e) {
-            console.warn('All-activities fetch timed out or failed:', e);
-        }
-    }, [activeTrip]);
 
     const fetchUsers = async () => {
         try {
@@ -115,14 +167,23 @@ export const Home: React.FC = () => {
     }, []);
 
     useEffect(() => {
-        fetchAllActivities();
-    }, [fetchAllActivities]);
+        if (!activeTrip) return;
+        return subscribeToActivities(activeTrip.id, setAllActivities);
+        // Only re-subscribe when the trip id changes — full activeTrip reference
+        // churns on every appUser refresh and would thrash the listener.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTrip?.id]);
 
     useEffect(() => {
-        if (viewMode === 'day' || viewMode === 'schedule' || viewMode === '3day') {
-            fetchActivities();
-        }
-    }, [fetchActivities, viewMode]);
+        if (!activeTrip) return;
+        if (viewMode !== 'day' && viewMode !== 'schedule' && viewMode !== '3day') return;
+        const unsub = subscribeToActivitiesByDay(activeTrip.id, dayString, list => {
+            setActivities(list);
+            setLoading(false);
+        });
+        return unsub;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTrip?.id, dayString, viewMode]);
 
     // Close hamburger menu when clicking outside
     useEffect(() => {
@@ -134,6 +195,16 @@ export const Home: React.FC = () => {
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [showViewMenu]);
+
+    // Map view goes fullscreen Google-Maps style: the map fills the viewport
+    // edge-to-edge, and the header + nav pill overlay on top via a body class
+    // that triggers the global rules in App.css.
+    useEffect(() => {
+        if (viewMode === 'map') {
+            document.body.classList.add('map-fullscreen');
+            return () => document.body.classList.remove('map-fullscreen');
+        }
+    }, [viewMode]);
 
     const handlePrevDay = () => setCurrentDate(prev => subDays(prev, 1));
     const handleNextDay = () => setCurrentDate(prev => addDays(prev, 1));
@@ -218,7 +289,7 @@ export const Home: React.FC = () => {
     };
 
     const calendarViewLabels: Record<CalendarViewMode, string> = {
-        schedule: 'Schedule', day: 'Day', '3day': '3 Day', week: 'Week', month: 'Month'
+        schedule: 'Schedule', day: 'Activities', '3day': '3 Day', week: 'Week', month: 'Month'
     };
     const calendarViewIcons: Record<CalendarViewMode, React.ReactNode> = {
         schedule: <List size={18} />,
@@ -254,10 +325,10 @@ export const Home: React.FC = () => {
         ? userTrips
         : groupedTrips[tripFilter];
 
-    const refreshData = () => {
-        fetchActivities();
-        fetchAllActivities();
-    };
+    // Live subscriptions auto-refresh activity state, so refresh callbacks
+    // forwarded to children are no-ops now. Kept as a stub so we don't have
+    // to thread prop removal through every modal that takes onUpdate.
+    const refreshData = () => {};
 
     const voteCounts: Record<string, number> = {};
     allTripUsers.forEach(u => voteCounts[u.uid] = 0);
@@ -283,7 +354,7 @@ export const Home: React.FC = () => {
         .sort((a, b) => b.votes - a.votes);
 
     return (
-        <div className={`animate-fade-in ${styles.pageWrapper}`}>
+        <div className={`${styles.pageWrapper} ${viewMode === 'map' ? styles.pageWrapperMap : ''}`}>
             {/* Hamburger menu overlay + slide-out panel — rendered via portal to escape z-index/overflow */}
             {showViewMenu && createPortal(
                 <div className={styles.menuOverlay} onClick={() => setShowViewMenu(false)}>
@@ -352,35 +423,43 @@ export const Home: React.FC = () => {
             )}
 
             <div className={styles.navPill}>
-                {/* Hamburger + Calendar View Label */}
-                <div className={styles.navCalendarGroup}>
-                    <button
-                        onClick={() => setShowViewMenu(true)}
-                        className={styles.hamburgerBtn}
-                        title="Switch calendar view"
-                    >
-                        <Menu size={18} />
-                    </button>
-                    <span
-                        className={`${styles.calendarViewLabel} ${isCalendarView ? styles.calendarViewLabelActive : ''}`}
-                        onClick={() => {
-                            setViewMode(calendarViewMode);
-                        }}
-                    >
-                        {activeCalendarLabel}
-                    </span>
-                </div>
+                {/* Hamburger — opens the calendar view picker */}
+                <button
+                    onClick={() => setShowViewMenu(true)}
+                    className={styles.hamburgerBtn}
+                    title="Switch calendar view"
+                >
+                    <Menu size={18} />
+                </button>
 
-                {/* Other standard tabs */}
-                {(['map', 'leaderboard', 'members'] as ViewMode[]).map(mode => {
-                    const labels: Record<string, string> = { map: 'Map', leaderboard: 'Leaderboard', members: 'Members' };
+                {/* Activities tab — label reflects the chosen calendar mode (Day/Week/...) */}
+                <button
+                    onClick={() => setViewMode(calendarViewMode)}
+                    className={`${styles.navTab} ${isCalendarView ? styles.navTabActive : ''}`}
+                    title={activeCalendarLabel}
+                >
+                    {calendarViewIcons[calendarViewMode]}
+                    <span className={styles.navTabLabel}>{activeCalendarLabel}</span>
+                </button>
+
+                {/* Other tabs — icon + label stacked, equal-flex */}
+                {(['map', 'polls', 'games', 'members'] as const).map(mode => {
+                    const config = {
+                        map: { label: 'Map', icon: <MapPin size={18} /> },
+                        polls: { label: 'Polls', icon: <BarChart3 size={18} /> },
+                        games: { label: 'Games', icon: <Gamepad2 size={18} /> },
+                        members: { label: 'Members', icon: <Users size={18} /> },
+                    } as const;
+                    const c = config[mode];
                     return (
                         <button
                             key={mode}
                             onClick={() => setViewMode(mode)}
                             className={`${styles.navTab} ${viewMode === mode ? styles.navTabActive : ''}`}
+                            title={c.label}
                         >
-                            {labels[mode]}
+                            {c.icon}
+                            <span className={styles.navTabLabel}>{c.label}</span>
                         </button>
                     );
                 })}
@@ -437,6 +516,7 @@ export const Home: React.FC = () => {
                                                 </div>
                                             )}
                                         </div>
+                                        <OpenInMapsButton activity={act} compact />
                                     </div>
                                 ))}
                             </div>
@@ -485,6 +565,9 @@ export const Home: React.FC = () => {
                                                     <span>{act.locationName}</span>
                                                 </div>
                                             )}
+                                            <div style={{ marginTop: 6 }}>
+                                                <OpenInMapsButton activity={act} compact />
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -541,21 +624,23 @@ export const Home: React.FC = () => {
             )}
 
             {viewMode === 'day' && (
-                <div className="animate-fade-in">
-                    <div className={styles.dayHeader}>
-                        <button onClick={handlePrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
-                            <ChevronLeft size={20} />
-                        </button>
-                        <div className={styles.dayHeaderCenter}>
-                            <h2 className={styles.dayTitle}>{format(currentDate, 'EEEE')}</h2>
-                            <p className={styles.daySubtitle}>{format(currentDate, 'MMMM d, yyyy')}</p>
-                            {tripDayNumber > 0 && (
-                                <p className={styles.dayTripNumber}>Day {tripDayNumber} of Trip</p>
-                            )}
+                <div className={styles.dayViewContent}>
+                    <div className={styles.dayHeaderFixed}>
+                        <div className={styles.dayHeader}>
+                            <button onClick={handlePrevDay} className="btn-icon" title="Previous day" aria-label="Previous day">
+                                <ChevronLeft size={20} />
+                            </button>
+                            <div className={styles.dayHeaderCenter}>
+                                <h2 className={styles.dayTitle}>{format(currentDate, 'EEEE')}</h2>
+                                <p className={styles.daySubtitle}>{format(currentDate, 'MMMM d, yyyy')}</p>
+                                {tripDayNumber > 0 && (
+                                    <p className={styles.dayTripNumber}>Day {tripDayNumber} of Trip</p>
+                                )}
+                            </div>
+                            <button onClick={handleNextDay} className="btn-icon" title="Next day" aria-label="Next day">
+                                <ChevronRight size={20} />
+                            </button>
                         </div>
-                        <button onClick={handleNextDay} className="btn-icon" title="Next day" aria-label="Next day">
-                            <ChevronRight size={20} />
-                        </button>
                     </div>
 
                     {loading ? (
@@ -610,9 +695,21 @@ export const Home: React.FC = () => {
                 </div>
             )}
 
+            {viewMode === 'polls' && (
+                <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
+                    <Polls focusPollId={focusedPollId} />
+                </Suspense>
+            )}
+
             {viewMode === 'members' && (
                 <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
                     <Members />
+                </Suspense>
+            )}
+
+            {viewMode === 'games' && (
+                <Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#1e3a5f', opacity: 0.6 }}>Loading…</div>}>
+                    <Games />
                 </Suspense>
             )}
         </div>
@@ -667,6 +764,9 @@ const ActivityCard: React.FC<{ activity: Activity, isAdmin: boolean, users: AppU
                         <span>{activity.locationName || 'Unknown Location'}</span>
                     </div>
                 </div>
+                <div style={{ marginTop: 8 }}>
+                    <OpenInMapsButton activity={activity} />
+                </div>
             </div>
 
             <div className={styles.activityCardRight}>
@@ -718,7 +818,7 @@ const VotingModal: React.FC<{ activity: Activity, users: AppUser[], isAdmin?: bo
             >
                 <div className={styles.modalHeader}>
                     <h2 className={styles.modalTitle}>{activity.voteQuestion || 'Vote for Activity'}</h2>
-                    <button onClick={onClose} className={styles.modalCloseBtn} title="Close">&times;</button>
+                    <button onClick={onClose} className={styles.modalCloseBtn} title="Close"><X size={22} /></button>
                 </div>
 
                 {isPast && !isVotingClosed && isAdmin && (

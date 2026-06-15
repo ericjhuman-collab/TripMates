@@ -1,0 +1,161 @@
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    z-index: 1100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.sheet {
+    width: 100%;
+    max-width: 440px;
+    background: var(--color-bg-primary);
+    border-radius: 18px;
+    padding: 1.25rem;
+    height: min(600px, calc(100vh - 2rem));
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+}
+
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.close {
+    background: none;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    display: flex;
+}
+
+.searchWrap {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.searchIcon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-text-muted);
+}
+
+.searchInput {
+    padding-left: 2.75rem !important;
+    background: var(--color-bg-card);
+}
+
+.scrollArea {
+    flex: 1;
+    overflow-y: auto;
+    margin: 0 -0.25rem;
+    padding: 0 0.25rem;
+}
+
+.sectionLabel {
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    margin: 0.5rem 0 0.5rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    background: var(--color-bg-card);
+    padding: 0.6rem 0.85rem;
+    border-radius: 12px;
+    margin-bottom: 0.5rem;
+}
+
+.avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.rowMeta {
+    flex: 1;
+    min-width: 0;
+}
+
+.rowName {
+    font-size: 0.95rem;
+    font-weight: 600;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.rowHandle {
+    font-size: 0.78rem;
+    color: var(--color-text-muted);
+    line-height: 1.1;
+    margin-top: 2px;
+}
+
+.actionBtn {
+    border: none;
+    background: var(--color-primary);
+    color: #fff;
+    border-radius: 99px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.actionBtn[disabled] {
+    opacity: 0.55;
+    cursor: default;
+}
+
+.actionBtnGhost {
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border, #ddd);
+}
+
+.spinnerWrap {
+    display: flex;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.empty {
+    color: var(--color-text-muted);
+    font-size: 0.85rem;
+    padding: 0.75rem 0.25rem;
+}
+
+.statusPill {
+    font-size: 0.72rem;
+    color: var(--color-text-muted);
+    padding: 0.2rem 0.55rem;
+    border-radius: 99px;
+    background: var(--color-bg-card-alt, rgba(0,0,0,0.05));
+    flex-shrink: 0;
+}

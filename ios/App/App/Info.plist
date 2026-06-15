@@ -2,12 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CAPACITOR_DEBUG</key>
+	<key>CAPACITOR_DEBUG</key>
 	<string>$(CAPACITOR_DEBUG)</string>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>TripMates</string>
+	<string>TripMates</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -22,8 +22,25 @@
 	<string>$(MARKETING_VERSION)</string>
 	<key>CFBundleVersion</key>
 	<string>$(CURRENT_PROJECT_VERSION)</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>TripMates behöver kameran för att du ska kunna ta foton till resans galleri och skanna kvitton för utgifter.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>TripMates kan dela din plats med andra medlemmar i resan så ni kan se varandra på kartan, även när appen körs i bakgrunden. Du väljer själv hur länge du vill dela (3h, 24h, hela resan eller alltid på) och kan stänga av delning när som helst.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>TripMates använder din plats för att visa var du är på reskartan och hjälpa dig hitta aktiviteter i närheten.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>TripMates kan spara nedladdade foton från resan i din kamerarulle.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>TripMates behöver åtkomst till dina foton för att du ska kunna ladda upp bilder till resans galleri.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>

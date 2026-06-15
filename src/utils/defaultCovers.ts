@@ -59,9 +59,41 @@ const covers: Record<string, string[]> = {
     ],
 };
 
+/**
+ * Keyword→category mapping (Swedish + English). Used to upgrade vague choices
+ * like "Activity" or "Other" to a more relevant cover when the title or
+ * location name gives a clearer hint. Patterns are case-insensitive and
+ * matched as whole words. Order matters — first match wins.
+ */
+const KEYWORD_TO_CATEGORY: Array<[RegExp, string]> = [
+    // Bar / drinks / nightlife (incl. "rooftop", commonly bar in this app's context)
+    [/\b(bar|baren|rooftop|takbar|drink|drinks|drinkar|cocktail|cocktails|pub|nightclub|klubb|sky\s*bar|wine\s*bar|vinbar)\b/i, 'Bar'],
+    // Restaurant / dining
+    [/\b(middag|lunch|frukost|brunch|kvällsmat|mat(en)?|restaurang|restaurant|dining|dinner|breakfast|pizza|pizzeria|sushi|tapas|trattoria|osteria|bistro|burger|burgare|steakhouse|grill)\b/i, 'Restaurant'],
+    // Cafe / fika
+    [/\b(fika|kaffe|café|cafe|espresso|coffee|latte|cappuccino|bageri|bakery|konditori|patisserie|cake)\b/i, 'Cafe'],
+    // Museum / culture
+    [/\b(museum|museet|gallery|galleri|konsthall|exhibition|utställning|exhibit|opera|teater|theater|theatre)\b/i, 'Museum'],
+    // Outdoor / sports / sightseeing
+    [/\b(vandring|hike|hiking|trek|cykling|biking|cycle|kayak|kajak|skidor|ski|klättring|climbing|sightseeing|tour|rundtur|stadstur|båttur|boat\s*tour|boat|sailing|segling|surf|surfing|yoga|gym|spa)\b/i, 'Activity'],
+];
+
+const isVague = (c: string | undefined) => !c || c === 'Activity' || c === 'Other';
+
 /** Returns a consistent cover image URL for the given category + activity name. */
 export const getDefaultCover = (category: string | undefined, seed: string): string => {
-    const pool = covers[category || ''] ?? covers.Other;
+    let resolved = category || 'Other';
+    // Only let keywords override when the user picked a vague default category.
+    // If they explicitly chose Bar / Restaurant / Cafe / Museum, respect it.
+    if (isVague(category) && seed) {
+        for (const [pattern, cat] of KEYWORD_TO_CATEGORY) {
+            if (pattern.test(seed)) {
+                resolved = cat;
+                break;
+            }
+        }
+    }
+    const pool = covers[resolved] ?? covers.Other;
     // Deterministic pick: sum of char codes mod pool length
     const hash = seed.split('').reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
     return pool[hash % pool.length];

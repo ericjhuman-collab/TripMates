@@ -1,7 +1,11 @@
 /* Members.module.css */
 
 .page {
-    padding: 0 0 5rem 0;
+    /* Top padding gives "Trip Members" headroom when this page is
+       rendered as the Members tab inside Home's pageWrapper (the
+       navPill there is just barely tall enough to clip the title
+       without it). Bottom padding clears the floating dock. */
+    padding: 1rem 0 5rem 0;
 }
 
 /* ── Header ─────────────────────────────────────────────────── */

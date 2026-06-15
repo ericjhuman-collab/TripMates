@@ -1,24 +1,15 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Grid, ArrowLeft, Camera, ChevronDown, MapPin, Check, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
+import { Home, MessageCircle, Camera, Banknote, Search, User as UserIcon, X, Menu } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useTrip, categorizeTrips, type TripCategory } from '../context/TripContext';
 import { db } from '../services/firebase';
 import { collection, query, where, limit, getDocs, documentId } from 'firebase/firestore';
 import { searchUsersByUsernamePrefix } from '../services/username';
 import { normalizeSearchInput } from '../utils/searchFields';
-import { EmailVerificationBanner } from './EmailVerificationBanner';
+import { BannerStack } from './BannerStack';
+import { HamburgerDrawer } from './HamburgerDrawer';
 import styles from './Layout.module.css';
-
-const CATEGORY_LABELS: Record<TripCategory, string> = {
-    current: 'Current',
-    future: 'Future',
-    past: 'Past',
-    bucketlist: 'Bucketlist',
-};
-
-const CATEGORY_ORDER: TripCategory[] = ['current', 'future', 'past', 'bucketlist'];
 
 interface UserResult {
     uid: string;
@@ -28,15 +19,9 @@ interface UserResult {
 
 export const Layout: React.FC = () => {
     const { appUser } = useAuth();
-    const { activeTrip, userTrips, switchTrip } = useTrip();
     const navigate = useNavigate();
     const location = useLocation();
 
-    const [showTripDropdown, setShowTripDropdown] = useState(false);
-    const [tripDropdownTop, setTripDropdownTop] = useState(60);
-    const [expandedDropdownCat, setExpandedDropdownCat] = useState<TripCategory | null>(null);
-    const dropdownRef = useRef<HTMLButtonElement>(null);
-    const panelRef = useRef<HTMLDivElement>(null);
 
     // ── User search state ─────────────────────────
     const [searchOpen, setSearchOpen] = useState(false);
@@ -46,9 +31,15 @@ export const Layout: React.FC = () => {
     const searchInputRef = useRef<HTMLInputElement>(null);
     const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-    const isProfilePage = location.pathname.startsWith('/profile') || location.pathname.startsWith('/admin');
+    // ── Hamburger drawer (lifted from Profile so it can open over any page) ──
+    const [drawerOpen, setDrawerOpen] = useState(false);
+    const [drawerUnreadCount, setDrawerUnreadCount] = useState(0);
 
-    const isTopLevelPage = ['/', '/games', '/leaderboard', '/even'].includes(location.pathname);
+    // The header's right-most button is always the hamburger — every
+    // sub-page renders its own back-arrow inside its page header
+    // (Profile.tsx admin/settings/network/etc.) so duplicating it in
+    // the app-shell header was redundant and disorienting.
+
 
     const getThemeClass = () => 'theme-default-trip';
     const themeClass = getThemeClass();
@@ -58,31 +49,14 @@ export const Layout: React.FC = () => {
         return () => { document.body.className = ''; };
     }, [themeClass]);
 
-    // Close trip dropdown on outside click
-    useEffect(() => {
-        const handleClickOutside = (e: MouseEvent) => {
-            if (
-                showTripDropdown &&
-                dropdownRef.current && !dropdownRef.current.contains(e.target as Node) &&
-                panelRef.current && !panelRef.current.contains(e.target as Node)
-            ) {
-                setShowTripDropdown(false);
-                setExpandedDropdownCat(null);
-            }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [showTripDropdown]);
-
-    // Close dropdown & search when page is scrolled (panel would drift otherwise)
+    // Close search when page is scrolled (panel would drift otherwise)
     useEffect(() => {
         const close = () => {
-            if (showTripDropdown) { setShowTripDropdown(false); setExpandedDropdownCat(null); }
             if (searchOpen) setSearchOpen(false);
         };
         window.addEventListener('scroll', close, { passive: true });
         return () => window.removeEventListener('scroll', close);
-    }, [showTripDropdown, searchOpen]);
+    }, [searchOpen]);
 
     // Focus search input when opened
     useEffect(() => {
@@ -168,151 +142,47 @@ export const Layout: React.FC = () => {
         navigate(`/profile/${uid}`);
     };
 
-    const groupedTrips = categorizeTrips(userTrips);
-    const tripLabel = activeTrip?.name || activeTrip?.destination || 'My Trips';
-
-    const handleSelectTrip = async (tripId: string) => {
-        setShowTripDropdown(false);
-        setExpandedDropdownCat(null);
-        await switchTrip(tripId);
-    };
-
-    const toggleDropdownCategory = (cat: TripCategory) => {
-        setExpandedDropdownCat(prev => prev === cat ? null : cat);
-    };
-
     const isOwnProfileActive = location.pathname === '/profile' || location.pathname === `/profile/${appUser?.uid}`;
 
     return (
         <div className={`app-container ${styles.appContainer} ${styles.appContainerWithNav}`}>
             <header className={styles.header}>
-                {isProfilePage ? (
-                    <div className={styles.profileHeaderRow}>
-                        <button onClick={() => navigate(-1)} className={styles.backBtn} title="Go back">
-                            <ArrowLeft size={28} />
-                        </button>
-                        <div id="profile-header-slot" className={styles.profileHeaderSlot} />
-                    </div>
-                ) : (
-                    <div className={styles.headerLeft}>
-                        {!isTopLevelPage && (
-                            <button onClick={() => navigate(-1)} className={styles.headerBackBtn} title="Go back">
-                                <ArrowLeft size={24} />
-                            </button>
+                <div className={styles.headerLeft}>
+                    <h1 className={styles.appTitle}>TripMates</h1>
+                </div>
+
+                <div className={styles.headerRight}>
+                    {/* Search button — visible on every page including /profile,
+                        so users don't lose the people-search affordance when
+                        they switch to their own profile. */}
+                    <button
+                        onClick={() => setSearchOpen(o => !o)}
+                        title="Search users"
+                        className={styles.searchIconBtn}
+                    >
+                        {searchOpen ? <X size={22} /> : <Search size={22} />}
+                    </button>
+
+                    {/* Right-most action: always the hamburger menu.
+                        Sub-pages render their own back-arrow inside their
+                        page header — duplicating it in the app shell was
+                        redundant and confusing. */}
+                    <button
+                        onClick={() => setDrawerOpen(true)}
+                        title="Menu"
+                        aria-label="Menu"
+                        className={styles.searchIconBtn}
+                    >
+                        <Menu size={22} />
+                        {drawerUnreadCount > 0 && (
+                            <span className={styles.menuUnreadBadge}>{drawerUnreadCount}</span>
                         )}
-                        <h1 className={styles.appTitle}>TripMates</h1>
-                    </div>
-                )}
-
-                {!isProfilePage && (
-                    <div className={styles.headerRight}>
-                        {/* My Trips Dropdown */}
-                        <div className={styles.tripDropdownWrapper}>
-                            <button
-                                ref={dropdownRef}
-                                onClick={() => {
-                                    if (!showTripDropdown && dropdownRef.current) {
-                                        setTripDropdownTop(dropdownRef.current.getBoundingClientRect().bottom + 8);
-                                    }
-                                    setShowTripDropdown(!showTripDropdown);
-                                }}
-                                className={styles.tripDropdownBtn}
-                                title="Switch trip"
-                            >
-                                <span className={styles.tripDropdownLabel}>{tripLabel}</span>
-                                <ChevronDown size={14} className={`${styles.tripDropdownChevron} ${showTripDropdown ? styles.tripDropdownChevronOpen : ''}`} />
-                            </button>
-                        </div>
-
-                        {showTripDropdown && createPortal(
-                            <div className={styles.tripDropdownOverlay} onClick={() => setShowTripDropdown(false)}>
-                                <div
-                                    ref={panelRef}
-                                    className={styles.tripDropdownPanel}
-                                    onClick={e => e.stopPropagation()}
-                                    style={{
-                                        position: 'fixed',
-                                        top: tripDropdownTop,
-                                        right: 16,
-                                    }}
-                                >
-                                    {userTrips.length === 0 ? (
-                                        <p className={styles.tripDropdownEmpty}>No trips yet</p>
-                                    ) : (
-                                        CATEGORY_ORDER.map(cat => {
-                                            const trips = groupedTrips[cat];
-                                            if (trips.length === 0) return null;
-                                            const isExpanded = expandedDropdownCat === cat;
-                                            return (
-                                                <div key={cat} className={styles.tripDropdownGroup}>
-                                                    <button
-                                                        className={`${styles.tripDropdownCategoryBtn} ${isExpanded ? styles.tripDropdownCategoryBtnActive : ''}`}
-                                                        onClick={() => toggleDropdownCategory(cat)}
-                                                    >
-                                                        <span className={styles.tripDropdownCategoryLabel}>{CATEGORY_LABELS[cat]}</span>
-                                                        <span className={styles.tripDropdownCategoryMeta}>
-                                                            <span className={styles.tripDropdownCategoryCount}>{trips.length}</span>
-                                                            <ChevronDown
-                                                                size={14}
-                                                                className={`${styles.tripDropdownCategoryChevron} ${isExpanded ? styles.tripDropdownCategoryChevronOpen : ''}`}
-                                                            />
-                                                        </span>
-                                                    </button>
-                                                    {isExpanded && (
-                                                        <div className={styles.tripDropdownCategoryTrips}>
-                                                            {trips.map(trip => (
-                                                                <button
-                                                                    key={trip.id}
-                                                                    onClick={() => handleSelectTrip(trip.id)}
-                                                                    className={`${styles.tripDropdownItem} ${activeTrip?.id === trip.id ? styles.tripDropdownItemActive : ''}`}
-                                                                >
-                                                                    <div className={styles.tripDropdownItemInfo}>
-                                                                        <span className={styles.tripDropdownItemName}>{trip.name}</span>
-                                                                        {trip.destination && (
-                                                                            <span className={styles.tripDropdownItemDest}>
-                                                                                <MapPin size={10} /> {trip.destination}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
-                                                                    {activeTrip?.id === trip.id && (
-                                                                        <Check size={16} className={styles.tripDropdownItemCheck} />
-                                                                    )}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            </div>,
-                            document.body
-                        )}
-
-                        {/* Search button — replaces the old profile icon */}
-                        <button
-                            onClick={() => setSearchOpen(o => !o)}
-                            title="Search users"
-                            className={styles.searchIconBtn}
-                        >
-                            {searchOpen ? <X size={22} /> : <Search size={22} />}
-                        </button>
-
-                        {/* Hamburger menu — opens the same drawer as on /profile */}
-                        <button
-                            onClick={() => navigate('/profile', { state: { openMenu: true } })}
-                            title="Menu"
-                            className={styles.searchIconBtn}
-                        >
-                            <Menu size={22} />
-                        </button>
-                    </div>
-                )}
+                    </button>
+                </div>
             </header>
 
             {/* ── User search overlay ───────────────── */}
-            {searchOpen && !isProfilePage && createPortal(
+            {searchOpen && createPortal(
                 <div className={styles.searchOverlay} onClick={() => setSearchOpen(false)}>
                     <div className={styles.searchPanel} onClick={e => e.stopPropagation()}>
                         <div className={styles.searchInputRow}>
@@ -355,20 +225,22 @@ export const Layout: React.FC = () => {
                 document.body
             )}
 
-            <EmailVerificationBanner />
+            <BannerStack />
 
             <main className={styles.main}>
                 <Outlet />
             </main>
 
+            <HamburgerDrawer
+                open={drawerOpen}
+                onClose={() => setDrawerOpen(false)}
+                onUnreadCountChange={setDrawerUnreadCount}
+            />
+
             <nav className={`nav-container ${styles.navBar}`}>
                     <NavLink to="/" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Home size={22} />
                         <span>Trip</span>
-                    </NavLink>
-                    <NavLink to="/games" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Grid size={22} />
-                        <span>Games</span>
                     </NavLink>
                     <NavLink to="/gallery" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Camera size={22} />
@@ -377,6 +249,10 @@ export const Layout: React.FC = () => {
                     <NavLink to="/even" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <Banknote size={22} />
                         <span>Even</span>
+                    </NavLink>
+                    <NavLink to="/chat" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <MessageCircle size={22} />
+                        <span>Chat</span>
                     </NavLink>
 
                     {/* Profile avatar — replaces Explore */}
