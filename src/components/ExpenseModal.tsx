@@ -50,8 +50,14 @@ export const ExpenseModal: React.FC<ExpenseModalProps> = ({ onClose, initialExpe
     
     const targetCurrency = activeTrip?.baseCurrency || 'SEK';
     
-    // Default Payer to first participant or logged-in user if available
-    const defaultPayerId = initialExpense?.payerId || (participants.length > 0 ? participants[0].uid : '');
+    // For a new expense, default the payer to the logged-in user — they're
+    // almost always the one who actually paid. Falls back to the first
+    // participant only if the current user isn't a trip member (shouldn't
+    // happen in practice but keeps the form usable). When editing, preserve
+    // whatever payer was saved.
+    const defaultPayerId = initialExpense?.payerId
+        || (appUser && participants.some(p => p.uid === appUser.uid) ? appUser.uid : '')
+        || (participants.length > 0 ? participants[0].uid : '');
 
     // User-entered title (e.g. "Bella Italia", "Taxi to airport"). Falls back to scanned
     // merchant name, then a generic label, when persisted. Kept editable so users can

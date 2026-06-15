@@ -163,6 +163,14 @@ service cloud.firestore {
         && onlyChanging(['members'])
         && removedSelfFrom(resource.data.members, request.resource.data.members);
 
+      // (4) Any trip member may stamp `settledAt` when running Settle Up.
+      // Just a hint timestamp the UI uses for the "ny utgift sedan settle-up"
+      // banner and to invalidate stale ready-to-settle markers; no security
+      // sensitivity, so we don't gate it on admin.
+      allow update: if isAuthed()
+        && isTripMember(tripId)
+        && onlyChanging(['settledAt']);
+
       // Only the creator may delete the entire trip.
       allow delete: if isAuthed()
         && resource.data.createdBy == request.auth.uid;
@@ -174,6 +182,16 @@ service cloud.firestore {
         allow read: if isAuthed() && (isMe(uid) || isTripMember(tripId));
         allow create, update: if isMe(uid) && isTripMember(tripId);
         allow delete: if isMe(uid);
+      }
+
+      // ── Subcollection: per-member "ready to settle up" toggle ──────────
+      // Each member marks themselves ready by writing { readyAt: number } to
+      // their own doc here. The UI considers a member ready iff
+      // readyAt > trip.settledAt — so stale markers naturally expire after a
+      // successful settle-up; no server-side cleanup needed.
+      match /readyToSettle/{uid} {
+        allow read: if isTripMember(tripId);
+        allow create, update, delete: if isMe(uid) && isTripMember(tripId);
       }
 
       // ── Subcollection: trip polls ──────────────────────────────────────

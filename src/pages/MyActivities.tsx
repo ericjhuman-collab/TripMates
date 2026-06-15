@@ -5,6 +5,7 @@ import { useTrip } from '../context/TripContext';
 import { getSavedLists, addSavedList, deleteSavedList, getSavedActivities, addSavedActivity, deleteSavedActivity, updateActivity, type Activity, type ActivityList } from '../services/activities';
 import { ArrowLeft, Plus, Loader2, Trash2, Globe, Lock, MapPin, MoreVertical } from 'lucide-react';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
+import { Modal } from '../components/Modal';
 import { getDefaultCover } from '../utils/defaultCovers';
 import styles from './Profile.module.css';
 import tripStyles from './TripAdmin.module.css';
@@ -356,33 +357,32 @@ export const MyActivities: React.FC<{ onBack: () => void }> = ({ onBack }) => {
                 </div>
             </div>
 
-            {selectTripForAct && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setSelectTripForAct(null)}>
-                    <div style={{ background: 'var(--color-bg-primary)', padding: '1.5rem', borderRadius: '16px', width: '90%', maxWidth: '400px' }} onClick={e => e.stopPropagation()}>
-                        <h3 style={{ margin: '0 0 1rem 0' }}>Add to Trip</h3>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '300px', overflowY: 'auto' }}>
-                            {userTrips.filter(t => t.adminIds?.includes(currentUser?.uid || '') || t.allowMemberActivities).map(t => (
-                                <button key={t.id} className="btn" style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', justifyContent: 'flex-start', padding: '12px' }} onClick={() => navigate(`/admin/${t.id}/activity/new`, { state: { importedLocation: selectTripForAct } })}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-                                        {t.imageUrl ? (
-                                            <div style={{ width: 32, height: 32, borderRadius: '6px', background: `url(${t.imageUrl}) center/cover` }} />
-                                        ) : (
-                                            <div style={{ width: 32, height: 32, borderRadius: '6px', backgroundColor: '#e5e7eb' }} />
-                                        )}
-                                        <div style={{ textAlign: 'left' }}>
-                                            <div style={{ fontWeight: 600 }}>{t.name}</div>
-                                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{t.destination || 'No location'}</div>
-                                        </div>
-                                    </div>
-                                </button>
-                            ))}
-                            {userTrips.filter(t => t.adminIds?.includes(currentUser?.uid || '') || t.allowMemberActivities).length === 0 && (
-                                <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>No active trips available to add activities to.</p>
-                            )}
-                        </div>
-                    </div>
+            <Modal
+                open={!!selectTripForAct}
+                onClose={() => setSelectTripForAct(null)}
+                title="Add to Trip"
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                    {userTrips.filter(t => t.adminIds?.includes(currentUser?.uid || '') || t.allowMemberActivities).map(t => (
+                        <button key={t.id} className="btn" style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', justifyContent: 'flex-start', padding: '12px' }} onClick={() => navigate(`/admin/${t.id}/activity/new`, { state: { importedLocation: selectTripForAct } })}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+                                {t.imageUrl ? (
+                                    <div style={{ width: 32, height: 32, borderRadius: '6px', background: `url(${t.imageUrl}) center/cover` }} />
+                                ) : (
+                                    <div style={{ width: 32, height: 32, borderRadius: '6px', backgroundColor: '#e5e7eb' }} />
+                                )}
+                                <div style={{ textAlign: 'left' }}>
+                                    <div style={{ fontWeight: 600 }}>{t.name}</div>
+                                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{t.destination || 'No location'}</div>
+                                </div>
+                            </div>
+                        </button>
+                    ))}
+                    {userTrips.filter(t => t.adminIds?.includes(currentUser?.uid || '') || t.allowMemberActivities).length === 0 && (
+                        <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '1rem' }}>No active trips available to add activities to.</p>
+                    )}
                 </div>
-            )}
+            </Modal>
         </div>
     );
 };

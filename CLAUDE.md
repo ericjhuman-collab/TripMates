@@ -103,3 +103,50 @@ When adding new write paths into `liveLocation/{...}`: the rules validate `$othe
 - **GDPR posture**: see [src/pages/Privacy.tsx](src/pages/Privacy.tsx) — the policy is marked as draft. Self-service account deletion (`deleteUserAccount`) and data export (`exportUserData`) are both wired through Profile → Settings → Danger zone, calling Cloud Functions in [functions/src/index.ts](functions/src/index.ts).
 - **No PWA manifest** despite the apple-mobile-web-app meta tags. The app behaves like a webapp; install-as-app is not yet wired.
 - **Onboarding humans**: [ONBOARDING.md](ONBOARDING.md) is for non-technical contributors (GitHub Desktop, Xcode, Capacitor for iOS/Android beta). Don't duplicate that content here.
+
+## Modal / dialog UX rules
+
+There is exactly one way to render a centered modal / dialog / confirmation in TripMates: the `<Modal>` component in [src/components/Modal.tsx](src/components/Modal.tsx).
+
+- **Always use `<Modal>`**. Never roll your own backdrop, `createPortal` call, or `position: fixed` overlay for a new dialog. New ad-hoc modals will get flagged in review — migrate the old hand-rolled ones to `<Modal>` when you touch them.
+- **Why this is strict**: the Layout header (z 50, `backdrop-filter`), bottom nav (z 1000), and various per-page transformed parents create stacking contexts and containing blocks that quietly clip or undim hand-rolled overlays. `<Modal>` sidesteps all of that by portaling to `document.body` with z-index 9999 and a full-viewport backdrop. The "Add to Trip" + "Join Trip" + "Settle Up" bugs in 2026-05 were all this same root cause.
+- **What `<Modal>` gives you**: portal to body, full-screen dim+blur backdrop, centered card (max-width 480 px, max-height calc(100vh − 6 rem) with internal scroll), ESC + outside-click close, optional X button, `role=dialog`/`aria-modal`. Pass `dismissOnBackdrop={false}` only for destructive flows that need an explicit choice.
+- **Bottom-sheets and side-drawers are NOT this**. Those are separate primitives ([AddExpenseChoiceSheet.tsx](src/components/AddExpenseChoiceSheet.tsx), [HamburgerDrawer.tsx](src/components/HamburgerDrawer.tsx)) — don't use `<Modal>` for them, but do keep their layering rules consistent: portal to body, z 9999, escape via backdrop click + ESC.
+- **CSS-level rules** (also baked into [Modal.module.css](src/components/Modal.module.css)): backdrop `rgba(15,23,42,0.5)` + `backdrop-filter: blur(8px)`, modal card radius 20 px, fade-in 180-200 ms. Match these when designing bottom-sheets/drawers so the app feels unified.
+- **No new global `.modal-backdrop` styles**. The legacy `.modal-backdrop` in [src/index.css](src/index.css) and [src/App.css](src/App.css) is being phased out — don't extend it. Use `<Modal>` instead.
+
+## Even tab consistency rules (Expenses / Balances / Payments / Insights)
+
+The four tabs inside the Even page must NEVER show numbers that contradict each other. The data flows strictly one-way; if you add a feature that touches any of these, follow this graph or you will reintroduce the 2026-05 "stale Payments tab" bug:
+
+```
+Firestore expenses ─┐
+                    ├─► userBalances (live, EvenContext.tsx)
+Firestore payments  │       │
+  (COMPLETED only) ─┘       ├─► liveSettlement (live, computeSimplifiedDebts)
+                            │       │
+                            │       ├─► Balances tab breakdown
+                            │       └─► Payments tab UNPAID list
+                            │
+                            └─► Balances tab top-level labels
+
+Firestore expenses ─► Insights tab (aggregations only — never reads balances/payments)
+
+Firestore payments (COMPLETED only) ─► Payments tab PAID history
+```
+
+**Hard rules:**
+
+1. **One source of truth per concept.** "Who owes whom right now" lives only in `liveSettlement`. Both the Balances breakdown AND the Payments UNPAID list MUST render from it — never from `payments.filter(status === 'PENDING')` (those persisted PENDING docs are a snapshot, not the current state).
+
+2. **PENDING payment docs are a snapshot, not the truth.** `triggerSettleUp` writes them and they're kept as the comparator for `isPendingStale` (stale-settle banner). Nothing on screen renders them directly. If you find yourself reading `status === 'PENDING'` to populate a UI list, you're recreating the bug — use `liveSettlement` instead.
+
+3. **`userBalances` ignores PENDING payments by design** — see the comment in [src/context/EvenContext.tsx](src/context/EvenContext.tsx) at the userBalances memo. PENDING is the *output* of settle-up, not an input. Including it would double-count and flip signs on edits.
+
+4. **"Mark Paid" creates a new COMPLETED payment from a `SimplifiedDebt`**, it does NOT flip a PENDING doc's status. The persisted PENDING doc (if any) is left alone — it becomes stale and the banner picks it up until the next Settle Up rewrites the snapshot.
+
+5. **Insights is read-only over expenses.** Don't reach into balances or payments from Insights. If you need a "who has been paid back" metric, derive it from COMPLETED payment docs — and document that it lags behind Balances/Payments until users actually Mark Paid.
+
+6. **Currencies**: `liveSettlement` amounts are always in `baseCurrency`. Don't pass a per-expense currency through it. Persisted COMPLETED payment docs store the currency that was used when Mark Paid was clicked (always baseCurrency under the current code path).
+
+7. **Adding a fifth tab? Same rules apply.** Derive from the same upstream sources — never persist a derived view as a separate source of truth.

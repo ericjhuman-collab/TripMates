@@ -1,0 +1,79 @@
+/* Standard TripMates modal — see Modal.tsx. Every centered modal/dialog/
+   confirmation in the app must use the <Modal> component so the look (dim,
+   blur, corner radius, animation, z-index) is identical everywhere. */
+
+.backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.5);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    animation: backdropFadeIn 0.18s ease-out;
+}
+
+@keyframes backdropFadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal {
+    background: var(--color-bg-primary, white);
+    border-radius: 20px;
+    width: 100%;
+    max-width: 480px;
+    max-height: calc(100vh - 6rem);
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+    animation: modalFadeIn 0.2s ease-out;
+    overflow: hidden;
+}
+
+@keyframes modalFadeIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.25rem 1.25rem 0.75rem;
+}
+
+.title {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--color-text, var(--color-primary-dark));
+}
+
+.closeBtn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s, color 0.15s;
+}
+
+.closeBtn:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+    color: var(--color-text);
+}
+
+.body {
+    padding: 0.25rem 1.25rem 1.25rem;
+    overflow-y: auto;
+    flex: 1 1 auto;
+    min-height: 0;
+}

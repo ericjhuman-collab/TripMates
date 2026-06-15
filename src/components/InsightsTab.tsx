@@ -83,6 +83,66 @@ export const InsightsTab: React.FC = () => {
         return null;
     };
 
+    // Custom bar label for the Top Payers chart. Always renders the payer
+    // name vertically (bottom→top); the only thing that changes when a bar is
+    // too short is where the vertical text sits — inside the colored bar when
+    // there's room, anchored just above the bar otherwise.
+    const renderPayerLabel = (props: {
+        x?: string | number; y?: string | number;
+        width?: string | number; height?: string | number;
+        index?: number;
+    }) => {
+        const x = typeof props.x === 'number' ? props.x : Number(props.x) || 0;
+        const y = typeof props.y === 'number' ? props.y : Number(props.y) || 0;
+        const width = typeof props.width === 'number' ? props.width : Number(props.width) || 0;
+        const height = typeof props.height === 'number' ? props.height : Number(props.height) || 0;
+        const index = props.index ?? 0;
+        const name = payersData[index]?.name || '';
+        if (!name) return <></>;
+
+        // Approx height the rotated text needs (per-char + a little padding).
+        const verticalNeeded = name.length * 9 + 12;
+        const fitsInside = height >= verticalNeeded;
+        const cx = x + width / 2;
+
+        if (fitsInside) {
+            // Anchored near the bar's base; rotated -90 so it reads bottom→up
+            // and fills the colored area.
+            const baseY = y + height - 8;
+            return (
+                <text
+                    x={cx}
+                    y={baseY}
+                    fill="#ffffff"
+                    fontSize={13}
+                    fontWeight={700}
+                    textAnchor="start"
+                    transform={`rotate(-90, ${cx}, ${baseY})`}
+                    style={{ paintOrder: 'stroke', stroke: 'rgba(0,0,0,0.18)', strokeWidth: 2 }}
+                >
+                    {name}
+                </text>
+            );
+        }
+
+        // Anchored just above the bar's top edge; rotated -90 so the text
+        // climbs upward into the chart's top margin.
+        const baseY = y - 6;
+        return (
+            <text
+                x={cx}
+                y={baseY}
+                fill="#1f2937"
+                fontSize={12}
+                fontWeight={600}
+                textAnchor="start"
+                transform={`rotate(-90, ${cx}, ${baseY})`}
+            >
+                {name}
+            </text>
+        );
+    };
+
     // Custom Tooltip for BarChart
     const renderBarTooltip = ({ active, payload }: TooltipContentProps) => {
         if (active && payload && payload.length) {
@@ -145,21 +205,22 @@ export const InsightsTab: React.FC = () => {
                     )}
 
                     {graphType === 'PAYERS' && payersData.length > 0 && (
-                        <ResponsiveContainer width="100%" height={250} minHeight={250}>
+                        <ResponsiveContainer width="100%" height={260} minHeight={260}>
                             <BarChart
                                 data={payersData}
-                                margin={{ top: 20, right: 10, left: 0, bottom: 20 }}
+                                margin={{ top: 60, right: 10, left: 0, bottom: 8 }}
                             >
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                                <XAxis 
-                                    dataKey="name" 
-                                    axisLine={false} 
-                                    tickLine={false} 
-                                    tick={{ fill: '#4A5568', fontSize: 13, fontWeight: 600 }}
+                                <XAxis
+                                    dataKey="name"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={false}
+                                    height={0}
                                 />
                                 <YAxis hide />
                                 <Tooltip content={renderBarTooltip} cursor={{fill: '#F7FAFC'}} />
-                                <Bar dataKey="amount" radius={[4, 4, 0, 0]} barSize={40}>
+                                <Bar dataKey="amount" radius={[4, 4, 0, 0]} barSize={40} label={renderPayerLabel}>
                                     {payersData.map((entry, index) => (
                                         <Cell key={`cell-${index}`} fill={entry.fill} />
                                     ))}

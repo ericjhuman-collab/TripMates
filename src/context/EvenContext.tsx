@@ -1,13 +1,15 @@
 import React, { useState, useMemo, useEffect, type ReactNode } from 'react';
 import { useTrip } from './TripContext';
 import { useAuth, type AppUser } from './AuthContext';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, doc, getDocs, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
 import {
-  type Expense, type Payment,
+  type Expense, type Payment, type ReadyToSettle,
   subscribeToExpenses, addExpenseToDb, updateExpenseInDb, deleteExpenseFromDb,
   subscribeToPayments, addPaymentToDb, updatePaymentInDb,
-  replacePendingPayments
+  replacePendingPayments, markPendingPaymentCompleted,
+  subscribeToReadyToSettle, setMyReadyToSettle,
+  computeSimplifiedDebts,
 } from '../services/even';
 import { EvenContext } from './useEven';
 import { useExpenseConversions } from '../hooks/useExpenseConversions';
@@ -104,6 +106,7 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [readyEntries, setReadyEntries] = useState<ReadyToSettle[]>([]);
   const [isSettled, setIsSettled] = useState(false);
   const [realParticipants, setRealParticipants] = useState<(Partial<AppUser> & { uid: string, shortName: string, initials: string, color?: string, photoURL?: string })[]>([]);
 
@@ -113,6 +116,7 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       queueMicrotask(() => {
         setExpenses([]);
         setPayments([]);
+        setReadyEntries([]);
       });
       return;
     }
@@ -122,16 +126,19 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       queueMicrotask(() => {
         setExpenses(dynamicExpenses);
         setPayments(dynamicPayments);
+        setReadyEntries([]);
       });
       return;
     }
 
     const unsubExpenses = subscribeToExpenses(activeTrip.id, setExpenses);
     const unsubPayments = subscribeToPayments(activeTrip.id, setPayments);
+    const unsubReady = subscribeToReadyToSettle(activeTrip.id, setReadyEntries);
 
     return () => {
       unsubExpenses();
       unsubPayments();
+      unsubReady();
     };
   }, [activeTrip, dynamicExpenses, dynamicPayments]);
 
@@ -192,6 +199,22 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     if (!activeTrip) return [];
     return payments.filter(pay => pay.tripId === activeTrip.id);
   }, [activeTrip, payments]);
+
+  const settledAt = activeTrip?.settledAt ?? null;
+
+  // A member counts as "ready" iff they toggled ready AFTER the last settle-up.
+  // Old markers automatically expire when settledAt advances — no cleanup needed.
+  const readyUids = useMemo(() => {
+    const cutoff = settledAt ?? 0;
+    return new Set(readyEntries.filter(e => e.readyAt > cutoff).map(e => e.uid));
+  }, [readyEntries, settledAt]);
+
+  const iAmReady = !!appUser && readyUids.has(appUser.uid);
+
+  const hasExpensesSinceSettle = useMemo(() => {
+    if (!settledAt) return false;
+    return activeTripExpenses.some(exp => (exp.createdAt ?? 0) > settledAt);
+  }, [activeTripExpenses, settledAt]);
 
   const baseCurrency = activeTrip?.baseCurrency || 'SEK';
 
@@ -257,6 +280,27 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return balances;
   }, [activeTripExpenses, activeTripPayments, convertedAmounts]);
 
+  // Live simplified-debt graph derived from userBalances. Always matches the
+  // top-level balance labels, so the Balances breakdown can never contradict
+  // them (unlike persisted PENDING payments, which are a frozen snapshot of a
+  // previous Settle Up and go stale on edits/deletes).
+  const liveSettlement = useMemo(
+    () => computeSimplifiedDebts(userBalances),
+    [userBalances],
+  );
+
+  // PENDING payments are stale when they don't match what a fresh Settle Up
+  // would produce right now. Catches edits and deletes — not just adds — which
+  // hasExpensesSinceSettle misses.
+  const isPendingStale = useMemo(() => {
+    const pending = activeTripPayments.filter(p => p.status === 'PENDING');
+    if (pending.length === 0 && liveSettlement.length === 0) return false;
+    if (pending.length !== liveSettlement.length) return true;
+    const key = (fromUid: string, toUid: string) => `${fromUid}>${toUid}`;
+    const pendingMap = new Map(pending.map(p => [key(p.fromUid, p.toUid), p.amount]));
+    return liveSettlement.some(d => pendingMap.get(key(d.fromUid, d.toUid)) !== d.amount);
+  }, [activeTripPayments, liveSettlement]);
+
   const addExpense = async (expense: Omit<Expense, 'id' | 'createdAt'>) => {
     const newExpense = {
       ...expense,
@@ -308,68 +352,44 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       setPayments(prev => prev.map(pay => pay.id === id ? { ...pay, ...updates } : pay));
       return;
     }
+
+    // PENDING → COMPLETED needs a doc move (delete deterministic-ID pending +
+    // create auto-ID completed) so the deterministic pending ID stays free for
+    // future settle-ups to reuse.
+    if (updates.status === 'COMPLETED') {
+      const existing = activeTripPayments.find(p => p.id === id);
+      if (existing && existing.status === 'PENDING' && id.startsWith('pending_')) {
+        await markPendingPaymentCompleted(existing, updates.date || new Date().toISOString());
+        return;
+      }
+    }
+
     await updatePaymentInDb(id, updates);
   };
 
   const triggerSettleUp = async () => {
     if (!activeTrip) return;
 
-    // We only create new payments for currently unbalanced amounts.
-    // Existing PENDING payments generated via settle up might duplicate if they aren't marked as completed
-    // so ideally we'd delete/overwrite them. Currently, this implies generating fresh PENDINGs.
-    
-    const activeCompleted = activeTripPayments.filter(p => p.status === 'COMPLETED');
-    const activePending = activeTripPayments.filter(p => p.status === 'PENDING');
-    
-    const balances = { ...userBalances };
-    
-    // Add existing pending payments back to balances to 'cancel' them before recreating
-    // So if someone had a pending payment to pay 100, we un-do it
-    activePending.forEach(pay => {
-      balances[pay.fromUid] = (balances[pay.fromUid] || 0) + pay.amount;
-      balances[pay.toUid] = (balances[pay.toUid] || 0) - pay.amount;
-    });
-    
-    const debtors: { uid: string, amount: number }[] = [];
-    const creditors: { uid: string, amount: number }[] = [];
-    
-    for (const [uid, bal] of Object.entries(balances)) {
-      if (bal < 0) debtors.push({ uid, amount: -bal });
-      else if (bal > 0) creditors.push({ uid, amount: bal });
-    }
-    
-    debtors.sort((a, b) => b.amount - a.amount);
-    creditors.sort((a, b) => b.amount - a.amount);
-    
-    const newPayments: Omit<Payment, 'id'>[] = [];
-    let i = 0, j = 0;
-    
-    while (i < debtors.length && j < creditors.length) {
-      const debtor = debtors[i];
-      const creditor = creditors[j];
-      
-      const minAmount = Math.min(debtor.amount, creditor.amount);
-      if (minAmount > 0) {
-        newPayments.push({
-          tripId: activeTrip.id,
-          fromUid: debtor.uid,
-          toUid: creditor.uid,
-          amount: minAmount,
-          currency: activeTrip.baseCurrency || 'SEK',
-          date: new Date().toISOString(),
-          createdAt: Date.now(),
-          status: 'PENDING'
-        });
-      }
-      
-      debtor.amount -= minAmount;
-      creditor.amount -= minAmount;
-      
-      if (debtor.amount < 1) i++;
-      if (creditor.amount < 1) j++;
-    }
+    // userBalances already reflects every expense + every COMPLETED payment.
+    // PENDING payments are *not* in userBalances — they're the output we're
+    // (re)computing now. Do NOT try to "un-do" pending here: the old code did,
+    // which double-counted them and produced wrong (sometimes reversed)
+    // amounts whenever expenses were added after a previous settle-up.
+    const debts = computeSimplifiedDebts(userBalances);
+
+    const newPayments: Omit<Payment, 'id'>[] = debts.map(d => ({
+      tripId: activeTrip.id,
+      fromUid: d.fromUid,
+      toUid: d.toUid,
+      amount: d.amount,
+      currency: activeTrip.baseCurrency || 'SEK',
+      date: new Date().toISOString(),
+      createdAt: Date.now(),
+      status: 'PENDING'
+    }));
     
     if (activeTrip.id.startsWith('mock_') || activeTrip.id === 't1') {
+      const activeCompleted = activeTripPayments.filter(p => p.status === 'COMPLETED');
       const mockNewPayments = newPayments.map(p => ({ ...p, id: Math.random().toString(36).substr(2, 9) } as Payment));
       setPayments([...mockNewPayments, ...activeCompleted]);
       setIsSettled(true);
@@ -378,10 +398,32 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     try {
         await replacePendingPayments(activeTrip.id, newPayments);
+        // Stamp settledAt so the stale-settle banner and ready-state expire
+        // for everyone in the trip. Best-effort: if the trip update fails the
+        // payments still landed correctly.
+        try {
+          await updateDoc(doc(db, 'trips', activeTrip.id), { settledAt: Date.now() });
+        } catch (stampErr) {
+          console.error('Failed to stamp settledAt on trip:', stampErr);
+        }
         setIsSettled(true);
     } catch (e) {
         console.error("Failed to generate settle up payments:", e);
     }
+  };
+
+  const toggleMyReady = async () => {
+    if (!activeTrip || !appUser) return;
+    if (activeTrip.id.startsWith('mock_') || activeTrip.id === 't1') {
+      // Local-only toggle for mock trips so the dev preview works without Firestore.
+      setReadyEntries(prev => {
+        const has = prev.some(e => e.uid === appUser.uid);
+        if (has) return prev.filter(e => e.uid !== appUser.uid);
+        return [...prev, { uid: appUser.uid, readyAt: Date.now() }];
+      });
+      return;
+    }
+    await setMyReadyToSettle(activeTrip.id, appUser.uid, !iAmReady);
   };
 
   return (
@@ -401,7 +443,14 @@ export const EvenProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       baseCurrency,
       convertedAmounts,
       fxLoading,
-      fxFailed
+      fxFailed,
+      readyUids,
+      toggleMyReady,
+      iAmReady,
+      hasExpensesSinceSettle,
+      isPendingStale,
+      settledAt,
+      liveSettlement,
     }}>
       {children}
     </EvenContext.Provider>

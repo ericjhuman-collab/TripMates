@@ -45,6 +45,9 @@ export interface Trip {
     // User-chosen phase. 'upcoming' resolves to current/future based on dates.
     // Legacy trips without this field fall back to date-based categorization.
     phase?: 'bucketlist' | 'upcoming' | 'past';
+    // Timestamp of the most recent successful Settle Up. Drives the
+    // "ny utgift sedan settle-up" banner and the ready-to-settle expiry.
+    settledAt?: number;
 }
 
 export type TripCategory = 'current' | 'future' | 'past' | 'bucketlist';

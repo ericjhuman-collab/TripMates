@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTrip } from '../context/TripContext';
 import { useEven } from '../context/useEven';
-import { type Expense } from '../services/even';
+import { type Expense, type SimplifiedDebt } from '../services/even';
 import { getCategoryById } from '../utils/categories';
 import { ReceiptText, ChevronDown, Plus, X } from 'lucide-react';
 import styles from './Even.module.css';
@@ -84,7 +85,9 @@ const InfoAccordion = () => {
 export const Even: React.FC = () => {
     const { activeTrip } = useTrip();
     const { appUser } = useAuth();
-    const { expenses, payments, participants, totalTripCost, userBalances, triggerSettleUp, updatePayment, isSettled, baseCurrency, convertedAmounts, fxLoading, fxFailed } = useEven();
+    const { expenses, payments, participants, totalTripCost, userBalances, triggerSettleUp, addPayment, isSettled, baseCurrency, convertedAmounts, fxLoading, fxFailed, readyUids, toggleMyReady, iAmReady, hasExpensesSinceSettle, isPendingStale, settledAt, liveSettlement } = useEven();
+    void isSettled; // kept for future use; the trip is never fully locked anymore
+    void settledAt;
     const [activeTab, setActiveTab] = useState<TabView>('EXPENSES');
     const [infoModal, setInfoModal] = useState<{title: string, content: React.ReactNode} | null>(null);
     const [showSettleModal, setShowSettleModal] = useState(false);
@@ -107,7 +110,7 @@ export const Even: React.FC = () => {
         const raf = requestAnimationFrame(centerScroll);
         return () => cancelAnimationFrame(raf);
     }, [isZoomed, viewingReceipt]);
-    const [confirmPaymentId, setConfirmPaymentId] = useState<string | null>(null);
+    const [confirmDebt, setConfirmDebt] = useState<SimplifiedDebt | null>(null);
     const [claimingExpense, setClaimingExpense] = useState<Expense | null>(null);
     const [showChoiceSheet, setShowChoiceSheet] = useState(false);
     const [showScanModal, setShowScanModal] = useState(false);
@@ -118,25 +121,47 @@ export const Even: React.FC = () => {
         return `${formatted} ${currency || activeTrip?.baseCurrency || 'SEK'}`;
     };
 
-    const sortedExpenses = useMemo(() => {
-        const computeUnclaimed = (exp: Expense): number => {
-            if (exp.splitType !== 'ITEMIZED' || !exp.items) return 0;
-            let unclaimed = 0;
-            for (const item of exp.items) {
-                const totalParts = Object.values(item.allocations).reduce((a, b) => a + b, 0);
-                const quantity = item.quantity || 1;
-                if (quantity > 1) {
-                    unclaimed += (item.price / quantity) * Math.max(0, quantity - totalParts);
-                } else if (totalParts === 0) {
-                    unclaimed += item.price;
-                }
+    const computeUnclaimed = (exp: Expense): number => {
+        if (exp.splitType !== 'ITEMIZED' || !exp.items) return 0;
+        let unclaimed = 0;
+        for (const item of exp.items) {
+            const totalParts = Object.values(item.allocations).reduce((a, b) => a + b, 0);
+            const quantity = item.quantity || 1;
+            if (quantity > 1) {
+                unclaimed += (item.price / quantity) * Math.max(0, quantity - totalParts);
+            } else if (totalParts === 0) {
+                unclaimed += item.price;
             }
-            return unclaimed;
-        };
+        }
+        return unclaimed;
+    };
+
+    const sortedExpenses = useMemo(() => {
         return expenses
             .map(expense => ({ expense, unclaimedCents: computeUnclaimed(expense) }))
             .sort((a, b) => (b.unclaimedCents > 0 ? 1 : 0) - (a.unclaimedCents > 0 ? 1 : 0));
     }, [expenses]);
+
+    // Aggregate unclaimed across all itemized expenses — drives the Settle Up
+    // modal warning. Listed per-expense so users see exactly which receipts to
+    // finish before settling.
+    const unclaimedSummary = useMemo(() => {
+        const items: { id: string; title: string; unclaimedCents: number; currency: string }[] = [];
+        let total = 0;
+        for (const exp of expenses) {
+            const u = computeUnclaimed(exp);
+            if (u <= 0) continue;
+            const title = (exp.description && exp.description !== 'Shared Expense')
+                ? exp.description
+                : (exp.merchantName || exp.description || 'Expense');
+            items.push({ id: exp.id, title, unclaimedCents: u, currency: exp.currency || baseCurrency });
+            // Aggregate in base currency for the headline figure
+            const conv = convertedAmounts.get(exp.id);
+            const rate = conv?.rate ?? 1;
+            total += u * rate;
+        }
+        return { totalBaseCents: Math.round(total), items };
+    }, [expenses, convertedAmounts, baseCurrency]);
 
     const renderExpenses = () => (
         <div className={styles.tabContent}>
@@ -152,7 +177,7 @@ export const Even: React.FC = () => {
                         ? expense.items.some(it => (it.allocations[myUid || ''] || 0) > 0)
                         : false;
                     const hasUnclaimed = unclaimedCents > 0;
-                    const canEdit = !isSettled && !isItemized && (myUid === expense.payerId || myUid === expense.creatorId);
+                    const canEdit = !isItemized && (myUid === expense.payerId || myUid === expense.creatorId);
                     const cardClickable = canEdit || isItemized;
                     return (
                         <div
@@ -209,7 +234,7 @@ export const Even: React.FC = () => {
                                             className={styles.expenseUnclaimed}
                                             title="Belopp som ännu inte är tilldelat"
                                         >
-                                            {formatCurrency(unclaimedCents, expense.currency)} kvar
+                                            {formatCurrency(unclaimedCents, expense.currency)} unclaimed
                                         </div>
                                     )}
                                 </div>
@@ -261,9 +286,11 @@ export const Even: React.FC = () => {
                 {participants.map(p => {
                     const balance = userBalances[p.uid] || 0;
                     const isOpen = expandedBalanceUid === p.uid;
-                    // Pending payment lines that involve this user — debits owed by them, credits owed to them.
-                    const owesTo = payments.filter(pay => pay.status === 'PENDING' && pay.fromUid === p.uid);
-                    const owedBy = payments.filter(pay => pay.status === 'PENDING' && pay.toUid === p.uid);
+                    // Breakdown rows come from liveSettlement (derived from userBalances), so the
+                    // expansion is always consistent with the balance label above — even when the
+                    // persisted PENDING payments are stale after an expense edit/delete.
+                    const owesTo = liveSettlement.filter(d => d.fromUid === p.uid);
+                    const owedBy = liveSettlement.filter(d => d.toUid === p.uid);
                     const hasBreakdown = owesTo.length + owedBy.length > 0;
 
                     return (
@@ -289,29 +316,41 @@ export const Even: React.FC = () => {
                                 </div>
                             </button>
                             {isOpen && (
-                                <div style={{ padding: '0.5rem 0.75rem 0.25rem', fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                <div className={styles.breakdown}>
                                     {!hasBreakdown && (
-                                        <div style={{ padding: '0.4rem 0' }}>
+                                        <div className={styles.breakdownEmpty}>
                                             {balance === 0
                                                 ? 'All settled up.'
-                                                : 'Click "Settle Up" above to generate a payment breakdown.'}
+                                                : 'Tap "Settle Up" above to calculate who pays whom.'}
                                         </div>
                                     )}
-                                    {owesTo.map(pay => {
-                                        const recipient = participants.find(x => x.uid === pay.toUid);
+                                    {owedBy.map(d => {
+                                        const debtor = participants.find(x => x.uid === d.fromUid);
                                         return (
-                                            <div key={pay.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderTop: '1px solid #f3f4f6' }}>
-                                                <span>→ pays <strong>{recipient?.shortName || recipient?.name || 'someone'}</strong></span>
-                                                <span style={{ color: '#dc2626', fontWeight: 600 }}>{formatCurrency(pay.amount, pay.currency)}</span>
+                                            <div key={`in_${d.fromUid}`} className={styles.breakdownRow}>
+                                                <Avatar participant={debtor} className={styles.breakdownAvatar} />
+                                                <div className={styles.breakdownText}>
+                                                    <span className={styles.breakdownName}>{debtor?.name || debtor?.shortName || 'Unknown'}</span>
+                                                    <span className={`${styles.breakdownLabel} ${styles.breakdownLabelIn}`}>← pays you</span>
+                                                </div>
+                                                <span className={`${styles.breakdownAmount} ${styles.breakdownAmountIn}`}>
+                                                    {formatCurrency(d.amount, baseCurrency)}
+                                                </span>
                                             </div>
                                         );
                                     })}
-                                    {owedBy.map(pay => {
-                                        const debtor = participants.find(x => x.uid === pay.fromUid);
+                                    {owesTo.map(d => {
+                                        const recipient = participants.find(x => x.uid === d.toUid);
                                         return (
-                                            <div key={pay.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.3rem 0', borderTop: '1px solid #f3f4f6' }}>
-                                                <span>← receives from <strong>{debtor?.shortName || debtor?.name || 'someone'}</strong></span>
-                                                <span style={{ color: '#15803d', fontWeight: 600 }}>{formatCurrency(pay.amount, pay.currency)}</span>
+                                            <div key={`out_${d.toUid}`} className={styles.breakdownRow}>
+                                                <Avatar participant={recipient} className={styles.breakdownAvatar} />
+                                                <div className={styles.breakdownText}>
+                                                    <span className={styles.breakdownName}>{recipient?.name || recipient?.shortName || 'Unknown'}</span>
+                                                    <span className={`${styles.breakdownLabel} ${styles.breakdownLabelOut}`}>→ you owe</span>
+                                                </div>
+                                                <span className={`${styles.breakdownAmount} ${styles.breakdownAmountOut}`}>
+                                                    {formatCurrency(d.amount, baseCurrency)}
+                                                </span>
                                             </div>
                                         );
                                     })}
@@ -325,26 +364,30 @@ export const Even: React.FC = () => {
     );
 
     const renderPayments = () => {
-        const unpaid = payments.filter(p => p.status === 'PENDING');
+        // UNPAID is derived live from userBalances (same source as the Balances
+        // tab breakdown). Persisted PENDING payment docs are no longer rendered
+        // here — they are kept only as the snapshot the stale-settle banner
+        // compares against. This guarantees Payments and Balances can never
+        // contradict each other.
         const paid = payments.filter(p => p.status === 'COMPLETED');
 
         return (
             <div className={styles.tabContent}>
-                
+
                 {/* UNPAID SECTION */}
                 <p className={styles.dateSeparator}>UNPAID</p>
-                {unpaid.length === 0 && (
+                {liveSettlement.length === 0 && (
                     <div className={styles.emptyState}>No pending transfers.</div>
                 )}
-                
+
                 <div className={styles.list}>
-                    {unpaid.map(payment => {
-                        const fromUsr = participants.find(p => p.uid === payment.fromUid);
-                        const toUsr = participants.find(p => p.uid === payment.toUid);
-                        const isPayer = appUser?.uid === payment.fromUid;
-                        
+                    {liveSettlement.map(debt => {
+                        const fromUsr = participants.find(p => p.uid === debt.fromUid);
+                        const toUsr = participants.find(p => p.uid === debt.toUid);
+                        const isPayer = appUser?.uid === debt.fromUid;
+
                         return (
-                            <div key={payment.id} className={styles.cardMedium}>
+                            <div key={`${debt.fromUid}>${debt.toUid}`} className={styles.cardMedium}>
                                 <div className={styles.paymentRow}>
                                     <Avatar participant={fromUsr} className={styles.avatarSmall} />
                                     <div className={styles.paymentDetails}>
@@ -354,11 +397,11 @@ export const Even: React.FC = () => {
                                         <p className={styles.paymentTo}>{toUsr?.name}</p>
                                     </div>
                                     <div className={`${styles.paymentAmountCol} ${styles.paymentAmountColUnpaid}`}>
-                                        <span className={`${styles.paymentAmount} ${styles.paymentAmountUnpaid}`}>{formatCurrency(payment.amount, payment.currency)}</span>
+                                        <span className={`${styles.paymentAmount} ${styles.paymentAmountUnpaid}`}>{formatCurrency(debt.amount, baseCurrency)}</span>
                                         {isPayer && (
-                                            <button 
-                                                className={styles.markPaidBtn} 
-                                                onClick={() => setConfirmPaymentId(payment.id)}
+                                            <button
+                                                className={styles.markPaidBtn}
+                                                onClick={() => setConfirmDebt(debt)}
                                             >
                                                 Mark Paid
                                             </button>
@@ -432,10 +475,23 @@ export const Even: React.FC = () => {
                          >
                              <i className={styles.infoIcon}>i</i>
                          </button>
-                         {!isSettled && (
-                             <button className={`btn btn-primary ${styles.settleUpBtn}`} onClick={() => setShowSettleModal(true)}>Settle Up</button>
-                         )}
+                         <button className={`btn btn-primary ${styles.settleUpBtn}`} onClick={() => setShowSettleModal(true)}>Settle Up</button>
                      </div>
+                 </div>
+
+                 <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '0.25rem 0 0.5rem' }}>
+                     <button
+                         type="button"
+                         className={`${styles.readyPill} ${iAmReady ? styles.readyPillOn : ''}`}
+                         onClick={() => { toggleMyReady(); }}
+                         aria-pressed={iAmReady}
+                         title="Mark yourself ready to settle — others can see this before anyone presses Settle Up"
+                     >
+                         <span className={`${styles.readyPillDot} ${iAmReady ? styles.readyPillDotOn : ''}`}>
+                             {iAmReady ? '✓' : ''}
+                         </span>
+                         {iAmReady ? 'Ready to settle' : 'Mark me ready'}
+                     </button>
                  </div>
 
                  <div className={styles.navPill}>
@@ -452,43 +508,106 @@ export const Even: React.FC = () => {
              </div>
 
              <div className={styles.tabsContentArea}>
+                 {(hasExpensesSinceSettle || isPendingStale) && (
+                     <div className={styles.staleSettleBanner} role="status">
+                         <span className={styles.staleSettleBannerIcon}>⚠️</span>
+                         <span>
+                             Expenses changed after the last Settle Up. Tap <strong>Settle Up</strong> again to refresh who pays whom.
+                         </span>
+                     </div>
+                 )}
                  {activeTab === 'EXPENSES' && renderExpenses()}
                  {activeTab === 'BALANCES' && renderBalances()}
                  {activeTab === 'PAYMENTS' && renderPayments()}
                  {activeTab === 'INSIGHTS' && <InsightsTab />}
              </div>
 
-             {/* FAB */}
-             {!isSettled && (
-                 <button className={styles.fabButton} title="Add Expense" onClick={() => setShowChoiceSheet(true)}>
-                     <Plus size={32} color="white" />
-                 </button>
-             )}
+             {/* FAB — always available; the banner above warns when a re-settle is needed */}
+             <button className={styles.fabButton} title="Add Expense" onClick={() => setShowChoiceSheet(true)}>
+                 <Plus size={32} color="white" />
+             </button>
 
              {/* SETTLE UP MODAL */}
-             {showSettleModal && (
+             {showSettleModal && (() => {
+                 const readyCount = participants.filter(p => readyUids.has(p.uid)).length;
+                 const totalMembers = participants.length;
+                 const allReady = totalMembers > 0 && readyCount === totalMembers;
+                 const hasUnclaimed = unclaimedSummary.items.length > 0;
+                 const canCleanlySettle = allReady && !hasUnclaimed;
+                 return createPortal(
                 <div className={styles.modalOverlay} onClick={() => setShowSettleModal(false)}>
                     <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                         <h2 className={styles.modalTitle}>Settle Up?</h2>
                         <div className={styles.modalBody}>
                             <p className={styles.modalBodyText}>
-                                Has everyone in the trip added their expenses? Calculating debts will find the minimum transactions needed to clear all balances.
+                                Calculates the smallest set of transfers that will clear everyone's balances.
                             </p>
+
+                            {hasUnclaimed && (
+                                <div className={styles.unclaimedWarning} role="alert">
+                                    <div className={styles.unclaimedWarningTitle}>
+                                        <span>⚠️</span>
+                                        <span>
+                                            {formatCurrency(unclaimedSummary.totalBaseCents, baseCurrency)} unclaimed across {unclaimedSummary.items.length} receipt{unclaimedSummary.items.length === 1 ? '' : 's'}
+                                        </span>
+                                    </div>
+                                    <p className={styles.unclaimedWarningBody}>
+                                        Some itemized receipts have rows nobody has claimed yet. <strong>Those amounts won't be included in Settle Up</strong> — go to Expenses, tap the receipt, and pick your items before settling.
+                                    </p>
+                                    <ul className={styles.unclaimedList}>
+                                        {unclaimedSummary.items.map(it => (
+                                            <li key={it.id} className={styles.unclaimedListItem}>
+                                                <span className={styles.unclaimedListItemTitle}>{it.title}</span>
+                                                <span className={styles.unclaimedListItemAmount}>
+                                                    {formatCurrency(it.unclaimedCents, it.currency)} unclaimed
+                                                </span>
+                                            </li>
+                                        ))}
+                                    </ul>
+                                </div>
+                            )}
+
+                            <div className={styles.readyRosterHeader}>
+                                Ready to settle ({readyCount}/{totalMembers})
+                            </div>
+                            <div className={styles.readyRoster}>
+                                {participants.map(p => {
+                                    const ready = readyUids.has(p.uid);
+                                    return (
+                                        <div key={p.uid} className={styles.readyRosterRow}>
+                                            <Avatar participant={p} className={styles.readyRosterAvatar} />
+                                            <span className={styles.readyRosterName}>{p.name || p.shortName}</span>
+                                            <span className={`${styles.readyRosterBadge} ${ready ? styles.readyRosterBadgeOn : ''}`}>
+                                                {ready ? '✓ Ready' : 'Not ready'}
+                                            </span>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+
+                            {!allReady && (
+                                <div className={styles.notAllReadyWarning}>
+                                    Not everyone has marked themselves ready. Settle anyway?
+                                </div>
+                            )}
+
                             <div className={styles.modalButtonRow}>
                                 <button className={`btn btn-secondary ${styles.flex1}`} onClick={() => setShowSettleModal(false)}>No, wait</button>
                                 <button className={`btn btn-primary ${styles.flex1}`} onClick={() => {
                                     triggerSettleUp();
                                     setShowSettleModal(false);
                                     setActiveTab('PAYMENTS');
-                                }}>Yes, calculate!</button>
+                                }}>{canCleanlySettle ? 'Yes, calculate!' : 'Settle anyway'}</button>
                             </div>
                         </div>
                     </div>
-                </div>
-             )}
+                </div>,
+                document.body
+                 );
+             })()}
 
              {/* INFO MODAL */}
-             {infoModal && (
+             {infoModal && createPortal(
                 <div className={styles.modalOverlay} onClick={() => setInfoModal(null)}>
                     <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
                         <h2 className={styles.modalTitle}>
@@ -498,7 +617,8 @@ export const Even: React.FC = () => {
                         <div className={styles.modalBody}>{infoModal.content}</div>
                         <button className={`btn btn-primary ${styles.fullWidth}`} onClick={() => setInfoModal(null)}>Got it</button>
                     </div>
-                </div>
+                </div>,
+                document.body,
              )}
 
              {/* RECEIPT VIEWER MODAL */}
@@ -530,20 +650,31 @@ export const Even: React.FC = () => {
              )}
 
              {/* CONFIRM PAYMENT MODAL */}
-             {confirmPaymentId && (
-                 <div className={styles.modalOverlay} onClick={() => setConfirmPaymentId(null)}>
+             {confirmDebt && createPortal(
+                 <div className={styles.modalOverlay} onClick={() => setConfirmDebt(null)}>
                      <div className={`${styles.modalContent} ${styles.confirmModalContent}`} onClick={e => e.stopPropagation()}>
                          <h2 className={`${styles.modalTitle} ${styles.confirmModalTitle}`}>Confirm Transfer</h2>
                          <p className={`${styles.modalBodyText} ${styles.confirmModalBody}`}>Have you transferred the funds? Marking this as paid will finalize the debt.</p>
                          <div className={styles.confirmModalButtonRow}>
-                             <button className={`btn ${styles.confirmBtnCancel}`} onClick={() => setConfirmPaymentId(null)}>Cancel</button>
+                             <button className={`btn ${styles.confirmBtnCancel}`} onClick={() => setConfirmDebt(null)}>Cancel</button>
                              <button className={`btn btn-primary ${styles.confirmBtnPrimary}`} onClick={() => {
-                                 updatePayment(confirmPaymentId, { status: 'COMPLETED', date: new Date().toISOString() });
-                                 setConfirmPaymentId(null);
+                                 if (!activeTrip) return;
+                                 const now = new Date().toISOString();
+                                 addPayment({
+                                     tripId: activeTrip.id,
+                                     fromUid: confirmDebt.fromUid,
+                                     toUid: confirmDebt.toUid,
+                                     amount: confirmDebt.amount,
+                                     currency: baseCurrency,
+                                     date: now,
+                                     status: 'COMPLETED',
+                                 });
+                                 setConfirmDebt(null);
                              }}>Confirm Paid</button>
                          </div>
                      </div>
-                 </div>
+                 </div>,
+                 document.body,
              )}
 
              {/* EXPENSE MODAL */}

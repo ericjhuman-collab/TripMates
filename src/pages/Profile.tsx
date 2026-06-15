@@ -23,6 +23,7 @@ import { getDefaultCover } from '../utils/defaultCovers';
 import { CustomSelect } from '../components/CustomSelect';
 import { ModernPlaceAutocomplete } from '../components/ModernPlaceAutocomplete';
 import { ImageCropperModal } from '../components/ImageCropperModal';
+import { Modal } from '../components/Modal';
 import { LiveLocationProfileSection } from '../components/LiveLocationProfileSection';
 import NotificationSettings from '../components/NotificationSettings';
 import styles from './Profile.module.css';
@@ -1315,55 +1316,44 @@ export const Profile: React.FC = () => {
             )}
 
             {/* Join Trip Modal */}
-
-            {showJoinTrip && createPortal(
-                <div className={`modal-backdrop ${adminStyles.modalBackdrop}`} onClick={() => { setShowJoinTrip(false); setJoinTripCode(''); }}>
-                    <div className={`card animate-fade-in ${adminStyles.modalCard}`} onClick={e => e.stopPropagation()}>
-                        <div className={adminStyles.modalHeader}>
-                            <h2 className={adminStyles.modalTitle}>Join Trip</h2>
-                            <button onClick={() => { setShowJoinTrip(false); setJoinTripCode(''); }} className={adminStyles.modalCloseBtn} title="Close">
-                                <X size={20} />
-                            </button>
-                        </div>
-                        <div className={adminStyles.modalForm}>
-                            <label className={adminStyles.modalFieldLabel}>Trip Code</label>
-                            <input
-                                className="input-field"
-                                placeholder="Enter trip code"
-                                value={joinTripCode}
-                                onChange={e => setJoinTripCode(e.target.value)}
-                            />
-
-                            <button
-                                className="btn btn-primary"
-                                style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
-                                disabled={joiningTrip || !joinTripCode.trim()}
-                                onClick={async () => {
-                                    setJoiningTrip(true);
-                                    try {
-                                        const success = await joinTrip(joinTripCode.trim());
-                                        if (success) {
-                                            setShowJoinTrip(false);
-                                            setJoinTripCode('');
-                                            navigate('/');
-                                        } else {
-                                            toast.error('Invalid trip code or trip not found.');
-                                        }
-                                    } catch (err: unknown) {
-                                        console.error('Failed to join trip', err);
-                                        toast.error('Failed to join trip: ' + ((err as Error).message || 'Unknown error'));
-                                    } finally {
-                                        setJoiningTrip(false);
-                                    }
-                                }}
-                            >
-                                {joiningTrip ? 'Joining...' : 'Join Trip'}
-                            </button>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            <Modal
+                open={showJoinTrip}
+                onClose={() => { setShowJoinTrip(false); setJoinTripCode(''); }}
+                title="Join Trip"
+            >
+                <label className={adminStyles.modalFieldLabel}>Trip Code</label>
+                <input
+                    className="input-field"
+                    placeholder="Enter trip code"
+                    value={joinTripCode}
+                    onChange={e => setJoinTripCode(e.target.value)}
+                />
+                <button
+                    className="btn btn-primary"
+                    style={{ marginTop: '1rem', width: '100%', padding: '0.8rem' }}
+                    disabled={joiningTrip || !joinTripCode.trim()}
+                    onClick={async () => {
+                        setJoiningTrip(true);
+                        try {
+                            const success = await joinTrip(joinTripCode.trim());
+                            if (success) {
+                                setShowJoinTrip(false);
+                                setJoinTripCode('');
+                                navigate('/');
+                            } else {
+                                toast.error('Invalid trip code or trip not found.');
+                            }
+                        } catch (err: unknown) {
+                            console.error('Failed to join trip', err);
+                            toast.error('Failed to join trip: ' + ((err as Error).message || 'Unknown error'));
+                        } finally {
+                            setJoiningTrip(false);
+                        }
+                    }}
+                >
+                    {joiningTrip ? 'Joining...' : 'Join Trip'}
+                </button>
+            </Modal>
 
             {/* Trip Details Modal — rendered via portal so it sits above the Layout's bottom nav */}
             {viewTripDetails && createPortal(
